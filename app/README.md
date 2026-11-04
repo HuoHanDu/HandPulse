@@ -48,6 +48,17 @@ app/
 └─ src-tauri/                  # Tauri 2 壳（窗口 1440×900，最小 1100×720）
 ```
 
+## 数据边界（M1）
+
+- `src/ipc/types.ts`：与 Rust 命令一一对应的 camelCase 类型（`Summary` / `KeyStat` / `Bucket` /
+  `Histogram` / `Heatmap` / `DetailRow` / `LiveFrame`）。
+- `src/ipc/client.ts`：`invoke` 封装 + `isTauri` 判断 + `IPC_READY` 开关。M1 关闭，浏览器与
+  Tauri 都回退 mock；M2 打开后 Tauri 环境直接走 Rust 命令，浏览器 dev 继续回退 mock。
+- `src/ipc/live.ts`：`startLive(): Promise<() => void>`。M1 是 100ms mock ticker；M2 换成
+  `tauri::ipc::Channel` 时前端调用点不变。
+- `src/state/liveStore.ts`：按 `seq` 去重、增量累加、`requestAnimationFrame` 批量 flush，
+  `document.hidden` 时暂停 UI flush。
+
 ## 视觉基准
 
 四页截图：`screenshots/m0-web-*.png`（M0 基线）、`screenshots/m1-web-*.png`（M1 对照）。
