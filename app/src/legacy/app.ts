@@ -1,7 +1,5 @@
 // @ts-nocheck
 // 原型应用脚本原样保留（内部 IIFE 通过 window.HP 取数）。
-const HP = (window as any).HP;
-
 (function () {
   'use strict';
   var HP = window.HP;
