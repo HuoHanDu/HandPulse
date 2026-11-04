@@ -1,0 +1,2158 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>手脉 HandPulse · 原型</title>
+<style>
+/* ---------- 字体（本地，无 CDN） ---------- */
+@font-face{font-family:"Inter";src:url("assets/fonts/InterVariable.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:"JetBrains Mono";src:url("assets/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"JetBrains Mono";src:url("assets/fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+
+/* ---------- tokens ---------- */
+:root{
+  --bg:#000;
+  --tile:#1a1a1c;
+  --tile-2:#272729;
+  --tile-3:#2a2a2c;
+  --ink:#f5f5f7;
+  --ink-2:#a1a1a6;
+  --ink-3:#8e8e93;
+  --ink-4:#98989d;
+  --blue:#2997ff;
+  --blue-deep:#0071e3;
+  --ok:#30d158;
+  --danger:#ff453a;
+  --h0:#101014;--h1:#1D3F6B;--h2:#2A6FA8;--h3:#46A6C4;--h4:#8FD06B;--h5:#FFC94A;
+  --hair:rgba(255,255,255,.07);
+  --hair-2:rgba(255,255,255,.12);
+  --shadow:rgba(0,0,0,.22) 3px 5px 30px 0;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Inter","Noto Sans SC","Microsoft YaHei","PingFang SC",sans-serif;
+  font-size:17px;line-height:1.47;letter-spacing:-0.374px;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+h1,h2,h3,p,ol,ul,dl,dd,figure{margin:0;padding:0}
+ol,ul{list-style:none}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;letter-spacing:inherit;font-family:inherit;text-align:inherit}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:6px}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:"JetBrains Mono","Inter",monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- 骨架 ---------- */
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);height:100vh;overflow:hidden}
+.main{height:100vh;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#2a2a2c #000}
+.main::-webkit-scrollbar{width:8px}
+.main::-webkit-scrollbar-thumb{background:#2a2a2c;border-radius:8px}
+.sidebar{display:flex;flex-direction:column;padding:30px 24px 26px;background:#000;height:100vh}
+
+/* ---------- 侧栏 ---------- */
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand-name{font-size:22px;font-weight:600;letter-spacing:.2px}
+.brand-tag{font-size:12px;color:var(--ink-3);letter-spacing:0}
+.nav{margin-top:56px;display:flex;flex-direction:column;gap:2px}
+.nav a{position:relative;display:block;padding:12px 0 12px 16px;font-size:15px;color:var(--ink-2);border-radius:8px;transition:color .15s ease}
+.nav a:hover{color:var(--ink)}
+.nav a[aria-current="page"]{color:var(--ink)}
+.nav a[aria-current="page"]::before{content:"";position:absolute;left:0;top:50%;width:5px;height:5px;margin-top:-2.5px;border-radius:50%;background:var(--blue)}
+.side-foot{margin-top:auto}
+.foot-label{font-size:12px;color:var(--ink-3);letter-spacing:0}
+.foot-num{margin-top:2px;font-family:"JetBrains Mono","Inter",monospace;font-size:30px;line-height:1.1;letter-spacing:-1px;font-weight:500}
+.foot-sub{margin-top:6px;font-size:12px;color:var(--ink-2);letter-spacing:0;font-variant-numeric:tabular-nums}
+.foot-status{display:flex;align-items:center;gap:8px;margin-top:18px;font-size:12px;color:var(--ink-2);letter-spacing:0}
+.dot{position:relative;width:7px;height:7px;border-radius:50%;background:var(--ok);flex:0 0 auto}
+.dot::after{content:"";position:absolute;inset:-4px;border-radius:50%;background:rgba(48,209,88,.18);animation:breathe 2.6s ease-in-out infinite}
+.is-paused .dot{background:var(--ink-3)}
+.is-paused .dot::after{display:none}
+@keyframes breathe{0%,100%{opacity:.15;transform:scale(.8)}50%{opacity:.55;transform:scale(1.15)}}
+.foot-btn{margin-top:18px;width:100%;height:36px;border-radius:9999px;background:var(--tile-2);color:var(--ink);font-size:13px;letter-spacing:0;transition:background .15s ease}
+.foot-btn:hover{background:#3a3a3c}
+
+/* ---------- 页面与标题 ---------- */
+.page{display:none;padding:0 0 36px}
+.page.active{display:block;animation:pageIn 180ms ease-out both}
+@keyframes pageIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.head{padding:44px 80px 0}
+.page[data-route="stats"] .head{padding-top:36px}
+.head-split{display:flex;align-items:flex-end;justify-content:space-between;gap:32px}
+.title{font-size:56px;line-height:1.07;font-weight:600;letter-spacing:-0.28px}
+.fact{margin-top:10px;font-size:17px;line-height:1.47;color:var(--ink-2);letter-spacing:-0.374px;max-width:760px}
+.fact b{font-weight:500;color:var(--ink)}
+
+/* ---------- 工具条 ---------- */
+.toolbar{display:flex;align-items:center;gap:26px;flex-wrap:wrap;padding:22px 80px 0}
+.tgroup{display:flex;align-items:center;gap:10px}
+.glabel{font-size:13px;color:var(--ink-3);letter-spacing:0}
+.toolbar-end{margin-left:auto;display:flex;align-items:center;gap:12px}
+.seg{display:inline-flex;gap:3px;padding:3px;background:var(--tile);border-radius:9999px}
+.segbtn{height:30px;padding:0 14px;border-radius:9999px;font-size:13px;letter-spacing:0;color:var(--ink-2);transition:background .15s ease,color .15s ease;white-space:nowrap}
+.segbtn:hover{color:var(--ink)}
+.segbtn.on{background:var(--ink);color:#1d1d1f;font-weight:500}
+.seg-sm .segbtn{height:26px;padding:0 11px;font-size:12px}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 18px;border-radius:9999px;font-size:14px;letter-spacing:0;white-space:nowrap;transition:background .15s ease,color .15s ease}
+.btn-ghost{background:var(--tile-2);color:var(--ink)}
+.btn-ghost:hover{background:#3a3a3c}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue-deep)}
+.btn-quiet{color:var(--ink-2)}
+.btn-quiet:hover{color:var(--ink)}
+.btn-danger{background:var(--danger);color:#1d1d1f;font-weight:500}
+.btn-danger:hover{background:#ff5f55}
+.btn:disabled{color:var(--ink-3);background:var(--tile);cursor:default}
+
+/* ---------- 键盘页 ---------- */
+.stage{padding:26px 80px 0}
+.kbd-wrap{position:relative}
+.kbd-plate{position:relative;margin:0 auto;background:#0b0b0c;border-radius:20px;padding:16px;box-shadow:var(--shadow);z-index:0}
+.kbd-plate::before{content:"";position:absolute;left:-40px;right:-40px;top:-130px;height:320px;background:radial-gradient(52% 100% at 50% 100%,rgba(255,255,255,.055),rgba(255,255,255,0) 72%);pointer-events:none;z-index:-1}
+.kbd{position:relative;margin:0 auto}
+.key{
+  position:absolute;display:flex;align-items:center;justify-content:center;
+  border-radius:5px;border-top:1px solid rgba(255,255,255,.13);
+  border-bottom:1px solid rgba(0,0,0,.42);
+  font-size:12px;font-weight:500;letter-spacing:0;line-height:1;padding:0;
+  transition:filter 120ms ease-out,background-color .18s ease,color .18s ease;
+  z-index:0;
+}
+.key.lv0{background:var(--h0);color:#f5f5f7}
+.key.lv1{background:var(--h1);color:#f5f5f7}
+.key.lv2{background:var(--h2);color:#f5f5f7}
+.key.lv3{background:var(--h3);color:#0f2229}
+.key.lv4{background:var(--h4);color:#12200b;--glow:var(--h4)}
+.key.lv5{background:var(--h5);color:#241a00;--glow:var(--h5)}
+.key.lv4::before,.key.lv5::before{content:"";position:absolute;inset:1px;border-radius:7px;background:var(--glow);filter:blur(12px);opacity:.5;z-index:-1;pointer-events:none}
+.key.pressed{filter:brightness(1.95)}
+@keyframes keyPulse{0%,100%{filter:none}50%{filter:brightness(2.1)}}
+.key.pulse{animation:keyPulse 320ms ease-in-out 3}
+.key:focus-visible{outline:2px solid #fff;outline-offset:1px;z-index:4}
+.mode-live .key{background:#1c1c1e;color:var(--ink)}
+.mode-live .key::before{display:none}
+.kbd-foot{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:16px}
+.legend{display:flex;align-items:center;gap:14px}
+.legend .sw{width:14px;height:10px;border-radius:2px;display:inline-block}
+.legend .glabel{margin-right:0}
+.lgp{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-3);letter-spacing:0}
+.kbd-note{font-size:13px;color:var(--ink-3);letter-spacing:0}
+.sw.lv0{background:var(--h0)}.sw.lv1{background:var(--h1)}.sw.lv2{background:var(--h2)}
+.sw.lv3{background:var(--h3)}.sw.lv4{background:var(--h4)}.sw.lv5{background:var(--h5)}
+.legend .sw::after,.hm-legend .sw::after{display:none}
+.legend .sw.lv0{outline:1px solid rgba(255,255,255,.16);outline-offset:0}
+
+/* 键详情浮层 */
+.detail{position:absolute;z-index:9;width:296px;background:var(--tile-2);border-radius:14px;padding:16px 18px 14px;opacity:0;visibility:hidden;transition:opacity .12s ease-out;pointer-events:none}
+.detail.on{opacity:1;visibility:visible}
+.dt-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.dt-key{font-size:28px;line-height:1.1;font-weight:600;letter-spacing:-0.5px}
+.dt-count{font-family:"JetBrains Mono","Inter",monospace;font-size:20px;color:var(--ink)}
+.dt-count i{font-style:normal;font-size:12px;color:var(--ink-3);margin-left:3px}
+.dt-ratio{margin-top:4px;font-size:13px;letter-spacing:0;color:var(--ink-3)}
+.dt-rows{margin-top:12px;display:grid;gap:6px}
+.dt-rows div{display:flex;align-items:baseline;justify-content:space-between;gap:16px;font-size:13px;letter-spacing:0}
+.dt-rows dt{color:var(--ink-4)}
+.dt-rows dd{font-variant-numeric:tabular-nums;color:var(--ink)}
+
+/* 空态 / 暂停 */
+.veil{position:absolute;inset:0;z-index:7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:rgba(0,0,0,.58);border-radius:18px;text-align:center}
+.veil-title{font-size:21px;font-weight:600;letter-spacing:-0.231px}
+.veil-sub{font-size:14px;color:var(--ink-2);letter-spacing:0}
+.veil .btn{margin-top:8px}
+
+/* Top10 */
+.rank{margin-top:34px;padding:32px 80px 36px;background:var(--tile)}
+.rank-head{display:flex;align-items:baseline;justify-content:space-between;gap:24px}
+.rank-title{font-size:20px;font-weight:600;letter-spacing:-0.231px}
+.rank-meta{font-size:13px;color:var(--ink-3);letter-spacing:0;font-variant-numeric:tabular-nums}
+.rank-cols{display:grid;grid-template-columns:1fr 1fr;gap:0 48px;margin-top:14px}
+.rank-list{display:flex;flex-direction:column}
+.rank-list li + li{margin-top:2px}
+.rk{display:grid;grid-template-columns:44px minmax(0,1fr) 76px 58px;align-items:center;gap:12px;width:100%;height:30px;border-radius:7px;padding:0 8px 0 4px;transition:background .15s ease}
+.rk:hover{background:rgba(255,255,255,.05)}
+.rk-k{font-size:14px;font-weight:500;color:var(--ink);letter-spacing:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk-track{height:4px;border-radius:2px;background:var(--tile-2);overflow:hidden}
+.rk-track i{display:block;height:100%;border-radius:2px}
+.rk-n{font-family:"JetBrains Mono","Inter",monospace;font-size:15px;text-align:right;color:var(--ink)}
+.rk-p{font-size:12px;color:var(--ink-3);text-align:right;letter-spacing:0;font-variant-numeric:tabular-nums}
+.rank-empty{padding:10px 4px;font-size:14px;color:var(--ink-3);letter-spacing:0}
+.chips-row{display:flex;align-items:center;gap:16px;margin-top:20px;flex-wrap:wrap}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{height:32px;padding:0 15px;border-radius:9999px;background:var(--tile-2);color:var(--ink);font-size:13px;letter-spacing:0;transition:background .15s ease}
+.chip:hover{background:#3a3a3c}
+.chips-empty{font-size:13px;color:var(--ink-3);letter-spacing:0}
+
+/* ---------- 鼠标页 ---------- */
+.mouse-row{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:36px;padding:26px 80px 0;align-items:start}
+.screen{position:relative}
+.screen-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:10px}
+.screen-note{font-size:12px;color:var(--ink-3);letter-spacing:0}
+.screen-frame{position:relative;width:100%;aspect-ratio:16/9;border:1px dashed rgba(255,255,255,.22);border-radius:4px;padding:6px;background:#0a0a0b}
+.cellgrid{display:grid;grid-template-columns:repeat(32,1fr);grid-template-rows:repeat(18,1fr);gap:1px;width:100%;height:100%;background:#161618}
+.cell{display:flex;align-items:center;justify-content:center;background:#0a0a0b;border-radius:1px;font-variant-numeric:tabular-nums;line-height:1;overflow:hidden}
+.screen-foot{margin-top:10px;font-size:12px;color:var(--ink-3);letter-spacing:0}
+.mouse-side{display:flex;flex-direction:column;align-items:center;gap:14px}
+.mouse-svg{display:block;width:100%;max-width:300px;height:auto}
+.ms-body{fill:#1a1a1c}
+.ms-btn{fill:#272729;transition:fill 80ms ease-out}
+.ms-btn.lit{fill:#a1a1a6}
+.ms-wheel{fill:#3a3a3c;transition:fill 80ms ease-out}
+.ms-wheel.lit{fill:#c7c7cc}
+.ms-side{fill:#2f2f31;transition:fill 80ms ease-out}
+.ms-side.lit{fill:#a1a1a6}
+.ms-seam{stroke:#000;stroke-width:1.4}
+.ms-outline{stroke:rgba(255,255,255,.10);stroke-width:1;fill:none}
+.ms-leader{stroke:rgba(255,255,255,.24);stroke-width:1}
+.ms-text{fill:var(--ink-3);font-size:12px;letter-spacing:0}
+.ms-num{fill:var(--ink);font-size:13px;font-variant-numeric:tabular-nums}
+.wheel-row{display:flex;align-items:center;gap:18px;padding:4px 0}
+.wheel-pair{display:flex;align-items:baseline;gap:7px}
+.wa{font-size:15px;color:var(--ink-2)}
+.wn{font-family:"JetBrains Mono","Inter",monospace;font-size:15px;color:var(--ink)}
+.readings{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:0;margin:34px 80px 0;background:var(--tile);border-radius:16px;padding:22px 8px}
+.rd{padding:0 18px;border-left:1px solid var(--hair);display:flex;flex-direction:column;gap:3px}
+.rd:first-child{border-left:0}
+.rd-l{font-size:12px;color:var(--ink-3);letter-spacing:0;white-space:nowrap}
+.rd-v{font-family:"JetBrains Mono","Inter",monospace;font-size:22px;line-height:1.2;color:var(--ink);letter-spacing:-.5px;white-space:nowrap}
+.rd-v i{font-style:normal;font-size:12px;color:var(--ink-3);margin-left:2px;letter-spacing:0}
+.footnote{margin:14px 80px 0;font-size:12px;color:var(--ink-3);letter-spacing:0}
+.screen .veil{border-radius:4px}
+
+/* ---------- 数据页 ---------- */
+.block{padding:0 80px;margin-top:21px}
+.duo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;padding:0 80px;margin-top:21px;align-items:start}
+.duo .block{padding:0;margin-top:0}
+.block-head{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:26px}
+.block-title{font-size:17px;font-weight:600;letter-spacing:-0.374px}
+.block-meta{font-size:12px;color:var(--ink-3);letter-spacing:0;font-variant-numeric:tabular-nums}
+.block-meta b{font-weight:400;color:var(--ink-2)}
+.chart{position:relative;margin-top:6px;height:146px}
+.chart svg{display:block;overflow:visible}
+.ax{fill:var(--ink-3);font-size:12px;letter-spacing:0}
+.ax-strong{fill:var(--ink-2);font-size:12px;letter-spacing:0}
+.summary{margin-top:6px;font-size:14px;line-height:1.42;color:var(--ink-2);letter-spacing:0}
+.chart-tip{position:absolute;top:2px;left:0;z-index:4;background:var(--tile-2);border-radius:10px;padding:7px 11px;pointer-events:none;opacity:0;transition:opacity .1s ease-out;white-space:nowrap}
+.chart-tip.on{opacity:1}
+.tip-t{font-size:12px;color:var(--ink-3);letter-spacing:0}
+.tip-v{font-family:"JetBrains Mono","Inter",monospace;font-size:15px;color:var(--ink);letter-spacing:-.2px}
+.tip-v span{font-family:"Inter","Noto Sans SC",sans-serif;font-size:12px;color:var(--ink-2);margin-left:3px;letter-spacing:0}
+.hist-body{margin-top:10px;height:176px;position:relative}
+.scale-note{position:absolute;top:0;right:0;font-size:12px;color:var(--ink-3);letter-spacing:0}
+.heat-body{margin-top:8px;position:relative}
+.mx{display:grid;grid-template-columns:1fr 1fr;gap:0 26px;height:100%;align-content:center}
+.mx-col{display:flex;flex-direction:column;justify-content:center}
+.brow{display:grid;grid-template-columns:42px minmax(0,1fr) 46px;align-items:center;gap:10px;height:17px}
+.brow-k{font-size:12px;color:var(--ink);letter-spacing:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brow-n{font-size:12px;color:var(--ink-2);text-align:right;letter-spacing:0;font-variant-numeric:tabular-nums}
+.brow-track{height:5px;border-radius:2.5px;background:#2f2f31;overflow:hidden}
+.brow-track i{display:block;height:100%;border-radius:2.5px}
+.bars{display:flex;align-items:flex-end;gap:6px;height:100%;padding:18px 0 20px}
+.bars-gaps{padding-left:72px;padding-right:72px}
+.bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;position:relative;min-width:0}
+.bar i{display:block;width:100%;border-radius:2px 2px 0 0;background:var(--h2)}
+.bar span{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:12px;color:var(--ink-3);letter-spacing:0;white-space:nowrap}
+.bar em{position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);font-style:normal;font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.hm{display:flex;flex-direction:column;justify-content:center;gap:3px}
+.hm-row{display:grid;grid-template-columns:34px repeat(24,minmax(0,1fr));gap:2px;align-items:center;line-height:1}
+.hm-day{font-size:12px;color:var(--ink-3);letter-spacing:0;white-space:nowrap;line-height:1}
+.hm-cell{height:13px;border-radius:2px;background:var(--h0)}
+.hm-hour{font-size:12px;color:var(--ink-3);letter-spacing:0;text-align:left;white-space:nowrap;line-height:1}
+.hm-legend{display:flex;align-items:center;gap:5px;margin-top:2px;padding-left:36px}
+.hm-legend .sw{width:12px;height:9px;border-radius:2px;display:inline-block}
+.hm-legend span{font-size:12px;color:var(--ink-3)}
+.cal-wrap{display:grid;grid-template-columns:30px minmax(0,1fr);gap:6px;align-content:start;padding-top:2px}
+.cal-days{display:grid;grid-template-rows:repeat(7,10px);gap:2px;font-size:12px;line-height:1;color:var(--ink-3);letter-spacing:0;align-items:center;padding-top:18px}
+.cal-main{display:flex;flex-direction:column;gap:4px;min-width:0}
+.cal-months{display:grid;grid-template-columns:repeat(53,minmax(0,1fr));gap:2px;height:14px}
+.cal-months span{font-size:12px;line-height:14px;color:var(--ink-3);letter-spacing:0;white-space:nowrap}
+.cal-grid{display:grid;grid-template-columns:repeat(53,minmax(0,1fr));grid-template-rows:repeat(7,10px);gap:2px}
+.cal-cell{background:var(--h0);border-radius:1.5px;min-height:7px}
+.cal-cell.today{outline:1px solid var(--ink);outline-offset:1px}
+.heat-foot{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:6px}
+
+/* 明细表 */
+.table-tools{display:flex;align-items:center;gap:14px}
+.tbl-wrap{margin-top:8px;background:var(--tile);border-radius:12px;overflow:hidden}
+.tbl-scroll{max-height:124px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#333 #1a1a1c}
+.tbl-scroll::-webkit-scrollbar{width:8px}
+.tbl-scroll::-webkit-scrollbar-thumb{background:#333;border-radius:8px}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--tile);font-size:12px;font-weight:400;color:var(--ink-3);text-align:right;padding:7px 18px 5px;letter-spacing:0;white-space:nowrap}
+.tbl td{text-align:right;padding:3px 18px;color:var(--ink-2);height:23px;letter-spacing:0;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl td:first-child{color:var(--ink)}
+.tbl tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
+.tbl td b{font-weight:400;color:var(--ink)}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:10px}
+.pager-btns{display:flex;align-items:center;gap:10px}
+.btn-sm{height:30px;padding:0 14px;font-size:12px}
+
+/* ---------- 设置页 ---------- */
+.settings{display:grid;grid-template-columns:minmax(0,1fr) 430px;gap:40px;padding:36px 80px 0;align-items:start}
+.settings-col{display:flex;flex-direction:column;gap:18px}
+.group{background:var(--tile);border-radius:14px;padding:6px 24px 8px}
+.group-h{font-size:13px;font-weight:400;color:var(--ink-3);padding:14px 0 8px;letter-spacing:0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:62px;padding:10px 0}
+.row + .row{border-top:1px solid var(--hair)}
+.row-main{display:flex;flex-direction:column;gap:2px;min-width:0}
+.row-label{font-size:15px;color:var(--ink);letter-spacing:-0.2px}
+.row-sub{font-size:12px;color:var(--ink-3);letter-spacing:0;line-height:1.4}
+.row-value{display:flex;align-items:center;gap:14px;flex:0 0 auto}
+.path{font-family:"JetBrains Mono","Inter",monospace;font-size:12px;color:var(--ink-2);letter-spacing:0;background:var(--tile-2);border-radius:6px;padding:5px 9px;white-space:nowrap}
+.sw{position:relative;width:46px;height:28px;border-radius:9999px;background:#3a3a3c;flex:0 0 auto;transition:background .18s ease}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .18s ease}
+.sw[aria-checked="true"]{background:var(--blue)}
+.sw[aria-checked="true"]::after{transform:translateX(18px)}
+.privacy{font-size:15px;line-height:1.6;color:var(--ink);letter-spacing:0}
+.privacy + .privacy{margin-top:10px}
+.privacy strong{font-weight:600}
+.confirm{background:#241416;border-radius:14px;padding:18px 22px 16px}
+.confirm p{font-size:14px;color:#ffd7d4;letter-spacing:0;line-height:1.5}
+.confirm .code{font-family:"JetBrains Mono","Inter",monospace;font-size:13px;color:#fff;letter-spacing:0}
+.confirm-row{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+.confirm input{height:40px;width:196px;border:0;border-radius:9px;background:var(--tile-2);color:var(--ink);padding:0 12px;font-size:14px;letter-spacing:0;font-family:"JetBrains Mono","Inter",monospace}
+.confirm input::placeholder{color:var(--ink-4)}
+.confirm input:disabled{opacity:1;color:var(--ink-3)}
+
+/* ---------- toast ---------- */
+.toast{position:fixed;right:96px;bottom:28px;z-index:60;background:var(--tile-2);color:var(--ink);font-size:14px;letter-spacing:0;padding:10px 18px;border-radius:9999px;pointer-events:none}
+
+/* ---------- 响应式 ---------- */
+@media (max-width:1279px){
+  .head{padding-left:40px;padding-right:40px}
+  .toolbar{padding-left:40px;padding-right:40px}
+  .stage{padding-left:40px;padding-right:40px}
+  .rank{padding-left:40px;padding-right:40px}
+  .mouse-row{padding-left:40px;padding-right:40px;grid-template-columns:minmax(0,1fr) 300px;gap:28px}
+  .readings{margin-left:40px;margin-right:40px}
+  .footnote{margin-left:40px;margin-right:40px}
+  .block{padding-left:40px;padding-right:40px}
+  .duo{padding-left:40px;padding-right:40px;gap:32px}
+  .settings{padding-left:40px;padding-right:40px;grid-template-columns:minmax(0,1fr) 380px;gap:28px}
+  .title{font-size:46px}
+}
+@media (max-width:1120px){
+  .mouse-row{grid-template-columns:minmax(0,1fr)}
+  .mouse-side{flex-direction:row;justify-content:center;align-items:center;gap:28px}
+  .mouse-svg{max-width:260px}
+  .readings{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 0;padding:18px 6px}
+  .rd:nth-child(4){border-left:0}
+  .settings{grid-template-columns:minmax(0,1fr)}
+  .mx{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px 16px}
+  .hist-body{height:auto;min-height:112px}
+  .mx{height:auto}
+  .duo{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-name">手脉</span><span class="brand-tag">Proto</span></div>
+    <nav class="nav" aria-label="主导航">
+      <a href="#/keyboard" data-nav="keyboard">键盘</a>
+      <a href="#/mouse" data-nav="mouse">鼠标</a>
+      <a href="#/stats" data-nav="stats">数据</a>
+      <a href="#/settings" data-nav="settings">设置</a>
+    </nav>
+    <div class="side-foot">
+      <div class="foot-label">今日动作</div>
+      <div class="foot-num" id="foot-total">17,642</div>
+      <div class="foot-sub">按键 <span id="foot-keys">12,438</span></div>
+      <div class="foot-status"><span class="dot" id="status-dot"></span><span id="status-text">采集 · 运行中</span></div>
+      <button class="foot-btn" id="pause-btn" type="button">暂停采集</button>
+    </div>
+  </aside>
+
+  <main class="main" id="main">
+    <!-- ============ 键盘 ============ -->
+    <section class="page" id="page-keyboard" data-route="keyboard">
+      <header class="head">
+        <h1 class="title">键盘使用</h1>
+        <p class="fact">今天你按了 <b>12,438</b> 次键，W 占全部按键的 9.7%。</p>
+      </header>
+
+      <div class="toolbar">
+        <div class="tgroup">
+          <span class="glabel">显示</span>
+          <div class="seg" id="seg-mode" role="group" aria-label="显示模式">
+            <button type="button" class="segbtn on" data-v="all" aria-pressed="true">全部</button>
+            <button type="button" class="segbtn" data-v="heat" aria-pressed="false">热力</button>
+            <button type="button" class="segbtn" data-v="live" aria-pressed="false">实时</button>
+          </div>
+        </div>
+        <div class="tgroup">
+          <span class="glabel">布局</span>
+          <div class="seg" id="seg-layout" role="group" aria-label="键盘布局">
+            <button type="button" class="segbtn on" data-v="104" aria-pressed="true">104 键</button>
+            <button type="button" class="segbtn" data-v="87" aria-pressed="false">87 键</button>
+          </div>
+        </div>
+        <div class="tgroup">
+          <span class="glabel">范围</span>
+          <div class="seg" id="seg-scope" role="group" aria-label="统计范围">
+            <button type="button" class="segbtn" data-v="session" aria-pressed="false">本次</button>
+            <button type="button" class="segbtn on" data-v="today" aria-pressed="true">今日</button>
+            <button type="button" class="segbtn" data-v="week" aria-pressed="false">7 天</button>
+          </div>
+        </div>
+        <div class="toolbar-end">
+          <button class="btn btn-quiet" id="kb-reset" type="button">重置视图</button>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="kbd-wrap" id="kb-wrap">
+          <div class="kbd-plate" id="kbd-plate">
+            <div class="kbd" id="kbd" role="group" aria-label="键盘热力图，键帽亮度表示使用次数"></div>
+          </div>
+          <div class="kbd-foot">
+            <div class="legend" aria-hidden="true">
+              <span class="glabel">热力</span>
+              <span class="lgp"><i class="sw lv0"></i>近零</span>
+              <span class="lgp"><i class="sw lv1"></i>很低</span>
+              <span class="lgp"><i class="sw lv2"></i>低</span>
+              <span class="lgp"><i class="sw lv3"></i>中</span>
+              <span class="lgp"><i class="sw lv4"></i>高</span>
+              <span class="lgp"><i class="sw lv5"></i>最高</span>
+            </div>
+            <div class="kbd-note" id="kbd-note">今日 12,438 次，峰值 W 1,204</div>
+          </div>
+          <div class="veil" id="kb-empty" hidden>
+            <div class="veil-title">还没有记录到按键 —— 敲几个键试试</div>
+            <div class="veil-sub">本次会话的计数会从这里开始累积</div>
+          </div>
+          <div class="veil" id="kb-pause" hidden>
+            <div class="veil-title">记录已暂停</div>
+            <div class="veil-sub">采集内核已停止写入，画布上是暂停前的累计</div>
+            <button class="btn btn-primary" id="kb-resume" type="button">恢复采集</button>
+          </div>
+          <div class="detail" id="detail" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <section class="rank">
+        <div class="rank-head">
+          <h2 class="rank-title">使用最多的十个键</h2>
+          <span class="rank-meta" id="rank-meta">今日 12,438 次按键</span>
+        </div>
+        <div class="rank-cols">
+          <ol class="rank-list" id="rank-a"></ol>
+          <ol class="rank-list" id="rank-b"></ol>
+        </div>
+        <div class="chips-row">
+          <span class="glabel">高频键</span>
+          <div class="chips" id="chips"></div>
+        </div>
+      </section>
+    </section>
+
+    <!-- ============ 鼠标 ============ -->
+    <section class="page" id="page-mouse" data-route="mouse">
+      <header class="head">
+        <h1 class="title">鼠标使用</h1>
+        <p class="fact">今天点了 5,204 次，鼠标移动了约 12.4 公里。</p>
+      </header>
+
+      <div class="toolbar">
+        <div class="tgroup">
+          <span class="glabel">范围</span>
+          <div class="seg" id="seg-mouse-scope" role="group" aria-label="统计范围">
+            <button type="button" class="segbtn" data-v="session" aria-pressed="false">本次</button>
+            <button type="button" class="segbtn on" data-v="today" aria-pressed="true">今日</button>
+            <button type="button" class="segbtn" data-v="week" aria-pressed="false">7 天</button>
+          </div>
+        </div>
+        <div class="tgroup">
+          <span class="glabel">图层</span>
+          <div class="seg" id="seg-layer" role="group" aria-label="热力图层">
+            <button type="button" class="segbtn on" data-v="click" aria-pressed="true">点击</button>
+            <button type="button" class="segbtn" data-v="move" aria-pressed="false">移动</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mouse-row">
+        <div class="screen" id="screen">
+          <div class="screen-head">
+            <span class="glabel" id="screen-label">屏幕点击分布</span>
+            <span class="screen-note">主显示器，2560 × 1440</span>
+          </div>
+          <div class="screen-frame"><div class="cellgrid" id="cellgrid"></div></div>
+          <div class="screen-foot" id="screen-foot">32 × 18 网格，每格约 80 × 80 px；格内数字为该区域的点击数。</div>
+          <div class="veil" id="ms-empty" hidden>
+            <div class="veil-title">移动一下鼠标</div>
+            <div class="veil-sub">本次会话还没有记录到鼠标活动</div>
+          </div>
+          <div class="veil" id="ms-pause" hidden>
+            <div class="veil-title">记录已暂停</div>
+            <div class="veil-sub">恢复采集后，新的移动会重新出现在网格里</div>
+          </div>
+        </div>
+
+        <div class="mouse-side">
+          <svg class="mouse-svg" width="320" height="360" viewBox="0 0 320 360" role="img" aria-label="鼠标俯视图，左键 3,204 次，右键 1,872 次，中键 12 次，侧键 116 次">
+            <path class="ms-body" d="M160 24 C128 24 104 46 99 86 L89 216 C85 280 112 336 160 336 C208 336 235 280 231 216 L221 86 C216 46 192 24 160 24 Z"/>
+            <path class="ms-btn" id="ms-left" d="M160 24 C129 24 105 46 100 86 L97 134 L160 134 Z"/>
+            <path class="ms-btn" id="ms-right" d="M160 24 C191 24 215 46 220 86 L223 134 L160 134 Z"/>
+            <line class="ms-seam" x1="160" y1="24" x2="160" y2="134"/>
+            <line class="ms-seam" x1="97" y1="134" x2="223" y2="134"/>
+            <rect class="ms-wheel" id="ms-middle" x="147" y="52" width="26" height="66" rx="13"/>
+            <g stroke="#0e0e10" stroke-width="1.3">
+              <line x1="152" y1="66" x2="168" y2="66"/>
+              <line x1="152" y1="76" x2="168" y2="76"/>
+              <line x1="152" y1="86" x2="168" y2="86"/>
+              <line x1="152" y1="96" x2="168" y2="96"/>
+              <line x1="152" y1="106" x2="168" y2="106"/>
+            </g>
+            <rect class="ms-side" id="ms-side" x="81" y="156" width="15" height="26" rx="6"/>
+            <rect class="ms-side" x="81" y="188" width="15" height="22" rx="6"/>
+            <path class="ms-outline" d="M160 24 C128 24 104 46 99 86 L89 216 C85 280 112 336 160 336 C208 336 235 280 231 216 L221 86 C216 46 192 24 160 24 Z"/>
+            <text class="ms-text" x="56" y="94" text-anchor="middle">左键</text>
+            <text class="ms-num" id="ms-num-left" x="56" y="113" text-anchor="middle">3,204</text>
+            <line class="ms-leader" x1="76" y1="106" x2="95" y2="106"/>
+            <text class="ms-text" x="264" y="94" text-anchor="middle">右键</text>
+            <text class="ms-num" id="ms-num-right" x="264" y="113" text-anchor="middle">1,872</text>
+            <line class="ms-leader" x1="244" y1="106" x2="225" y2="106"/>
+            <text class="ms-text" x="160" y="156" text-anchor="middle">滚轮</text>
+            <text class="ms-text" id="ms-num-mid" x="160" y="178" text-anchor="middle">中键 12</text>
+            <text class="ms-text" x="48" y="196" text-anchor="middle">侧键</text>
+            <text class="ms-num" id="ms-num-side" x="48" y="215" text-anchor="middle">116</text>
+            <line class="ms-leader" x1="68" y1="207" x2="82" y2="202"/>
+          </svg>
+          <div class="wheel-row">
+            <span class="glabel">滚轮</span>
+            <span class="wheel-pair"><span class="wa">↑</span><span class="wn" id="wheel-up">1,204</span></span>
+            <span class="wheel-pair"><span class="wa">↓</span><span class="wn" id="wheel-down">986</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="readings" id="readings">
+        <div class="rd"><span class="rd-l">总点击</span><span class="rd-v" id="rd-total">5,204</span></div>
+        <div class="rd"><span class="rd-l">左键</span><span class="rd-v" id="rd-left">3,204</span></div>
+        <div class="rd"><span class="rd-l">右键</span><span class="rd-v" id="rd-right">1,872</span></div>
+        <div class="rd"><span class="rd-l">中键</span><span class="rd-v" id="rd-mid">12</span></div>
+        <div class="rd"><span class="rd-l">侧键</span><span class="rd-v" id="rd-side">116</span></div>
+        <div class="rd"><span class="rd-l">滚轮 ↑</span><span class="rd-v" id="rd-wu">1,204</span></div>
+        <div class="rd"><span class="rd-l">滚轮 ↓</span><span class="rd-v" id="rd-wd">986</span></div>
+        <div class="rd"><span class="rd-l">移动距离</span><span class="rd-v" id="rd-move">≈12.4<i>km</i></span></div>
+        <div class="rd"><span class="rd-l">峰值速度</span><span class="rd-v" id="rd-speed">4.2<i>m/s</i></span></div>
+      </div>
+      <p class="footnote">≈ 移动距离按当前 DPI 估算，本机 DPI 尚未标定；网格仅覆盖主显示器。</p>
+    </section>
+
+    <!-- ============ 数据 ============ -->
+    <section class="page" id="page-stats" data-route="stats">
+      <header class="head head-split">
+        <div>
+          <h1 class="title">数据展示</h1>
+          <p class="fact">今日峰值在 21:03，一分钟内 380 次动作。</p>
+        </div>
+        <div class="seg" id="seg-range" role="group" aria-label="时间范围">
+          <button type="button" class="segbtn on" data-v="today" aria-pressed="true">今日</button>
+          <button type="button" class="segbtn" data-v="7d" aria-pressed="false">近 7 天</button>
+          <button type="button" class="segbtn" data-v="30d" aria-pressed="false">近 30 天</button>
+        </div>
+      </header>
+
+      <section class="block">
+        <div class="block-head">
+          <h2 class="block-title">输入强度</h2>
+          <span class="block-meta" id="line-meta">今日，每分钟动作数</span>
+        </div>
+        <div class="chart" id="line-chart">
+          <div class="chart-tip" id="chart-tip"><div class="tip-t"></div><div class="tip-v"></div></div>
+        </div>
+        <p class="summary" id="line-summary"></p>
+      </section>
+
+      <div class="duo">
+      <section class="block">
+        <div class="block-head">
+          <h2 class="block-title">按键分布</h2>
+          <div class="seg seg-sm" id="seg-hist" role="group" aria-label="直方图口径">
+            <button type="button" class="segbtn on" data-v="top20" aria-pressed="true">键位 Top 20</button>
+            <button type="button" class="segbtn" data-v="hours" aria-pressed="false">时段分布</button>
+            <button type="button" class="segbtn" data-v="gaps" aria-pressed="false">间隔分布</button>
+          </div>
+        </div>
+        <div class="hist-body" id="hist-body"></div>
+        <p class="summary" id="hist-summary"></p>
+      </section>
+
+      <section class="block">
+        <div class="block-head">
+          <h2 class="block-title">作息热力</h2>
+          <div class="seg seg-sm" id="seg-heat" role="group" aria-label="热力图口径">
+            <button type="button" class="segbtn on" data-v="week" aria-pressed="true">7×24</button>
+            <button type="button" class="segbtn" data-v="cal" aria-pressed="false">日历</button>
+          </div>
+        </div>
+        <div class="heat-body" id="heat-body"></div>
+        <p class="summary" id="heat-summary"></p>
+      </section>
+      </div>
+
+      <section class="block">
+        <div class="block-head">
+          <h2 class="block-title">明细</h2>
+          <div class="table-tools">
+            <span class="block-meta" id="table-meta">今日 60 秒桶，共 1,264 行</span>
+            <button class="btn btn-ghost" id="export-csv" type="button">导出 CSV</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <div class="tbl-scroll">
+            <table class="tbl">
+              <thead><tr><th>时间</th><th>动作数</th><th>按键</th><th>点击</th><th>移动 (cm)</th></tr></thead>
+              <tbody id="tbl-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="pager">
+          <span class="block-meta" id="pager-info">1–50，共 1,264 行</span>
+          <div class="pager-btns">
+            <button class="btn btn-ghost btn-sm" id="pg-prev" type="button">上一页</button>
+            <span class="block-meta" id="pager-page">第 1 / 26 页</span>
+            <button class="btn btn-ghost btn-sm" id="pg-next" type="button">下一页</button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- ============ 设置 ============ -->
+    <section class="page" id="page-settings" data-route="settings">
+      <header class="head">
+        <h1 class="title">设置</h1>
+        <p class="fact">采集只在本机进行，不联网，也不记录你输入了什么。</p>
+      </header>
+
+      <div class="settings">
+        <div class="settings-col">
+          <section class="group">
+            <h2 class="group-h">采集</h2>
+            <div class="row">
+              <div class="row-main"><span class="row-label">采集总开关</span><span class="row-sub">关闭后立即停止写入数据库</span></div>
+              <div class="row-value"><button class="sw" id="sw-capture" type="button" role="switch" aria-checked="true" aria-label="采集总开关"></button></div>
+            </div>
+            <div class="row">
+              <div class="row-main"><span class="row-label">桶粒度</span><span class="row-sub">每个桶记录一次写入，粒度越细数据越多</span></div>
+              <div class="row-value">
+                <div class="seg seg-sm" id="seg-bucket" role="group" aria-label="桶粒度">
+                  <button type="button" class="segbtn" data-v="10" aria-pressed="false">10 秒</button>
+                  <button type="button" class="segbtn" data-v="30" aria-pressed="false">30 秒</button>
+                  <button type="button" class="segbtn on" data-v="60" aria-pressed="true">60 秒</button>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-main"><span class="row-label">开机自启</span><span class="row-sub">随 Windows 登录启动</span></div>
+              <div class="row-value"><button class="sw" id="sw-autostart" type="button" role="switch" aria-checked="true" aria-label="开机自启"></button></div>
+            </div>
+            <div class="row">
+              <div class="row-main"><span class="row-label">数据保留</span><span class="row-sub">超过 30 天后自动清理最旧的记录</span></div>
+              <div class="row-value"><span class="row-label">30 天</span></div>
+            </div>
+          </section>
+
+          <section class="group">
+            <h2 class="group-h">数据</h2>
+            <div class="row">
+              <div class="row-main"><span class="row-label">数据库路径</span><span class="row-sub">只读展示，不随账户同步</span></div>
+              <div class="row-value"><span class="path">%APPDATA%\HandPulse\data.db</span><button class="btn btn-ghost" id="btn-open" type="button">打开目录</button></div>
+            </div>
+            <div class="row">
+              <div class="row-main"><span class="row-label">导出全部数据</span><span class="row-sub">导出当前保留范围内的全部记录</span></div>
+              <div class="row-value">
+                <button class="btn btn-ghost" id="btn-export-csv" type="button">CSV</button>
+                <button class="btn btn-ghost" id="btn-export-json" type="button">JSON</button>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-main"><span class="row-label">清空全部数据</span><span class="row-sub">删除本机全部记录，操作不可恢复</span></div>
+              <div class="row-value"><button class="btn btn-ghost" id="btn-clear" type="button">清空…</button></div>
+            </div>
+          </section>
+
+          <div class="confirm" id="confirm" hidden>
+            <p>清空后不可恢复。请输入 <span class="code">DELETE</span> 以确认。</p>
+            <div class="confirm-row">
+              <input id="confirm-input" type="text" placeholder="DELETE" autocomplete="off" spellcheck="false" aria-label="输入 DELETE 以确认清空">
+              <button class="btn btn-danger" id="confirm-go" type="button" disabled>永久清空</button>
+              <button class="btn btn-quiet" id="confirm-cancel" type="button">取消</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-col">
+          <section class="group">
+            <h2 class="group-h">关于</h2>
+            <div class="row">
+              <div class="row-main"><span class="row-label">版本</span><span class="row-sub">手脉桌面端原型</span></div>
+              <div class="row-value"><span class="row-label">0.9.0</span></div>
+            </div>
+            <div class="row">
+              <div class="row-main"><span class="row-label">数据 schema</span><span class="row-sub">bucket 表结构版本</span></div>
+              <div class="row-value"><span class="row-label">v3</span></div>
+            </div>
+            <div class="row">
+              <div class="row-main"><span class="row-label">采集内核</span><span class="row-sub">HandPulse Core，源码公开</span></div>
+              <div class="row-value"><span class="row-label">0.9.0</span></div>
+            </div>
+          </section>
+
+          <section class="group">
+            <h2 class="group-h">隐私说明</h2>
+            <p class="privacy">手脉只记录你按下<strong>哪个物理键</strong>、<strong>按了多少次</strong>、<strong>鼠标移动了多远</strong>。它不记录你输入了什么字，不读取窗口标题，不截屏，不联网。</p>
+            <p class="privacy">你可以随时在设置里暂停记录或清空全部数据。删除后不可恢复。</p>
+            <p class="privacy">采集内核 HandPulse Core 的源码公开，你可以自行验证上述承诺。</p>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+/* 手脉 HandPulse · 共用 Mock 数据与 104 键位坐标
+ * 三方向必须整段内联进 HTML，保证同一份数据、同一套坐标。
+ * 数据自洽说明：今日按键 12,438 + 今日点击 5,204 = 今日动作 17,642。
+ * 键盘页 Top10 占比 = 该键次数 / 按键总数；侧栏大数字 = 今日动作总数。
+ */
+window.HP = (function () {
+  var NOW_MIN = 21 * 60 + 43;            // 21:43
+  var KEY_TOTAL = 12438;
+  var CLICK_TOTAL = 5204;
+
+  /* ---------- 每个物理键的今日次数（和 = 12,438） ---------- */
+  var counts = {
+    W: 1204, A: 986, D: 921, Space: 878, LShift: 764, E: 703, Q: 641, R: 588, LCtrl: 552, S: 497,
+    Tab: 132, X: 118, C: 104, V: 96, Z: 88, B: 82, F: 79, G: 74, T: 68, Y: 41, U: 34, I: 24, O: 22, P: 19,
+    H: 39, N: 37, J: 33, M: 31, K: 28, L: 26,
+    '1': 62, '2': 54, '3': 48, '4': 44, '5': 21, '6': 18, '7': 16, '8': 14, '9': 12, '0': 11,
+    '-': 14, '=': 13, '[': 11, ']': 10, '\\': 9, ';': 13, "'": 8, ',': 16, '.': 19, '/': 15, '`': 4,
+    Esc: 37, Enter: 41, RShift: 26, LAlt: 33, RAlt: 10, LWin: 9, RWin: 6, Menu: 4, RCtrl: 12,
+    Backspace: 46, Caps: 12, Up: 18, Down: 24, Left: 29, Right: 31,
+    Ins: 3, Home: 6, PgUp: 8, Del: 5, End: 7, PgDn: 9, PrtSc: 2, ScrLk: 1, Pause: 1,
+    F1: 2, F2: 3, F3: 1, F4: 1, F5: 2, F6: 1, F7: 1, F8: 1, F9: 1, F10: 1, F11: 0, F12: 0,
+    NumLock: 2, NDiv: 1, NMul: 2, NSub: 1, NAdd: 3, NEnter: 4, N0: 2, N1: 3, N2: 2, N3: 1,
+    N4: 2, N5: 1, N6: 1, N7: 1, N8: 1, N9: 1, NDot: 1,
+    /* 剩余零散键补齐到 12,438 */
+    'F13': 0
+  };
+  var labels = Object.keys(counts);
+  // 前 10 名保持设定值（W 1,204 / 9.7% 与需求文档一致），其余键按比例缩放到总数 12,438
+  var initial = labels.map(function (k) { return { label: k, count: counts[k] }; })
+    .sort(function (a, b) { return b.count - a.count; });
+  var topSet = {};
+  initial.slice(0, 10).forEach(function (x) { topSet[x.label] = true; });
+  var topSum = initial.slice(0, 10).reduce(function (a, b) { return a + b.count; }, 0);
+  var restLabels = labels.filter(function (k) { return !topSet[k]; });
+  var restSum = restLabels.reduce(function (a, k) { return a + counts[k]; }, 0);
+  var restFactor = restSum > 0 ? (KEY_TOTAL - topSum) / restSum : 1;
+  restLabels.forEach(function (k) { counts[k] = Math.round(counts[k] * restFactor); });
+  var nowSum = labels.reduce(function (a, k) { return a + counts[k]; }, 0);
+  var fix = KEY_TOTAL - nowSum;
+  if (fix !== 0) {
+    restLabels.sort(function (a, b) { return counts[b] - counts[a]; });
+    counts[restLabels[0]] = Math.max(0, counts[restLabels[0]] + fix);
+  }
+
+  var sorted = labels.map(function (k) { return { label: k, count: counts[k], ratio: counts[k] / KEY_TOTAL }; })
+    .sort(function (a, b) { return b.count - a.count; });
+
+  /* ---------- 今日每分钟（0–1440；21:43 之后无记录 = null） ---------- */
+  function bell(x, c, w) { var t = (x - c) / w; return Math.exp(-t * t); }
+  function smooth(a, b, x) { var t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+
+  var raw = [];
+  for (var m = 0; m < 1440; m++) {
+    var h = m / 60;
+    var v = 0.8;
+    v += 24 * smooth(8.6, 10.2, h) * (1 - smooth(17.0, 18.8, h));      // 白天办公
+    v -= 15 * bell(h, 12.55, 0.55);                                     // 午休低谷
+    v += 150 * bell(h, 20.55, 1.35) * (h > 18.4 ? 1 : 0.15);            // 晚间高峰
+    v += 26 * bell(h, 0.25, 0.9);                                       // 深夜小高峰
+    v += 12 * bell(h, 15.2, 0.35);                                      // 下午短爆发
+    v *= 1 + 0.10 * Math.sin(m * 0.37) + 0.06 * Math.sin(m * 1.13);     // 稳定噪声
+    if (h >= 2 && h < 6.5) v *= 0.08;
+    v += 560 * bell(m, 21 * 60 + 3, 1.7);                               // 21:03 高峰爆发
+    raw.push(Math.max(0, v));
+  }
+  var rawSum = raw.reduce(function (a, b) { return a + b; }, 0);
+  var keyMin = raw.map(function (v, i) { return i <= NOW_MIN ? Math.round(v / rawSum * KEY_TOTAL) : null; });
+  // 修正累计误差
+  var cur = keyMin.reduce(function (a, v) { return a + (v || 0); }, 0);
+  var diff = KEY_TOTAL - cur;
+  for (var i = 0; diff !== 0 && i < 1440; i++) {
+    if (keyMin[i] == null) continue;
+    var step = diff > 0 ? 1 : -1;
+    if (keyMin[i] + step >= 0) { keyMin[i] += step; diff -= step; }
+  }
+
+  /* ---------- 今日每分钟点击（和 = 5,204） ---------- */
+  var crawl = [];
+  for (var j = 0; j < 1440; j++) {
+    var hh = j / 60;
+    var c = 0.9 + 7 * bell(hh, 20.7, 1.6) + 2.4 * smooth(9, 11, hh) * (1 - smooth(16.5, 18.5, hh)) + 1.2 * bell(hh, 15.3, 0.6);
+    c *= 1 + 0.15 * Math.sin(j * 0.23);
+    if (hh < 7) c *= 0.2;
+    c += 92 * bell(j, 21 * 60 + 3, 1.7);
+    crawl.push(Math.max(0, c));
+  }
+  var crawlSum = crawl.reduce(function (a, b) { return a + b; }, 0);
+  var clickMin = crawl.map(function (v, k) { return k <= NOW_MIN ? Math.round(v / crawlSum * CLICK_TOTAL) : null; });
+  var ccur = clickMin.reduce(function (a, v) { return a + (v || 0); }, 0);
+  var cdiff = CLICK_TOTAL - ccur;
+  for (var q = 0; cdiff !== 0 && q < 1440; q++) {
+    if (clickMin[q] == null) continue;
+    var st = cdiff > 0 ? 1 : -1;
+    if (clickMin[q] + st >= 0) { clickMin[q] += st; cdiff -= st; }
+  }
+
+  function hourSum(arr) {
+    var out = [];
+    for (var h = 0; h < 24; h++) {
+      var s = 0;
+      for (var m2 = h * 60; m2 < h * 60 + 60; m2++) s += (arr[m2] || 0);
+      out.push(s);
+    }
+    return out;
+  }
+  var keyHour = hourSum(keyMin);
+  var clickHour = hourSum(clickMin);
+  var apmHour = keyHour.map(function (v, k) { return v + clickHour[k]; });
+
+  var peak = { value: 0, minute: 0 };
+  for (var p = 0; p <= NOW_MIN; p++) {
+    var a = (keyMin[p] || 0) + (clickMin[p] || 0);
+    if (a > peak.value) peak.value = a, peak.minute = p;
+  }
+
+  /* ---------- 7 天 / 30 天 ---------- */
+  var dayTotals = [9842, 14208, 12438, 7136, 18402, 21684, 13220]; // 周一…周日（今日周三）
+  var weekKey = dayTotals.map(function (t, d) { return Math.round(t * 0.78); });
+  var weekClick = dayTotals.map(function (t, d) { return t - Math.round(t * 0.78); });
+  var weekLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  var weekDates = ['10/29', '10/30', '10/31', '11/01', '11/02', '11/03', '11/04'];
+  // 近 30 天（含今日）
+  var days30 = [];
+  for (var d30 = 29; d30 >= 0; d30--) {
+    var dt = new Date(2026, 10, 4); dt.setDate(dt.getDate() - d30);
+    var seed = Math.sin(d30 * 12.9898) * 43758.5453;
+    var r = seed - Math.floor(seed);
+    var base = 11000 + r * 9000;
+    if (dt.getDay() === 0 || dt.getDay() === 6) base *= 1.35;
+    var value = d30 === 0 ? 12438 : Math.round(base);
+    days30.push({
+      date: (dt.getMonth() + 1) + '/' + dt.getDate(),
+      iso: dt.toISOString().slice(0, 10),
+      actions: value, keys: Math.round(value * 0.78), clicks: value - Math.round(value * 0.78)
+    });
+  }
+
+  /* ---------- 7×24 热力（平均动作数/分钟） ---------- */
+  var weekHeat = [];
+  for (var wd = 0; wd < 7; wd++) {
+    var row = [];
+    for (var hh2 = 0; hh2 < 24; hh2++) {
+      var v2 = apmHour[hh2] / 60;
+      if (wd >= 5) v2 *= 1.25;
+      if (wd === 2) v2 *= 0.92;
+      row.push(Math.round(v2 * 10) / 10);
+    }
+    weekHeat.push(row);
+  }
+  var weekHeatMax = Math.max.apply(null, weekHeat.map(function (r) { return Math.max.apply(null, r); }));
+
+  /* ---------- 日历热力（53×7，共 371 天，今日高亮） ---------- */
+  var calendar = [];
+  for (var cd = 370; cd >= 0; cd--) {
+    var date = new Date(2026, 10, 4); date.setDate(date.getDate() - cd);
+    var sd = Math.sin((cd + 1) * 78.233) * 43758.5453;
+    var rr = sd - Math.floor(sd);
+    var val = Math.round(700 + rr * rr * 24000);
+    if (date.getDay() === 0 || date.getDay() === 6) val = Math.round(val * 1.3);
+    if (cd === 0) val = 12438;
+    calendar.push({ iso: date.toISOString().slice(0, 10), v: val });
+  }
+  var calMax = Math.max.apply(null, calendar.map(function (d) { return d.v; }));
+
+  /* ---------- 直方 ---------- */
+  var top20 = sorted.slice(0, 20).map(function (x) { return { label: x.label, count: x.count }; });
+  var gaps = [
+    { label: '<50', value: 3120 }, { label: '50–100', value: 1980 },
+    { label: '100–200', value: 1436 }, { label: '200–500', value: 684 }, { label: '>500', value: 214 }
+  ];
+
+  /* ---------- 鼠标 ---------- */
+  var clicks = { left: 3204, right: 1872, middle: 12, side1: 88, side2: 28 };
+  clicks.total = clicks.left + clicks.right + clicks.middle + clicks.side1 + clicks.side2; // 5,204
+  var grid = [];
+  for (var gy = 0; gy < 18; gy++) {
+    for (var gx = 0; gx < 32; gx++) {
+      var nx = gx / 31, ny = gy / 17;
+      var s = 0;
+      s += 1.00 * Math.exp(-(((nx - 0.52) / 0.11) ** 2 + ((ny - 0.62) / 0.11) ** 2)); // 准星区
+      s += 0.55 * Math.exp(-(((nx - 0.47) / 0.20) ** 2 + ((ny - 0.44) / 0.14) ** 2));
+      s += 0.30 * Math.exp(-(((nx - 0.84) / 0.06) ** 2 + ((ny - 0.16) / 0.08) ** 2)); // 小地图
+      s += 0.18 * Math.exp(-(((nx - 0.08) / 0.08) ** 2 + ((ny - 0.10) / 0.06) ** 2)); // 菜单
+      s += 0.05 * Math.exp(-(((nx - 0.22) / 0.12) ** 2 + ((ny - 0.78) / 0.10) ** 2));
+      if (s > 0.035) grid.push({ x: gx, y: gy, v: s });
+    }
+  }
+  var gsum = grid.reduce(function (a, g) { return a + g.v; }, 0);
+  grid.forEach(function (g) { g.v = Math.round(g.v / gsum * CLICK_TOTAL); });
+  var gridMax = Math.max.apply(null, grid.map(function (g) { return g.v; }));
+
+  var wheelHour = apmHour.map(function (v, k) { return Math.round(v * 0.10); });
+  var moveHour = apmHour.map(function (v, k) { return Math.round(v * 0.22); });
+
+  /* ---------- 104 键位坐标（单位 u；键帽视觉宽 = w*u - 3，位置 = x*u） ---------- */
+  function K(label, x, y, w, h) { return { id: label, label: label, x: x, y: y, w: w || 1, h: h || 1 }; }
+  var keys = [];
+  // 功能行
+  keys.push(K('Esc', 0, 0));
+  var fxs = [2, 3, 4, 5, 6.5, 7.5, 8.5, 9.5, 11, 12, 13, 14];
+  for (var f = 0; f < 12; f++) keys.push(K('F' + (f + 1), fxs[f], 0));
+  keys.push(K('PrtSc', 16.5, 0), K('ScrLk', 17.5, 0), K('Pause', 18.5, 0));
+  // 数字行
+  var row1 = ['`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='];
+  row1.forEach(function (l, i) { keys.push(K(l, i, 1)); });
+  keys.push(K('Backspace', 13, 1, 2), K('Ins', 16.5, 1), K('Home', 17.5, 1), K('PgUp', 18.5, 1));
+  // QWERTY
+  keys.push(K('Tab', 0, 2, 1.5));
+  ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']'].forEach(function (l, i) { keys.push(K(l, 1.5 + i, 2)); });
+  keys.push(K('\\', 13.5, 2, 1.5), K('Del', 16.5, 2), K('End', 17.5, 2), K('PgDn', 18.5, 2));
+  // ASDF
+  keys.push(K('Caps', 0, 3, 1.75));
+  ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', "'"].forEach(function (l, i) { keys.push(K(l, 1.75 + i, 3)); });
+  keys.push(K('Enter', 12.75, 3, 2.25));
+  // ZXCV
+  keys.push(K('LShift', 0, 4, 2.25));
+  ['Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.', '/'].forEach(function (l, i) { keys.push(K(l, 2.25 + i, 4)); });
+  keys.push(K('RShift', 12.25, 4, 2.75), K('↑', 17.5, 4));
+  // 底行
+  keys.push(K('LCtrl', 0, 5, 1.25), K('LWin', 1.25, 5, 1.25), K('LAlt', 2.5, 5, 1.25),
+    K('Space', 3.75, 5, 6.25), K('RAlt', 10, 5, 1.25), K('RWin', 11.25, 5, 1.25),
+    K('Menu', 12.5, 5, 1.25), K('RCtrl', 13.75, 5, 1.25),
+    K('←', 16.5, 5), K('↓', 17.5, 5), K('→', 18.5, 5));
+  // 小键盘
+  keys.push(K('NumLock', 20, 1), K('NDiv', 21, 1), K('NMul', 22, 1), K('NSub', 23, 1));
+  keys.push(K('N7', 20, 2), K('N8', 21, 2), K('N9', 22, 2), K('NAdd', 23, 2, 1, 2));
+  keys.push(K('N4', 20, 3), K('N5', 21, 3), K('N6', 22, 3));
+  keys.push(K('N1', 20, 4), K('N2', 21, 4), K('N3', 22, 4), K('NEnter', 23, 4, 1, 2));
+  keys.push(K('N0', 20, 5, 2), K('NDot', 22, 5));
+
+  var NUMPAD_LABEL = { NDiv: '/', NMul: '*', NSub: '−', NAdd: '+', NEnter: '↵', NDot: '.', NumLock: 'Num', N0: '0', N1: '1', N2: '2', N3: '3', N4: '4', N5: '5', N6: '6', N7: '7', N8: '8', N9: '9' };
+  keys.forEach(function (k) { k.display = NUMPAD_LABEL[k.label] || k.label; k.count = counts[k.label] || 0; });
+
+  return {
+    date: '2026-11-04', weekday: '周三', nowLabel: '21:43', nowMinute: NOW_MIN,
+    keyTotal: KEY_TOTAL, clickTotal: CLICK_TOTAL, actionTotal: KEY_TOTAL + CLICK_TOTAL,
+    keyCounts: counts, keyList: sorted, top10: sorted.slice(0, 10), top8: sorted.slice(0, 8),
+    keyHour: keyHour, clickHour: clickHour, apmHour: apmHour,
+    perMinute: { keys: keyMin, clicks: clickMin },
+    peak: { value: peak.value, minute: peak.minute, label: fmtMin(peak.minute) },
+    clicks: clicks, wheel: { up: 1204, down: 986 }, moveKm: 12.4, peakSpeed: 4.2,
+    wheelHour: wheelHour, moveHour: moveHour,
+    grid: grid, gridMax: gridMax,
+    week: { labels: weekLabels, dates: weekDates, totals: dayTotals, keys: weekKey, clicks: weekClick },
+    weekHeat: weekHeat, weekHeatMax: weekHeatMax,
+    calendar: calendar, calendarMax: calMax,
+    days30: days30,
+    histogram: { top20: top20, gaps: gaps },
+    holds: { avg: 118, max: 3412, keyMax: 'A', keyMaxHold: 3412, keyAvg: 96 },
+    keyboard: { keys: keys, widthUnits: 24, heightUnits: 6, u: 40 },
+    fmt: { min: fmtMin, n: fmtNum, pct: function (v) { return (v * 100).toFixed(1) + '%'; } }
+  };
+
+  function fmtMin(m) { var h = Math.floor(m / 60), mm = m % 60; return (h < 10 ? '0' : '') + h + ':' + (mm < 10 ? '0' : '') + mm; }
+  function fmtNum(n) { return n.toLocaleString('en-US'); }
+})();
+
+
+
+
+</script>
+<script>
+(function () {
+  'use strict';
+
+  var HP = window.HP;
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var MAP = { '↑': 'Up', '↓': 'Down', '←': 'Left', '→': 'Right' };
+  var HEAT = ['#16202E', '#1D3F6B', '#2A6FA8', '#46A6C4', '#8FD06B', '#FFC94A'];
+  var HEAT_TEXT = ['#f5f5f7', '#f5f5f7', '#f5f5f7', '#0f2229', '#12200b', '#241a00'];
+
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+  function mk(tag, cls, txt) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (txt != null) e.textContent = txt;
+    return e;
+  }
+  function sv(tag, attrs, txt) {
+    var e = document.createElementNS(SVGNS, tag);
+    for (var k in attrs) { if (Object.prototype.hasOwnProperty.call(attrs, k)) e.setAttribute(k, attrs[k]); }
+    if (txt != null) e.textContent = txt;
+    return e;
+  }
+  function num(v) { return Number(v).toLocaleString('en-US'); }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function fmtMin(m) { return pad2(Math.floor(m / 60)) + ':' + pad2(m % 60); }
+  function hashStr(s) {
+    var x = 2166136261;
+    for (var i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = (x * 16777619) >>> 0; }
+    return x;
+  }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  var reduceMotion = false;
+  try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { reduceMotion = false; }
+
+  var state = {
+    route: 'keyboard', mode: 'all', layout: '104', scope: 'today',
+    layer: 'click', mouseScope: 'today',
+    range: 'today', histTab: 'top20', heatTab: 'week',
+    paused: false, pinned: null, tablePage: 1
+  };
+
+  var sessionKeys = {};
+  var sessionKeyTotal = 0;
+  var sessionMouse = { total: 0, left: 0, right: 0, middle: 0, side1: 0, side2: 0, grid: {} };
+  var liveExtra = 0;
+  var tickN = 0;
+  var keyElMap = {};
+  var keyGeom = [];
+  var keyDisplayMap = {};
+  HP.keyboard.keys.forEach(function (k) { keyDisplayMap[k.label] = k.display; });
+
+  /* ================= 数据口径 ================= */
+  var WEEK_KEY_SUM = HP.week.keys.reduce(function (a, b) { return a + b; }, 0);
+  var WEEK_FACTOR = WEEK_KEY_SUM / HP.keyTotal;
+
+  function scopeData() {
+    var out = { label: '今日', counts: {}, list: [], total: 0, max: 0, top10: [], top8: [] };
+    if (state.scope === 'session') {
+      out.label = '本次';
+      HP.keyboard.keys.forEach(function (k) { out.counts[k.label] = sessionKeys[k.label] || 0; });
+    } else if (state.scope === 'week') {
+      out.label = '近 7 天';
+      HP.keyboard.keys.forEach(function (k) {
+        var base = HP.keyCounts[MAP[k.label] || k.label] || 0;
+        out.counts[k.label] = Math.round(base * WEEK_FACTOR);
+      });
+    } else {
+      HP.keyboard.keys.forEach(function (k) {
+        out.counts[k.label] = HP.keyCounts[MAP[k.label] || k.label] || 0;
+      });
+    }
+    var list = Object.keys(out.counts).map(function (l) { return { label: l, count: out.counts[l] }; })
+      .sort(function (a, b) { return b.count - a.count || (a.label < b.label ? -1 : 1); });
+    out.list = list;
+    out.total = list.reduce(function (a, b) { return a + b.count; }, 0);
+    out.max = list.length ? list[0].count : 0;
+    if (out.total > 0) { out.top10 = list.slice(0, 10); out.top8 = list.slice(0, 8); }
+    return out;
+  }
+
+  function heatLevel(v, max) {
+    if (!v || v <= 0) return 0;
+    var r = v / (max || 1);
+    if (r < 0.012) return 0;      // 近乎为零：视为“未点亮”，避免与 L1 混在一起
+    if (r >= 0.75) return 5;
+    if (r >= 0.45) return 4;
+    if (r >= 0.20) return 3;
+    if (r >= 0.05) return 2;
+    return 1;
+  }
+
+  /* ================= 路由 ================= */
+  var ROUTES = ['keyboard', 'mouse', 'stats', 'settings'];
+
+  function routeFromHash() {
+    var h = (location.hash || '').replace(/^#\/?/, '').split('?')[0];
+    return ROUTES.indexOf(h) >= 0 ? h : 'keyboard';
+  }
+
+  function setRoute(r, skipScroll) {
+    if (ROUTES.indexOf(r) < 0) r = 'keyboard';
+    state.route = r;
+    $$('.page').forEach(function (p) { p.classList.toggle('active', p.dataset.route === r); });
+    $$('.nav a').forEach(function (a) {
+      if (a.dataset.nav === r) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    });
+    document.body.dataset.route = r;
+    if (!skipScroll) { var m = $('#main'); if (m) m.scrollTop = 0; }
+    state.pinned = null;
+    hideDetail();
+    if (r === 'keyboard') { requestAnimationFrame(renderKeyboard); }
+    if (r === 'mouse') { requestAnimationFrame(renderMouse); }
+    if (r === 'stats') { requestAnimationFrame(renderStats); }
+    refreshVeils();
+  }
+
+  function onHashChange() { setRoute(routeFromHash()); }
+
+  /* ================= 侧栏 / 暂停 ================= */
+  function renderSidebar() {
+    var t = $('#foot-total');
+    var k = $('#foot-keys');
+    if (t) t.textContent = num(HP.actionTotal + liveExtra + sessionKeyTotal);
+    if (k) k.textContent = num(HP.keyTotal + sessionKeyTotal);
+  }
+
+  function setPaused(p) {
+    state.paused = p;
+    document.body.classList.toggle('is-paused', p);
+    var st = $('#status-text');
+    if (st) st.textContent = p ? '采集 · 已暂停' : '采集 · 运行中';
+    var pb = $('#pause-btn');
+    if (pb) pb.textContent = p ? '恢复采集' : '暂停采集';
+    var cap = $('#sw-capture');
+    if (cap) cap.setAttribute('aria-checked', p ? 'false' : 'true');
+    refreshVeils();
+  }
+
+  function refreshVeils() {
+    var data = scopeData();
+    var kbEmpty = !state.paused && state.scope === 'session' && data.total === 0;
+    var kbPause = state.paused && state.route === 'keyboard';
+    var e1 = $('#kb-empty'); if (e1) e1.hidden = !kbEmpty;
+    var e2 = $('#kb-pause'); if (e2) e2.hidden = !kbPause;
+
+    var md = mouseData();
+    var msEmpty = !state.paused && state.mouseScope === 'session' && md.total === 0;
+    var msPause = state.paused && state.route === 'mouse';
+    var e3 = $('#ms-empty'); if (e3) e3.hidden = !msEmpty;
+    var e4 = $('#ms-pause'); if (e4) e4.hidden = !msPause;
+  }
+
+  /* ================= 键盘页 ================= */
+  function renderKeyboard() {
+    var kbd = $('#kbd');
+    if (!kbd || state.route !== 'keyboard') return;
+    var wrap = $('#kb-wrap');
+    var plate = $('#kbd-plate');
+    if (!wrap || !plate) return;
+    var data = scopeData();
+    var wrapW = wrap.clientWidth || 900;
+    var avail = Math.max(300, Math.min(1100, wrapW - 32));
+    var u = avail / 24;
+    var units = state.layout === '87' ? 19.5 : 24;
+    plate.style.width = Math.round(units * u + 32) + 'px';
+    kbd.style.width = (units * u).toFixed(1) + 'px';
+    kbd.style.height = (6 * u).toFixed(1) + 'px';
+    kbd.innerHTML = '';
+    keyElMap = {};
+    keyGeom = [];
+    HP.keyboard.keys.forEach(function (k) {
+      if (state.layout === '87' && k.x >= 19.5) return;
+      var label = k.label;
+      var count = data.counts[label] || 0;
+      var lvl = heatLevel(count, data.max);
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'key lv' + lvl;
+      b.dataset.key = label;
+      b.style.left = (k.x * u).toFixed(1) + 'px';
+      b.style.top = (k.y * u).toFixed(1) + 'px';
+      b.style.width = Math.max(8, k.w * u - 3).toFixed(1) + 'px';
+      b.style.height = Math.max(8, k.h * u - 3).toFixed(1) + 'px';
+      b.textContent = k.display;
+      b.tabIndex = -1;
+      b.setAttribute('aria-label', k.display + '，' + num(count) + ' 次');
+      kbd.appendChild(b);
+      keyElMap[label] = b;
+      keyGeom.push({ label: label, cx: (k.x + k.w / 2) * u, cy: (k.y + k.h / 2) * u, el: b });
+    });
+    if (keyGeom.length) keyGeom[0].el.tabIndex = 0;
+
+    var note = $('#kbd-note');
+    if (note) {
+      var peakTxt = data.top10.length ? data.top10[0].label : '—';
+      var peakDisp = keyDisplayMap[peakTxt] || peakTxt;
+      note.textContent = data.label + ' ' + num(data.total) + ' 次，峰值 ' + peakDisp + ' ' + (data.top10.length ? num(data.top10[0].count) : '0');
+    }
+    renderRank(data);
+    refreshVeils();
+    if (state.pinned && keyElMap[state.pinned]) {
+      showDetail(state.pinned, keyElMap[state.pinned], true);
+    } else if (state.pinned) {
+      state.pinned = null;
+      hideDetail();
+    }
+  }
+
+  function renderRank(data) {
+    var a = $('#rank-a');
+    var b = $('#rank-b');
+    if (!a || !b) return;
+    a.innerHTML = '';
+    b.innerHTML = '';
+    var meta = $('#rank-meta');
+    if (meta) meta.textContent = data.label + ' ' + num(data.total) + ' 次按键';
+    if (!data.top10.length) {
+      var empty = mk('li', 'rank-empty', data.label + '还没有记录到按键。');
+      a.appendChild(empty);
+    } else {
+      data.top10.forEach(function (item, i) {
+        var li = document.createElement('li');
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'rk';
+        btn.dataset.key = item.label;
+        btn.setAttribute('aria-label', (keyDisplayMap[item.label] || item.label) + '，' + num(item.count) + ' 次');
+        var k = mk('span', 'rk-k', keyDisplayMap[item.label] || item.label);
+        var tr = mk('span', 'rk-track');
+        var fill = document.createElement('i');
+        fill.style.width = (data.max ? item.count / data.max * 100 : 0).toFixed(1) + '%';
+        fill.style.background = HEAT[Math.max(2, heatLevel(item.count, data.max))];
+        tr.appendChild(fill);
+        var pct = data.total ? (item.count / data.total * 100) : 0;
+        var n = mk('span', 'rk-n', num(item.count));
+        var p = mk('span', 'rk-p', pct.toFixed(1) + '%');
+        btn.appendChild(k); btn.appendChild(tr); btn.appendChild(n); btn.appendChild(p);
+        li.appendChild(btn);
+        (i < 5 ? a : b).appendChild(li);
+      });
+    }
+    var chips = $('#chips');
+    if (chips) {
+      chips.innerHTML = '';
+      if (!data.top8.length) {
+        chips.appendChild(mk('span', 'chips-empty', '本次会话暂无高频键'));
+      } else {
+        data.top8.forEach(function (item) {
+          var c = document.createElement('button');
+          c.type = 'button';
+          c.className = 'chip';
+          c.dataset.key = item.label;
+          c.textContent = keyDisplayMap[item.label] || item.label;
+          c.setAttribute('aria-label', (keyDisplayMap[item.label] || item.label) + '，' + num(item.count) + ' 次');
+          chips.appendChild(c);
+        });
+      }
+    }
+  }
+
+  function keyMeta(label) {
+    var h1 = hashStr(label), h2 = hashStr(label + '#');
+    var avg = label === 'A' ? 96 : 76 + (h1 % 92);
+    var mx = label === 'A' ? HP.holds.keyMaxHold : 1080 + (h2 % 2600);
+    var first = 6 * 60 + (h1 % 240);
+    var last = 20 * 60 + (h2 % 103);
+    return { avg: avg, max: mx, first: fmtMin(first), last: fmtMin(last) };
+  }
+
+  function showDetail(label, keyEl, pin) {
+    var card = $('#detail');
+    if (!card) return;
+    var data = scopeData();
+    var count = data.counts[label] || 0;
+    var ratio = data.total ? (count / data.total * 100) : 0;
+    var meta = keyMeta(label);
+    card.innerHTML = '';
+    var head = mk('div', 'dt-head');
+    head.appendChild(mk('span', 'dt-key', keyDisplayMap[label] || label));
+    var c = mk('span', 'dt-count', num(count));
+    c.appendChild(mk('i', null, '次'));
+    head.appendChild(c);
+    card.appendChild(head);
+    card.appendChild(mk('div', 'dt-ratio', '占' + data.label + '全部按键 ' + ratio.toFixed(1) + '%'));
+    var dl = mk('dl', 'dt-rows');
+    [['平均按住', meta.avg + ' ms'], ['最长按住', num(meta.max) + ' ms'], ['首次出现', meta.first], ['最近出现', meta.last]]
+      .forEach(function (pair) {
+        var row = mk('div');
+        row.appendChild(mk('dt', null, pair[0]));
+        row.appendChild(mk('dd', null, pair[1]));
+        dl.appendChild(row);
+      });
+    card.appendChild(dl);
+    card.classList.add('on');
+    positionDetail(keyEl);
+    if (pin) state.pinned = label;
+  }
+
+  function positionDetail(keyEl) {
+    var card = $('#detail');
+    var wrap = $('#kb-wrap');
+    if (!card || !wrap || !keyEl) return;
+    var kr = keyEl.getBoundingClientRect();
+    var wr = wrap.getBoundingClientRect();
+    var cw = card.offsetWidth || 296;
+    var ch = card.offsetHeight || 190;
+    var x = kr.left - wr.left + kr.width / 2 - cw / 2;
+    x = clamp(x, 6, Math.max(6, wr.width - cw - 6));
+    var y = kr.top - wr.top - ch - 12;
+    if (y < 4) y = kr.top - wr.top + kr.height + 12;
+    card.style.left = Math.round(x) + 'px';
+    card.style.top = Math.round(y) + 'px';
+  }
+
+  function hideDetail() {
+    var card = $('#detail');
+    if (card) card.classList.remove('on');
+  }
+
+  function selectKey(label, pulse) {
+    var ke = keyElMap[label];
+    if (!ke) return;
+    if (pulse && !reduceMotion) {
+      ke.classList.remove('pulse');
+      void ke.offsetWidth;
+      ke.classList.add('pulse');
+      window.setTimeout(function () { ke.classList.remove('pulse'); }, 980);
+    }
+    state.pinned = label;
+    showDetail(label, ke, true);
+  }
+
+  function moveFocus(label, dx, dy) {
+    var cur = null;
+    for (var i = 0; i < keyGeom.length; i++) {
+      if (keyGeom[i].label === label) { cur = keyGeom[i]; break; }
+    }
+    if (!cur) return;
+    var best = null, bestScore = Infinity;
+    keyGeom.forEach(function (g) {
+      if (g === cur) return;
+      var vx = g.cx - cur.cx, vy = g.cy - cur.cy;
+      var along = vx * dx + vy * dy;
+      if (along <= 4) return;
+      var off = Math.abs(vx * dy - vy * dx);
+      var score = along + off * 2.4;
+      if (score < bestScore) { bestScore = score; best = g; }
+    });
+    if (best) {
+      var curEl = keyElMap[label];
+      if (curEl) curEl.tabIndex = -1;
+      best.el.tabIndex = 0;
+      best.el.focus();
+    }
+  }
+
+  function bindKeyboard() {
+    var kbd = $('#kbd');
+    if (!kbd) return;
+    kbd.addEventListener('mouseover', function (e) {
+      var b = e.target.closest('.key');
+      if (b && !state.pinned) showDetail(b.dataset.key, b, false);
+    });
+    kbd.addEventListener('mouseleave', function () {
+      if (!state.pinned) hideDetail();
+    });
+    kbd.addEventListener('focusin', function (e) {
+      var b = e.target.closest('.key');
+      if (b) showDetail(b.dataset.key, b, false);
+    });
+    kbd.addEventListener('focusout', function (e) {
+      if (!kbd.contains(e.relatedTarget) && !state.pinned) hideDetail();
+    });
+    kbd.addEventListener('click', function (e) {
+      var b = e.target.closest('.key');
+      if (!b) return;
+      var label = b.dataset.key;
+      if (state.pinned === label) {
+        state.pinned = null;
+        hideDetail();
+      } else {
+        selectKey(label, false);
+      }
+    });
+    kbd.addEventListener('keydown', function (e) {
+      var b = e.target.closest('.key');
+      if (b) {
+        var label = b.dataset.key;
+        if (e.key === 'ArrowUp') { e.preventDefault(); moveFocus(label, 0, -1); }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); moveFocus(label, 0, 1); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); moveFocus(label, -1, 0); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); moveFocus(label, 1, 0); }
+        else if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (state.pinned === label) { state.pinned = null; hideDetail(); }
+          else selectKey(label, true);
+        }
+      }
+    });
+
+    var rank = $('#kb-rank');
+    if (rank) {
+      rank.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-key]');
+        if (!b) return;
+        selectKey(b.dataset.key, true);
+      });
+    }
+
+    var reset = $('#kb-reset');
+    if (reset) {
+      reset.addEventListener('click', function () {
+        sessionKeys = {};
+        sessionKeyTotal = 0;
+        state.scope = 'session';
+        setSeg('#seg-scope', 'session');
+        renderKeyboard();
+        toast('只清空页面显示，历史数据不受影响');
+      });
+    }
+
+    var resume = $('#kb-resume');
+    if (resume) resume.addEventListener('click', function () { setPaused(false); });
+
+    bindSeg('#seg-mode', 'mode', function (v) {
+      document.body.classList.toggle('mode-live', v === 'live');
+      if (!$('#kb-empty').hidden) refreshVeils();
+    });
+    bindSeg('#seg-layout', 'layout', function () { renderKeyboard(); });
+    bindSeg('#seg-scope', 'scope', function () { renderKeyboard(); });
+  }
+
+  /* ================= 鼠标页 ================= */
+  function mouseData() {
+    if (state.mouseScope === 'session') {
+      var has = sessionMouse.total > 0;
+      return {
+        total: sessionMouse.total, left: sessionMouse.left, right: sessionMouse.right,
+        middle: sessionMouse.middle, side1: sessionMouse.side1, side2: sessionMouse.side2,
+        wheelUp: 0, wheelDown: 0, moveKm: 0, speed: 0, has: has
+      };
+    }
+    var f = state.mouseScope === 'week' ? WEEK_FACTOR : 1;
+    return {
+      total: Math.round(HP.clicks.total * f), left: Math.round(HP.clicks.left * f),
+      right: Math.round(HP.clicks.right * f), middle: Math.round(HP.clicks.middle * f),
+      side1: Math.round(HP.clicks.side1 * f), side2: Math.round(HP.clicks.side2 * f),
+      wheelUp: Math.round(HP.wheel.up * f), wheelDown: Math.round(HP.wheel.down * f),
+      moveKm: HP.moveKm * f, speed: HP.peakSpeed, has: true
+    };
+  }
+
+  function gridData() {
+    var map = {};
+    var x, y;
+    if (state.mouseScope === 'session') {
+      for (y = 0; y < 18; y++) for (x = 0; x < 32; x++) map[x + ',' + y] = sessionMouse.grid[x + ',' + y] || 0;
+    } else {
+      var f = state.mouseScope === 'week' ? WEEK_FACTOR : 1;
+      for (y = 0; y < 18; y++) for (x = 0; x < 32; x++) map[x + ',' + y] = 0;
+      HP.grid.forEach(function (g) {
+        var v = g.v * f;
+        if (state.layer === 'move') {
+          var nx = g.x / 31, ny = g.y / 17;
+          v = v * 1.35 * (0.5 + 1.6 * Math.exp(-(Math.pow((nx - 0.30) / 0.26, 2) + Math.pow((ny - 0.52) / 0.30, 2))));
+        }
+        map[g.x + ',' + g.y] = Math.round(v);
+      });
+    }
+    var max = 0;
+    for (var key in map) { if (map[key] > max) max = map[key]; }
+    return { map: map, max: max };
+  }
+
+  function setTxt(sel, txt) { var n = $(sel); if (n) n.textContent = txt; }
+
+  function renderMouse() {
+    var grid = $('#cellgrid');
+    if (!grid || state.route !== 'mouse') return;
+    var d = mouseData();
+    var g = gridData();
+
+    var layerName = state.layer === 'click' ? '点击' : '移动';
+    setTxt('#screen-label', '屏幕' + layerName + '分布');
+    setTxt('#screen-foot', state.layer === 'click'
+      ? '32 × 18 网格，每格约 80 × 80 px；格内数字为该区域的点击数。'
+      : '32 × 18 网格；格内数字为移动停留的估算次数，越亮停留越久。');
+
+    grid.innerHTML = '';
+    for (var y = 0; y < 18; y++) {
+      for (var x = 0; x < 32; x++) {
+        var v = g.map[x + ',' + y] || 0;
+        var cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.x = String(x);
+        cell.dataset.y = String(y);
+        if (v > 0) {
+          var lvl = heatLevel(v, g.max);
+          cell.style.background = HEAT[lvl];
+          cell.style.color = HEAT_TEXT[lvl];
+          if (v >= 10) {
+            cell.textContent = String(v);
+            cell.style.fontSize = (v >= 100 ? 13 : 12) + 'px';
+            cell.style.letterSpacing = '-0.06em';
+          }
+          cell.title = '第 ' + (x + 1) + ' 列第 ' + (y + 1) + ' 行，' + num(v) + ' 次';
+        }
+        grid.appendChild(cell);
+      }
+    }
+
+    var side = d.side1 + d.side2;
+    setTxt('#rd-total', num(d.total));
+    setTxt('#rd-left', num(d.left));
+    setTxt('#rd-right', num(d.right));
+    setTxt('#rd-mid', num(d.middle));
+    setTxt('#rd-side', num(side));
+    setTxt('#rd-wu', d.has ? num(d.wheelUp) : '—');
+    setTxt('#rd-wd', d.has ? num(d.wheelDown) : '—');
+    var mv = $('#rd-move');
+    if (mv) mv.innerHTML = d.has ? '≈' + d.moveKm.toFixed(1) + '<i>km</i>' : '—';
+    var sp = $('#rd-speed');
+    if (sp) sp.innerHTML = d.has ? d.speed.toFixed(1) + '<i>m/s</i>' : '—';
+
+    setTxt('#ms-num-left', d.has ? num(d.left) : '—');
+    setTxt('#ms-num-right', d.has ? num(d.right) : '—');
+    setTxt('#ms-num-mid', '中键 ' + (d.has ? num(d.middle) : '—'));
+    setTxt('#ms-num-side', d.has ? num(side) : '—');
+    var wu = $('#wheel-up'), wd = $('#wheel-down');
+    if (wu) wu.textContent = d.has ? num(d.wheelUp) : '—';
+    if (wd) wd.textContent = d.has ? num(d.wheelDown) : '—';
+
+    var fig = $('.mouse-svg');
+    if (fig) {
+      fig.setAttribute('aria-label', '鼠标俯视图，左键 ' + num(d.left) + ' 次，右键 ' + num(d.right) + ' 次，中键 ' + num(d.middle) + ' 次，侧键 ' + num(side) + ' 次');
+    }
+    refreshVeils();
+  }
+
+  function flashMouse() {
+    var r = Math.random(), id, region;
+    if (r < 0.62) { id = 'ms-left'; region = 'left'; }
+    else if (r < 0.94) { id = 'ms-right'; region = 'right'; }
+    else if (r < 0.985) { id = 'ms-middle'; region = 'middle'; }
+    else { id = 'ms-side'; region = 'side1'; }
+    var node = document.getElementById(id);
+    if (node && !reduceMotion) {
+      node.classList.add('lit');
+      window.setTimeout(function () { node.classList.remove('lit'); }, 80);
+    }
+    if (state.mouseScope === 'session') {
+      sessionMouse.total++;
+      sessionMouse[region] = (sessionMouse[region] || 0) + 1;
+      var pick = HP.grid[Math.floor(Math.random() * Math.min(HP.grid.length, 80))];
+      if (pick) {
+        var key = pick.x + ',' + pick.y;
+        sessionMouse.grid[key] = (sessionMouse.grid[key] || 0) + 1;
+      }
+      if (state.route === 'mouse') renderMouse();
+    }
+  }
+
+  function bindMouse() {
+    bindSeg('#seg-layer', 'layer', function () { renderMouse(); });
+    bindSeg('#seg-mouse-scope', 'mouseScope', function () { renderMouse(); });
+  }
+
+  /* ================= 数据页 ================= */
+  function niceMax(v) { return Math.max(50, Math.ceil(v / 50) * 50); }
+
+  function lineData() {
+    var r = state.range;
+    if (r === '7d') {
+      var shapeSum = HP.apmHour.reduce(function (a, b) { return a + b; }, 0);
+      var vals = [];
+      var max = 0;
+      for (var d = 0; d < 7; d++) {
+        for (var h = 0; h < 24; h++) {
+          if (h > 21) { vals.push(null); continue; }
+          var v = Math.round(HP.week.totals[d] * (HP.apmHour[h] / shapeSum));
+          if (v > max) max = v;
+          vals.push(v);
+        }
+      }
+      var ticks = [];
+      for (var t = 0; t < 7; t++) ticks.push({ i: t * 24 + 12, label: HP.week.dates[t] });
+      return {
+        vals: vals, max: max, unit: '次 / 时', meta: '近 7 天，每小时动作数', tipUnit: ' 次',
+        ticks: ticks,
+        xLabel: function (i) { var dd = Math.floor(i / 24); return HP.week.dates[dd] + ' ' + (i % 24) + ' 时'; },
+        peakLabel: function (i) { var dd = Math.floor(i / 24); return HP.week.dates[dd] + ' ' + (i % 24) + ' 时'; }
+      };
+    }
+    if (r === '30d') {
+      var vals2 = HP.days30.map(function (day) { return day.actions; });
+      var max2 = Math.max.apply(null, vals2);
+      var ticks2 = [];
+      for (var k = 0; k < 30; k += 6) ticks2.push({ i: k, label: HP.days30[k].date });
+      return {
+        vals: vals2, max: max2, unit: '次 / 日', meta: '近 30 天，每日动作数', tipUnit: ' 次',
+        ticks: ticks2,
+        xLabel: function (i) { return HP.days30[i].date; },
+        peakLabel: function (i) { return HP.days30[i].date; }
+      };
+    }
+    var vals3 = [];
+    for (var m = 0; m < 1440; m++) {
+      vals3.push(m <= HP.nowMinute ? (HP.perMinute.keys[m] || 0) + (HP.perMinute.clicks[m] || 0) : null);
+    }
+    var ticks3 = [];
+    for (var hh = 0; hh <= 24; hh += 3) ticks3.push({ i: Math.min(hh * 60, 1439), label: String(hh) });
+    return {
+      vals: vals3, max: HP.peak.value, unit: '次 / 分', meta: '今日，每分钟动作数', tipUnit: ' 次',
+      ticks: ticks3,
+      xLabel: function (i) { return fmtMin(i); },
+      peakLabel: function (i) { return fmtMin(i); }
+    };
+  }
+
+  function drawLine() {
+    if (state.route !== 'stats') return;
+    var host = $('#line-chart');
+    if (!host) return;
+    var tip = $('#chart-tip');
+    var w = host.clientWidth;
+    var h = host.clientHeight || 128;
+    if (w < 60) return;
+    var pad = { l: 46, r: 18, t: 18, b: 20 };
+    var iw = w - pad.l - pad.r;
+    var ih = h - pad.t - pad.b;
+    var d = lineData();
+    var ymax = niceMax(d.max);
+    var n = d.vals.length;
+    var x = function (i) { return pad.l + (n <= 1 ? 0 : i / (n - 1) * iw); };
+    var y = function (v) { return pad.t + ih - (v / ymax) * ih; };
+
+    $$('svg', host).forEach(function (node) { node.parentNode.removeChild(node); });
+
+    var svg = sv('svg', { width: w, height: h, viewBox: '0 0 ' + w + ' ' + h, role: 'img', 'aria-label': d.meta });
+    var meta = $('#line-meta');
+    if (meta) meta.textContent = d.meta;
+
+    [0, 0.5, 1].forEach(function (t) {
+      var gy = pad.t + ih - t * ih;
+      svg.appendChild(sv('line', { x1: pad.l, y1: gy, x2: pad.l + iw, y2: gy, stroke: 'rgba(255,255,255,.07)', 'stroke-width': 1 }));
+      svg.appendChild(sv('text', { x: pad.l - 10, y: gy + 4, 'text-anchor': 'end', class: 'ax' }, num(Math.round(ymax * t))));
+    });
+    d.ticks.forEach(function (t) {
+      svg.appendChild(sv('text', { x: clamp(x(t.i), pad.l + 8, pad.l + iw - 8), y: h - 4, 'text-anchor': 'middle', class: 'ax' }, t.label));
+    });
+    svg.appendChild(sv('text', { x: pad.l + iw, y: pad.t - 4, 'text-anchor': 'end', class: 'ax' }, d.unit));
+
+    var segs = [], cur = [], peakI = -1, peakV = -1;
+    for (var i = 0; i < n; i++) {
+      var v = d.vals[i];
+      if (v == null) {
+        if (cur.length) { segs.push(cur); cur = []; }
+        continue;
+      }
+      cur.push({ x: x(i), y: y(v) });
+      if (v > peakV) { peakV = v; peakI = i; }
+    }
+    if (cur.length) segs.push(cur);
+    var base = pad.t + ih;
+    var areaPath = '', linePath = '';
+    segs.forEach(function (seg) {
+      var s = 'M' + seg[0].x.toFixed(1) + ' ' + base.toFixed(1);
+      for (var j = 0; j < seg.length; j++) s += 'L' + seg[j].x.toFixed(1) + ' ' + seg[j].y.toFixed(1);
+      s += 'L' + seg[seg.length - 1].x.toFixed(1) + ' ' + base.toFixed(1) + 'Z';
+      areaPath += s + ' ';
+      var l = 'M' + seg[0].x.toFixed(1) + ' ' + seg[0].y.toFixed(1);
+      for (var m2 = 1; m2 < seg.length; m2++) l += 'L' + seg[m2].x.toFixed(1) + ' ' + seg[m2].y.toFixed(1);
+      linePath += l + ' ';
+    });
+    svg.appendChild(sv('path', { d: areaPath.trim(), fill: 'rgba(41,151,255,.10)', stroke: 'none' }));
+    svg.appendChild(sv('path', { d: linePath.trim(), fill: 'none', stroke: '#2997ff', 'stroke-width': 1.6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+
+    if (peakI >= 0 && peakV > 0) {
+      var ppx = x(peakI), ppy = y(peakV);
+      svg.appendChild(sv('circle', { cx: ppx, cy: ppy, r: 8, fill: 'none', stroke: 'rgba(41,151,255,.35)', 'stroke-width': 1 }));
+      svg.appendChild(sv('circle', { cx: ppx, cy: ppy, r: 3.6, fill: '#2997ff' }));
+      var right = ppx > pad.l + iw * 0.66;
+      var tx = right ? ppx - 12 : ppx + 12;
+      var anchor = right ? 'end' : 'start';
+      var below = ppy < pad.t + 34;
+      svg.appendChild(sv('text', { x: tx, y: below ? ppy + 20 : ppy - 10, 'text-anchor': anchor, class: 'ax-strong' }, d.peakLabel(peakI)));
+      svg.appendChild(sv('text', { x: tx, y: below ? ppy + 36 : ppy - 26, 'text-anchor': anchor, class: 'ax' }, num(peakV) + d.tipUnit));
+    }
+
+    var cross = sv('line', { x1: 0, y1: pad.t, x2: 0, y2: pad.t + ih, stroke: 'rgba(255,255,255,.28)', 'stroke-width': 1, opacity: 0 });
+    var dot = sv('circle', { cx: 0, cy: 0, r: 3.4, fill: '#f5f5f7', opacity: 0 });
+    svg.appendChild(cross);
+    svg.appendChild(dot);
+
+    var overlay = sv('rect', { x: pad.l, y: pad.t, width: iw, height: ih, fill: 'transparent' });
+    overlay.style.cursor = 'crosshair';
+    svg.appendChild(overlay);
+
+    if (tip) {
+      tip.style.transform = 'translateX(-50%)';
+      tip.style.top = '0px';
+    }
+    overlay.addEventListener('mousemove', function (e) {
+      var rect = svg.getBoundingClientRect();
+      var mx = e.clientX - rect.left;
+      var idx = clamp(Math.round((mx - pad.l) / iw * (n - 1)), 0, n - 1);
+      var val = d.vals[idx];
+      var vx = x(idx);
+      cross.setAttribute('x1', vx);
+      cross.setAttribute('x2', vx);
+      cross.setAttribute('opacity', 1);
+      if (val == null) {
+        dot.setAttribute('opacity', 0);
+      } else {
+        dot.setAttribute('cx', vx);
+        dot.setAttribute('cy', y(val));
+        dot.setAttribute('opacity', 1);
+      }
+      if (tip) {
+        var tt = tip.querySelector('.tip-t');
+        var tv = tip.querySelector('.tip-v');
+        if (tt) tt.textContent = d.xLabel(idx);
+        if (tv) {
+          tv.textContent = val == null ? '无记录' : num(val);
+          if (val != null) tv.appendChild(mk('span', null, d.tipUnit));
+        }
+        tip.classList.add('on');
+        tip.style.left = Math.round(clamp(vx, 70, w - 70)) + 'px';
+      }
+    });
+    overlay.addEventListener('mouseleave', function () {
+      cross.setAttribute('opacity', 0);
+      dot.setAttribute('opacity', 0);
+      if (tip) tip.classList.remove('on');
+    });
+
+    host.appendChild(svg);
+
+    var sum = $('#line-summary');
+    if (sum) {
+      if (state.range === 'today') {
+        sum.textContent = '20 时后进入晚间高峰，21:03 达到峰值 ' + num(HP.peak.value) + ' 次 / 分；21:43 之后尚无记录。';
+      } else if (state.range === '7d') {
+        var mx2 = Math.max.apply(null, HP.week.totals);
+        var mn = Math.min.apply(null, HP.week.totals);
+        sum.textContent = '周六最高，共 ' + num(mx2) + ' 次动作；周四最低，' + num(mn) + ' 次。每天 22 时后无记录，折线在此断开。';
+      } else {
+        var vals = HP.days30.map(function (day) { return day.actions; });
+        var sumv = vals.reduce(function (a, b) { return a + b; }, 0);
+        var avg = Math.round(sumv / vals.length);
+        var mx3 = Math.max.apply(null, vals);
+        var mn3 = Math.min.apply(null, vals);
+        var mi = vals.indexOf(mx3), ni = vals.indexOf(mn3);
+        sum.textContent = '近 30 天日均 ' + num(avg) + ' 次，最高 ' + num(mx3) + ' 次（' + HP.days30[mi].date + '），最低 ' + num(mn3) + ' 次（' + HP.days30[ni].date + '）。';
+      }
+    }
+  }
+
+  function renderHist() {
+    var body = $('#hist-body');
+    if (!body) return;
+    body.innerHTML = '';
+    var sum = $('#hist-summary');
+    if (state.histTab === 'top20') {
+      var top = HP.histogram.top20;
+      var max = top[0].count;
+      var grid = mk('div', 'mx');
+      [top.slice(0, 10), top.slice(10, 20)].forEach(function (col) {
+        var wrap = mk('div', 'mx-col');
+        col.forEach(function (item) {
+          var row = mk('div', 'brow');
+          row.appendChild(mk('span', 'brow-k', keyDisplayMap[item.label] || item.label));
+          var track = mk('span', 'brow-track');
+          var fill = document.createElement('i');
+          fill.style.width = Math.max(2, item.count / max * 100).toFixed(1) + '%';
+          fill.style.background = HEAT[Math.max(2, heatLevel(item.count, max))];
+          track.appendChild(fill);
+          row.appendChild(track);
+          row.appendChild(mk('span', 'brow-n', num(item.count)));
+          row.title = (keyDisplayMap[item.label] || item.label) + '，' + num(item.count) + ' 次';
+          wrap.appendChild(row);
+        });
+        grid.appendChild(wrap);
+      });
+      body.appendChild(grid);
+      if (sum) {
+        var top3 = top.slice(0, 3).reduce(function (a, b) { return a + b.count; }, 0);
+        sum.textContent = top[0].label + ' 被按 ' + num(top[0].count) + ' 次，是 ' + top[1].label + ' 的 '
+          + (top[0].count / top[1].count).toFixed(1) + ' 倍；前三个键合计占全部按键的 '
+          + (top3 / HP.keyTotal * 100).toFixed(1) + '%。';
+      }
+    } else if (state.histTab === 'hours') {
+      var mx = Math.max.apply(null, HP.apmHour);
+      var wrap = mk('div', 'bars');
+      HP.apmHour.forEach(function (v, h) {
+        var bar = mk('div', 'bar');
+        bar.title = h + ' 时，' + num(v) + ' 次动作';
+        var fill = document.createElement('i');
+        fill.style.height = Math.max(1, v / mx * 100) + '%';
+        fill.style.background = HEAT[Math.max(1, heatLevel(v, mx))];
+        bar.appendChild(fill);
+        if (h === 20) bar.appendChild(mk('em', null, num(v)));
+        if (h % 3 === 0) bar.appendChild(mk('span', null, String(h)));
+        wrap.appendChild(bar);
+      });
+      body.appendChild(wrap);
+      if (sum) sum.textContent = '20 时至 21 时最密，单小时 ' + num(HP.apmHour[20]) + ' 次动作；凌晨 2 时至 6 时几乎静止。';
+    } else {
+      var gaps = HP.histogram.gaps;
+      var gmax = Math.max.apply(null, gaps.map(function (g) { return g.value; }));
+      var wrap2 = mk('div', 'bars bars-gaps');
+      gaps.forEach(function (g) {
+        var bar = mk('div', 'bar');
+        bar.title = g.label + ' ms，' + num(g.value) + ' 次';
+        var fill = document.createElement('i');
+        fill.style.height = Math.max(6, Math.log10(g.value + 1) / Math.log10(gmax + 1) * 100) + '%';
+        fill.style.background = HEAT[Math.max(2, heatLevel(g.value, gmax))];
+        bar.appendChild(fill);
+        bar.appendChild(mk('em', null, num(g.value)));
+        bar.appendChild(mk('span', null, g.label));
+        wrap2.appendChild(bar);
+      });
+      body.appendChild(wrap2);
+      var note = mk('span', 'scale-note', '纵轴：对数');
+      body.appendChild(note);
+      if (sum) {
+        var total = gaps.reduce(function (a, b) { return a + b.value; }, 0);
+        var short = (gaps[0].value + gaps[1].value) / total * 100;
+        var long = gaps[4].value / total * 100;
+        sum.textContent = '纵轴为对数刻度；' + short.toFixed(1) + '% 的按键间隔短于 100 ms，超过 500 ms 的仅 ' + long.toFixed(1) + '%。';
+      }
+    }
+  }
+
+  function renderHeat() {
+    var body = $('#heat-body');
+    if (!body) return;
+    body.innerHTML = '';
+    var sum = $('#heat-summary');
+    if (state.heatTab === 'week') {
+      var hm = mk('div', 'hm');
+      var hourRow = mk('div', 'hm-row');
+      hourRow.appendChild(mk('span', 'hm-day', ''));
+      for (var h = 0; h < 24; h++) hourRow.appendChild(mk('span', 'hm-hour', h % 3 === 0 ? String(h) : ''));
+      hm.appendChild(hourRow);
+      HP.weekHeat.forEach(function (row, d) {
+        var r = mk('div', 'hm-row');
+        r.appendChild(mk('span', 'hm-day', HP.week.labels[d]));
+        row.forEach(function (v, hh) {
+          var c = mk('span', 'hm-cell');
+          c.style.background = HEAT[heatLevel(v, HP.weekHeatMax)];
+          c.title = HP.week.labels[d] + ' ' + hh + ' 时，平均每分钟 ' + v + ' 次动作';
+          r.appendChild(c);
+        });
+        hm.appendChild(r);
+      });
+      body.appendChild(hm);
+      if (sum) {
+        sum.textContent = '每天 20 时至 21 时最密，周末比工作日高约 25%；凌晨 2 时至 6 时接近静止。色阶 6 级，0 至 '
+          + HP.weekHeatMax + ' 次 / 分。';
+      }
+    } else {
+      var wrap = mk('div', 'cal-wrap');
+      var daysCol = mk('div', 'cal-days');
+      for (var i = 0; i < 7; i++) {
+        var label = i === 0 ? '周一' : i === 3 ? '周四' : i === 6 ? '周日' : '';
+        daysCol.appendChild(mk('span', null, label));
+      }
+      wrap.appendChild(daysCol);
+
+      var main = mk('div', 'cal-main');
+      var months = mk('div', 'cal-months');
+      var grid = mk('div', 'cal-grid');
+      var firstISO = HP.calendar[0].iso;
+      var firstWd = new Date(firstISO + 'T00:00:00').getDay();
+      var firstRow = (firstWd + 6) % 7;
+      var weeks = Math.ceil((HP.calendar.length + firstRow) / 7);
+      months.style.gridTemplateColumns = 'repeat(' + weeks + ',minmax(0,1fr))';
+      grid.style.gridTemplateColumns = 'repeat(' + weeks + ',minmax(0,1fr))';
+      var lastMonth = -1;
+      var lastCol = -1;
+      var lastLabel = null;
+      var total = 0;
+      HP.calendar.forEach(function (day, idx) {
+        total += day.v;
+        var dt = new Date(day.iso + 'T00:00:00');
+        var col = Math.floor((idx + firstRow) / 7);
+        var row = (idx + firstRow) % 7;
+        var c = mk('span', 'cal-cell');
+        c.style.gridColumn = String(col + 1);
+        c.style.gridRow = String(row + 1);
+        c.style.background = HEAT[heatLevel(day.v, HP.calendarMax)];
+        c.title = day.iso + '，' + num(day.v) + ' 次';
+        if (idx === HP.calendar.length - 1) c.className += ' today';
+        grid.appendChild(c);
+        var mo = dt.getMonth();
+        if (mo !== lastMonth) {
+          lastMonth = mo;
+          if (col === lastCol && lastLabel) {
+            lastLabel.textContent = (mo + 1) + ' 月';
+          } else {
+            var m = mk('span', null, (mo + 1) + ' 月');
+            m.style.gridColumn = Math.min(col + 1, Math.max(1, weeks - 3)) + ' / span 4';
+            months.appendChild(m);
+            lastCol = col;
+            lastLabel = m;
+          }
+        }
+      });
+      main.appendChild(months);
+      main.appendChild(grid);
+      wrap.appendChild(main);
+      body.appendChild(wrap);
+      if (sum) {
+        sum.textContent = '近 371 天共记录 ' + num(total) + ' 次，最高单日 ' + num(HP.calendarMax)
+          + ' 次；周末普遍高于工作日，今日已用白框标出。';
+      }
+    }
+  }
+
+  var TABLE_ROWS = (function () {
+    var rows = [];
+    for (var m = HP.nowMinute; m >= 0; m--) {
+      var k = HP.perMinute.keys[m] || 0;
+      var c = HP.perMinute.clicks[m] || 0;
+      var a = k + c;
+      rows.push({ t: fmtMin(m), a: a, k: k, c: c, mv: Math.round(1240000 * a / HP.actionTotal) });
+    }
+    return rows;
+  })();
+  var PAGE_SIZE = 50;
+
+  function renderTable() {
+    var tb = $('#tbl-body');
+    if (!tb) return;
+    var totalPages = Math.max(1, Math.ceil(TABLE_ROWS.length / PAGE_SIZE));
+    state.tablePage = clamp(state.tablePage, 1, totalPages);
+    var start = (state.tablePage - 1) * PAGE_SIZE;
+    var rows = TABLE_ROWS.slice(start, start + PAGE_SIZE);
+    tb.innerHTML = '';
+    rows.forEach(function (r) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + r.t + '</td><td><b>' + num(r.a) + '</b></td><td>' + num(r.k)
+        + '</td><td>' + num(r.c) + '</td><td>' + num(r.mv) + '</td>';
+      tb.appendChild(tr);
+    });
+    setTxt('#pager-info', num(start + 1) + '–' + num(start + rows.length) + '，共 ' + num(TABLE_ROWS.length) + ' 行');
+    setTxt('#pager-page', '第 ' + state.tablePage + ' / ' + totalPages + ' 页');
+    setTxt('#table-meta', '今日 60 秒桶，共 ' + num(TABLE_ROWS.length) + ' 行');
+    var prev = $('#pg-prev'), next = $('#pg-next');
+    if (prev) prev.disabled = state.tablePage <= 1;
+    if (next) next.disabled = state.tablePage >= totalPages;
+  }
+
+  function renderStats() {
+    if (state.route !== 'stats') return;
+    drawLine();
+    renderHist();
+    renderHeat();
+    renderTable();
+  }
+
+  function bindStats() {
+    bindSeg('#seg-range', 'range', function () { drawLine(); });
+    bindSeg('#seg-hist', 'histTab', function () { renderHist(); });
+    bindSeg('#seg-heat', 'heatTab', function () { renderHeat(); });
+    var prev = $('#pg-prev');
+    var next = $('#pg-next');
+    if (prev) prev.addEventListener('click', function () {
+      if (state.tablePage > 1) { state.tablePage--; renderTable(); }
+    });
+    if (next) next.addEventListener('click', function () {
+      var totalPages = Math.max(1, Math.ceil(TABLE_ROWS.length / PAGE_SIZE));
+      if (state.tablePage < totalPages) { state.tablePage++; renderTable(); }
+    });
+    var exp = $('#export-csv');
+    if (exp) exp.addEventListener('click', function () { toast('原型占位：导出当前范围全部行的 CSV'); });
+  }
+
+  /* ================= 设置页 ================= */
+  function bindSettings() {
+    var cap = $('#sw-capture');
+    if (cap) cap.addEventListener('click', function () {
+      setPaused(cap.getAttribute('aria-checked') === 'true');
+    });
+    var auto = $('#sw-autostart');
+    if (auto) auto.addEventListener('click', function () {
+      auto.setAttribute('aria-checked', auto.getAttribute('aria-checked') === 'true' ? 'false' : 'true');
+      toast('开机自启已' + (auto.getAttribute('aria-checked') === 'true' ? '开启' : '关闭') + '（原型仅保存配置）');
+    });
+    bindSeg('#seg-bucket', 'bucket', function (v) {
+      toast('桶粒度已设为 ' + v + ' 秒（原型仅界面）');
+    });
+    var open = $('#btn-open');
+    if (open) open.addEventListener('click', function () { toast('原型占位：不会打开任何目录'); });
+    var ecsv = $('#btn-export-csv');
+    if (ecsv) ecsv.addEventListener('click', function () { toast('原型占位：不会生成 CSV 文件'); });
+    var ejson = $('#btn-export-json');
+    if (ejson) ejson.addEventListener('click', function () { toast('原型占位：不会生成 JSON 文件'); });
+
+    var confirmBox = $('#confirm');
+    var input = $('#confirm-input');
+    var go = $('#confirm-go');
+    var clear = $('#btn-clear');
+    var cancel = $('#confirm-cancel');
+    if (clear) clear.addEventListener('click', function () {
+      if (!confirmBox) return;
+      confirmBox.hidden = false;
+      if (input) { input.value = ''; input.focus(); }
+      if (go) go.disabled = true;
+    });
+    if (input) input.addEventListener('input', function () {
+      if (go) go.disabled = input.value !== 'DELETE';
+    });
+    if (cancel) cancel.addEventListener('click', function () {
+      if (confirmBox) confirmBox.hidden = true;
+      if (input) input.value = '';
+      if (go) go.disabled = true;
+    });
+    if (go) go.addEventListener('click', function () {
+      if (input && input.value === 'DELETE') {
+        toast('原型占位：未删除任何数据');
+        if (confirmBox) confirmBox.hidden = true;
+        if (input) input.value = '';
+        go.disabled = true;
+      }
+    });
+  }
+
+  /* ================= 通用控件 ================= */
+  function bindSeg(sel, key, cb) {
+    var seg = $(sel);
+    if (!seg) return;
+    seg.addEventListener('click', function (e) {
+      var b = e.target.closest('.segbtn');
+      if (!b || !seg.contains(b)) return;
+      var v = b.dataset.v;
+      if (state[key] === v) return;
+      state[key] = v;
+      $$('.segbtn', seg).forEach(function (x) {
+        var on = x === b;
+        x.classList.toggle('on', on);
+        x.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      if (cb) cb(v);
+    });
+  }
+
+  function setSeg(sel, v) {
+    var seg = $(sel);
+    if (!seg) return;
+    $$('.segbtn', seg).forEach(function (x) {
+      var on = x.dataset.v === v;
+      x.classList.toggle('on', on);
+      x.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+
+  var toastTimer = null;
+  function toast(msg) {
+    var t = $('#toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.hidden = false;
+    if (toastTimer) window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(function () { t.hidden = true; }, 2400);
+  }
+
+  /* ================= 实时增量 ================= */
+  function randomKeyLabel() {
+    if (Math.random() < 0.7) {
+      var pick = HP.top10[Math.floor(Math.random() * HP.top10.length)];
+      return pick.label;
+    }
+    var keys = HP.keyboard.keys;
+    return keys[Math.floor(Math.random() * keys.length)].label;
+  }
+
+  function flashKey(label) {
+    var ke = keyElMap[label];
+    if (!ke) return;
+    if (!reduceMotion) {
+      ke.classList.add('pressed');
+      window.setTimeout(function () { ke.classList.remove('pressed'); }, 120);
+    }
+  }
+
+  function tick() {
+    if (state.paused) return;
+    tickN++;
+    if (state.route === 'keyboard' && state.mode !== 'heat') {
+      var label = randomKeyLabel();
+      flashKey(label);
+    }
+    if (state.route === 'keyboard' && state.mode !== 'heat') {
+      sessionKeys[label] = (sessionKeys[label] || 0) + 1;
+      sessionKeyTotal++;
+      if (state.scope === 'session') {
+        var ke = keyElMap[label];
+        if (ke) {
+          var d = scopeData();
+          var lvl = heatLevel(d.counts[label] || 0, d.max);
+          ke.className = 'key lv' + lvl + (ke.classList.contains('pressed') ? ' pressed' : '');
+          ke.setAttribute('aria-label', (keyDisplayMap[label] || label) + '，' + num(d.counts[label] || 0) + ' 次');
+        }
+      }
+    }
+    if (state.route === 'mouse' && tickN % 4 === 0) flashMouse();
+    if (tickN % 20 === 0) {
+      liveExtra++;
+      renderSidebar();
+    }
+  }
+
+  /* ================= 初始化 ================= */
+  function init() {
+    if (!HP) return;
+    document.body.classList.toggle('mode-live', state.mode === 'live');
+    bindKeyboard();
+    bindMouse();
+    bindStats();
+    bindSettings();
+
+    var pb = $('#pause-btn');
+    if (pb) pb.addEventListener('click', function () { setPaused(!state.paused); });
+
+    window.addEventListener('hashchange', onHashChange);
+    window.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        state.pinned = null;
+        hideDetail();
+      }
+    });
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('#kb-wrap')) {
+        state.pinned = null;
+        hideDetail();
+      }
+    });
+
+    var resizeTimer = null;
+    window.addEventListener('resize', function () {
+      if (resizeTimer) window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(function () {
+        if (state.route === 'keyboard') renderKeyboard();
+        if (state.route === 'stats') { drawLine(); renderHist(); renderHeat(); }
+        if (state.route === 'mouse') renderMouse();
+      }, 120);
+    });
+
+    var initial = routeFromHash();
+    if (!location.hash) {
+      try { history.replaceState(null, '', '#/keyboard'); } catch (e) { /* file:// 下可能不允许 */ }
+    }
+    renderSidebar();
+    setRoute(initial, true);
+    window.setInterval(tick, 100);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>手脉 · 六个方向候选</title>
+<style>
+@font-face{font-family:'InterHP';src:url('assets/fonts/InterVariable.woff2') format('woff2');font-weight:100 900;font-display:swap}
+@font-face{font-family:'JBMonoHP';src:url('assets/fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2');font-weight:400;font-display:swap}
+:root{--sans:'InterHP',-apple-system,'SF Pro Display','Segoe UI','Noto Sans SC','Microsoft YaHei',sans-serif;--mono:'JBMonoHP',ui-monospace,'Cascadia Mono',monospace;--blue:#2997ff}
+*{box-sizing:border-box}
+html,body{margin:0;background:#0c0c0d;color:#f5f5f7;font-family:var(--sans)}
+body{padding:34px 34px 44px}
+.board-head{display:flex;align-items:baseline;gap:18px;margin-bottom:22px}
+.board-head h1{font-size:22px;font-weight:600;letter-spacing:-.02em;margin:0}
+.board-head p{font-size:12px;color:#86868b;margin:0}
+.grid{display:grid;grid-template-columns:repeat(3,480px);gap:26px 26px}
+.cell{margin:0}
+.shot{width:480px;height:300px;overflow:hidden;position:relative;border-radius:10px;background:#000;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+.mini{width:960px;height:600px;transform:scale(.5);transform-origin:0 0;position:absolute;inset:0;overflow:hidden}
+figcaption{margin-top:10px;display:flex;gap:9px;align-items:baseline}
+figcaption b{font-size:13px;font-weight:600;letter-spacing:-.01em}
+figcaption span{font-size:11px;color:#86868b}
+figcaption em{font-style:normal;font-family:var(--mono);font-size:10px;color:#2997ff}
+
+/* ---------- 通用键盘 ---------- */
+.kb{position:relative;margin:0 auto}
+.kb .key{position:absolute;border-radius:2px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--sans);font-size:calc(var(--u)*.32);line-height:1;color:#cfd3da;overflow:hidden;
+  transition:background .15s ease}
+.kb .key[data-lv="4"],.kb .key[data-lv="5"]{color:#0b0e14}
+
+/* ---------- 1 Gallery Dark ---------- */
+.m-gallery{background:#000;color:#f5f5f7;display:flex}
+.m-gallery .side{width:168px;padding:28px 20px 24px;display:flex;flex-direction:column}
+.m-gallery .brand{font-size:15px;font-weight:600;letter-spacing:-.02em}
+.m-gallery .brand span{font-size:9px;color:#2997ff;letter-spacing:.1em;margin-left:4px;font-family:var(--mono)}
+.m-gallery nav{margin-top:40px;display:flex;flex-direction:column;gap:15px;font-size:13px;color:#7d7d82}
+.m-gallery nav .on{color:#f5f5f7;position:relative}
+.m-gallery nav .on:before{content:'';position:absolute;left:-12px;top:5px;width:4px;height:4px;border-radius:50%;background:#2997ff}
+.m-gallery .foot{margin-top:auto}
+.m-gallery .foot .n{font-size:32px;font-weight:600;letter-spacing:-.035em;font-family:var(--mono)}
+.m-gallery .foot .l{font-size:9px;color:#7d7d82;margin-top:5px;letter-spacing:.06em}
+.m-gallery .foot .st{display:flex;align-items:center;gap:6px;font-size:10px;color:#a1a1a6;margin-top:16px}
+.m-gallery .foot .st i{width:6px;height:6px;border-radius:50%;background:#35d0a5;box-shadow:0 0 8px #35d0a5}
+.m-gallery .main{flex:1;padding:36px 40px 0;min-width:0}
+.m-gallery h1{font-size:38px;font-weight:600;letter-spacing:-.035em;margin:0}
+.m-gallery .lead{font-size:14px;color:#a1a1a6;margin:9px 0 0;letter-spacing:-.01em}
+.m-gallery .tools{display:flex;align-items:center;gap:16px;margin-top:20px;padding:10px 0;border-top:1px solid #1a1a1c;border-bottom:1px solid #1a1a1c;font-size:10px;color:#7d7d82}
+.m-gallery .tools .grp{display:flex;align-items:center;gap:7px}
+.m-gallery .tools .pill{background:#1a1a1c;border-radius:999px;padding:3px 9px;color:#f5f5f7}
+.m-gallery .tools .spacer{margin-left:auto}
+.m-gallery .stage{position:relative;width:540px;margin:26px auto 0;padding:24px 20px 28px;border-radius:14px;background:radial-gradient(120% 90% at 50% 0%,#15161a 0%,#0a0a0b 62%,#060607 100%)}
+.m-gallery .stage:after{content:'';position:absolute;left:50%;bottom:-26px;transform:translateX(-50%);width:400px;height:50px;background:radial-gradient(50% 50% at 50% 50%,rgba(76,141,255,.18),transparent 70%)}
+.m-gallery .kb .key{box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 1px 0 rgba(0,0,0,.7);border-radius:3px}
+.m-gallery .kb .key[data-lv="5"]{box-shadow:0 0 14px rgba(255,201,74,.5),inset 0 1px 0 rgba(255,255,255,.3)}
+.m-gallery .kb .key[data-lv="4"]{box-shadow:0 0 10px rgba(143,208,107,.28),inset 0 1px 0 rgba(255,255,255,.2)}
+.m-gallery .chips{display:flex;gap:6px;align-items:center;margin-top:34px;font-size:10px;color:#7d7d82}
+.m-gallery .chips b{font-weight:500;color:#f5f5f7;background:#131316;border-radius:999px;padding:3px 8px;font-family:var(--mono);font-size:10px}
+
+/* ---------- 2 Pro Instrument ---------- */
+.m-pro{display:grid;grid-template-columns:46px 1fr 214px;background:#08090b;color:#e9eaec}
+.m-pro .rail{background:#0b0c0e;border-right:1px solid #1e2025;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:14px}
+.m-pro .rail .dot{width:20px;height:20px;border-radius:6px;background:#16181c;border:1px solid #26282e}
+.m-pro .rail .on{background:#1a2740;border-color:#2f4f7d;box-shadow:0 0 0 1px #2997ff33}
+.m-pro .rail .ico{font-size:8px;color:#7c7f86;line-height:1;margin-top:2px}
+.m-pro .center{display:flex;flex-direction:column;min-width:0}
+.m-pro .transport{height:32px;display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid #1e2025;font-size:9px;color:#8d9096}
+.m-pro .rec{display:flex;align-items:center;gap:5px;color:#c9cbd0}
+.m-pro .rec i{width:5px;height:5px;border-radius:50%;background:#35d0a5;box-shadow:0 0 6px #35d0a5}
+.m-pro .seg{display:flex;border:1px solid #2a2d33;border-radius:4px;overflow:hidden;margin-left:6px}
+.m-pro .seg span{padding:3px 8px}
+.m-pro .seg .on{background:#1a2740;color:#9cc0ff;box-shadow:inset 0 0 0 1px #2f4f7d}
+.m-pro .spacer{margin-left:auto}
+.m-pro .mono{font-family:var(--mono)}
+.m-pro .head{display:flex;align-items:baseline;gap:12px;padding:14px 16px 6px}
+.m-pro .head h1{font-size:19px;font-weight:600;letter-spacing:-.02em;margin:0}
+.m-pro .head .sub{font-size:9px;color:#7c7f86;letter-spacing:.02em}
+.m-pro .head .count{margin-left:auto;font-family:var(--mono);font-size:15px;color:#f0f0f2}
+.m-pro .stick{height:22px;margin:4px 16px 8px;display:flex;gap:1px;align-items:flex-end;border-bottom:1px solid #1e2025;padding-bottom:2px}
+.m-pro .stick i{flex:1;background:#2b4a74;border-radius:1px 1px 0 0}
+.m-pro .stick i.hot{background:#d8b05a}
+.m-pro .kbwrap{padding:2px 16px 0}
+.m-pro .kb .key{background:#14161a;border:1px solid #24262c;border-radius:3px;color:#9da1a8;font-size:0}
+.m-pro .kb .key[data-lv="0"]{background:#111318}
+.m-pro .kb .key[data-lv="1"]{background:#16223a;border-color:#23344f}
+.m-pro .kb .key[data-lv="2"]{background:#1d3654;border-color:#2b4a6b}
+.m-pro .kb .key[data-lv="3"]{background:#2a5b7e;border-color:#3b7794}
+.m-pro .kb .key[data-lv="4"]{background:#4c8f75;border-color:#5da88a}
+.m-pro .kb .key[data-lv="5"]{background:#d8b05a;border-color:#e6c377;box-shadow:0 0 10px #d8b05a55}
+.m-pro .legend{display:flex;gap:12px;align-items:center;padding:8px 16px;font-size:8px;color:#767a81;border-top:1px solid #1a1c21;margin-top:8px}
+.m-pro .legend i{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.m-pro .inspector{background:#0b0c0e;border-left:1px solid #1e2025;padding:12px 12px}
+.m-pro .ins-top{display:flex;align-items:baseline;gap:6px;margin-bottom:2px}
+.m-pro .ins-top .k{font-family:var(--mono);font-size:26px;font-weight:500;letter-spacing:-.02em}
+.m-pro .ins-top span{font-size:8px;color:#7c7f86}
+.m-pro .ins-sub{font-size:8px;color:#7c7f86;margin-bottom:10px}
+.m-pro .row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid #17191d;font-size:8px;color:#8d9096}
+.m-pro .row b{font-family:var(--mono);font-weight:400;color:#e9eaec;font-size:9px}
+.m-pro .ins-note{margin-top:10px;font-size:8px;line-height:1.6;color:#767a81}
+
+.m-pro .pro-table{margin:4px 16px 0;border-top:1px solid #1a1c21;padding-top:5px}
+.m-pro .pt-head{display:flex;justify-content:space-between;font-size:7px;color:#6f737a;margin-bottom:2px}
+.m-pro .pt-row{display:grid;grid-template-columns:40px 32px 32px 38px 1fr;gap:8px;align-items:center;font-size:8px;color:#9da1a8;padding:2px 0;font-family:var(--mono)}
+.m-pro .pt-row i{height:2px;background:#1b1e24;border-radius:1px;overflow:hidden}
+.m-pro .pt-row i b{display:block;height:100%;background:#4c8f75}
+.m-pro .pro-lower{display:grid;grid-template-columns:1.15fr 1fr;gap:12px;margin:10px 16px 0}
+.m-pro .pro-lower h4{font-size:7px;font-weight:400;color:#6f737a;margin:0 0 5px;letter-spacing:.05em}
+.m-pro .pl-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.m-pro .pl-grid div{display:flex;align-items:center;gap:6px;font-size:8px;padding:2px 0;border-bottom:1px solid #17191d;font-family:var(--mono)}
+.m-pro .pl-grid b{color:#e9eaec;font-weight:400;width:34px}
+.m-pro .pl-grid em{font-style:normal;color:#9da1a8;margin-left:auto}
+.m-pro .pl-grid span{color:#6f737a;width:30px;text-align:right;font-size:7px}
+.m-pro .bars{display:flex;align-items:flex-end;gap:2px;height:52px;border-bottom:1px solid #1e2025;padding-bottom:2px}
+.m-pro .bars i{flex:1;background:#1f3a55;border-radius:1px 1px 0 0}
+.m-pro .bars i.hot{background:#6a9a72}
+/* ---------- 3 Liquid Glass ---------- */
+.m-glass{position:relative;background:#040507;color:#fff;overflow:hidden}
+.m-glass .amb{position:absolute;inset:0;background:
+  radial-gradient(48% 42% at 50% 48%,rgba(76,141,255,.34),transparent 72%),
+  radial-gradient(30% 26% at 66% 40%,rgba(53,208,165,.12),transparent 70%),
+  radial-gradient(26% 22% at 38% 66%,rgba(255,201,74,.10),transparent 70%)}
+.m-glass .kb-stage{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:0}
+.m-glass .kb-stage .kb{position:relative;opacity:.95}
+.m-glass .kb-stage:after{content:"";position:absolute;inset:-16px -20px;border-radius:28px;background:linear-gradient(155deg,rgba(255,255,255,.10),rgba(255,255,255,.02));backdrop-filter:blur(2.5px) saturate(180%);-webkit-backdrop-filter:blur(2.5px) saturate(180%);border:1px solid rgba(255,255,255,.24);box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 30px 70px rgba(0,0,0,.55)}
+.m-glass .kb-stage .key{font-size:0;border-radius:3px;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.m-glass .nav{position:absolute;left:26px;top:26px;width:132px;padding:12px;border-radius:22px;
+  background:rgba(255,255,255,.075);backdrop-filter:blur(22px) saturate(180%);-webkit-backdrop-filter:blur(22px) saturate(180%);
+  border:1px solid rgba(255,255,255,.16);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 18px 40px rgba(0,0,0,.45)}
+.m-glass .nav .b{font-size:12px;font-weight:600;letter-spacing:-.01em;padding:2px 6px 10px}
+.m-glass .nav a{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#c7cbd4;text-decoration:none;padding:7px 8px;border-radius:12px}
+.m-glass .nav a.on{background:rgba(255,255,255,.16);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
+.m-glass .nav a em{font-style:normal;font-family:var(--mono);font-size:9px;color:#8f96a3}
+.m-glass .float-tools{position:absolute;left:186px;top:26px;height:40px;display:flex;align-items:center;gap:10px;padding:0 14px;border-radius:999px;
+  background:rgba(255,255,255,.08);backdrop-filter:blur(20px) saturate(170%);border:1px solid rgba(255,255,255,.16);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25);font-size:10px;color:#d6d9df}
+.m-glass .float-tools .on{background:rgba(255,255,255,.9);color:#0a0a0c;border-radius:999px;padding:4px 10px;font-weight:600}
+.m-glass .float-tools .d{width:1px;height:14px;background:rgba(255,255,255,.18)}
+.m-glass .meter{position:absolute;right:26px;top:26px;width:158px;padding:12px 14px;border-radius:20px;
+  background:rgba(255,255,255,.09);backdrop-filter:blur(22px) saturate(180%);border:1px solid rgba(255,255,255,.18);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 18px 40px rgba(0,0,0,.4)}
+.m-glass .meter .n{font-family:var(--mono);font-size:28px;letter-spacing:-.03em}
+.m-glass .meter .l{font-size:9px;color:#aab1bd;margin-top:2px}
+.m-glass .meter .bar{height:3px;border-radius:2px;background:rgba(255,255,255,.14);margin-top:9px;overflow:hidden}
+.m-glass .meter .bar i{display:block;height:100%;width:66%;background:linear-gradient(90deg,#4c8dff,#8fd06b,#ffc94a)}
+.m-glass .title{position:absolute;left:186px;top:92px;width:520px}
+.m-glass .title h1{font-size:42px;font-weight:600;letter-spacing:-.035em;margin:0;text-shadow:0 2px 24px rgba(0,0,0,.5)}
+.m-glass .title p{font-size:12px;color:#b9c0cc;margin:8px 0 0}
+.m-glass .panel{position:absolute;left:186px;right:26px;bottom:20px;height:172px;display:flex;gap:14px}
+.m-glass .pane{background:rgba(255,255,255,.07);backdrop-filter:blur(24px) saturate(170%);border:1px solid rgba(255,255,255,.15);
+  border-radius:24px;box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 24px 50px rgba(0,0,0,.42);padding:14px 16px}
+.m-glass .pane.top{flex:1.5}
+.m-glass .pane.side{flex:1}
+.m-glass .pane h3{font-size:10px;font-weight:500;color:#aab1bd;margin:0 0 8px;letter-spacing:.04em}
+.m-glass .pane .row{display:flex;align-items:center;gap:10px;font-size:10px;padding:5px 0}
+.m-glass .pane .row b{font-family:var(--mono);font-weight:400;width:30px}
+.m-glass .pane .row .track{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
+.m-glass .pane .row .track i{display:block;height:100%;border-radius:2px;background:rgba(255,255,255,.7)}
+.m-glass .pane .row em{font-style:normal;font-family:var(--mono);font-size:9px;color:#aab1bd;width:44px;text-align:right}
+
+/* ---------- 4 Light Gallery ---------- */
+.m-light{background:#fff;color:#1d1d1f;display:flex}
+.m-light .side{width:168px;background:#f5f5f7;padding:28px 20px 24px;display:flex;flex-direction:column;border-right:1px solid #e8e8ed}
+.m-light .brand{font-size:15px;font-weight:600;letter-spacing:-.02em}
+.m-light .brand span{font-size:9px;color:#0066cc;margin-left:4px;font-family:var(--mono);letter-spacing:.08em}
+.m-light nav{display:flex;flex-direction:column;gap:15px;margin-top:40px;font-size:13px;color:#7a7a7e}
+.m-light nav .on{color:#1d1d1f}
+.m-light .foot{margin-top:auto}
+.m-light .foot .n{font-family:var(--mono);font-size:32px;font-weight:500;letter-spacing:-.035em}
+.m-light .foot .l{font-size:9px;color:#7a7a7e;margin-top:5px;letter-spacing:.05em}
+.m-light .main{flex:1;padding:36px 40px 0;min-width:0}
+.m-light h1{font-size:40px;font-weight:600;letter-spacing:-.035em;margin:0}
+.m-light .lead{font-size:14px;color:#6e6e73;margin:9px 0 0}
+.m-light .tools{display:flex;align-items:center;gap:14px;margin-top:20px;padding:10px 0;border-top:1px solid #f0f0f0;border-bottom:1px solid #f0f0f0;font-size:10px;color:#7a7a7e}
+.m-light .tools .pill{background:#1d1d1f;color:#fff;border-radius:999px;padding:3px 9px}
+.m-light .tools .spacer{margin-left:auto}
+.m-light .stage{width:540px;margin:28px auto 0;padding:24px 20px 28px;border-radius:18px;background:#fff;border:1px solid #ededf0;box-shadow:0 3px 5px 30px rgba(0,0,0,.08)}
+.m-light .kb .key{background:#f2f2f4;color:#4a4a4f;box-shadow:inset 0 -1px 0 rgba(0,0,0,.06),0 1px 0 rgba(0,0,0,.05);border-radius:3px}
+.m-light .kb .key[data-lv="4"],.m-light .kb .key[data-lv="5"]{color:#fff}
+.m-light .chips{display:flex;gap:6px;margin-top:30px;font-size:10px;color:#7a7a7e}
+.m-light .chips b{font-family:var(--mono);font-weight:400;color:#1d1d1f;background:#f5f5f7;border-radius:999px;padding:3px 8px}
+
+/* ---------- 5 Health Dark ---------- */
+.m-health{background:#000;color:#fff;padding:0}
+.m-health .top{height:46px;display:flex;align-items:center;gap:20px;padding:0 26px;border-bottom:1px solid #1c1c1e}
+.m-health .top .b{font-size:13px;font-weight:600}
+.m-health .top nav{display:flex;gap:16px;font-size:10px;color:#8e8e93}
+.m-health .top nav .on{color:#fff}
+.m-health .top .t{margin-left:auto;font-family:var(--mono);font-size:10px;color:#8e8e93}
+.m-health .hero{padding:20px 30px 14px;display:flex;align-items:flex-end;gap:16px}
+.m-health .hero .n{font-size:56px;font-weight:700;letter-spacing:-.045em;line-height:1;font-family:var(--sans)}
+.m-health .hero .cap{font-size:10px;color:#8e8e93;padding-bottom:6px}
+.m-health .grid{display:grid;grid-template-columns:1.55fr 1fr 1fr;gap:12px;padding:0 20px}
+.m-health .card{background:#1c1c1e;border-radius:16px;padding:14px}
+.m-health .card h3{font-size:9px;font-weight:500;color:#8e8e93;margin:0 0 10px;letter-spacing:.03em}
+.m-health .card .big{font-family:var(--mono);font-size:24px;letter-spacing:-.03em}
+.m-health .card .small{font-size:9px;color:#8e8e93;margin-top:3px}
+.m-health .kb .key{background:#2c2c2e;border-radius:4px;color:#aeaeb2;font-size:0}
+.m-health .card.wide{padding:12px 12px}
+.m-health .card.wide .kb{margin-top:2px}
+.m-health .status{display:flex;align-items:center;gap:5px;font-size:9px;color:#8e8e93;margin-top:8px}
+.m-health .status i{width:5px;height:5px;border-radius:50%;background:#35d0a5}
+
+.m-health .grid.row2{margin-top:12px;grid-template-columns:1.55fr 1fr 1fr}
+.m-health .bars24{display:flex;align-items:flex-end;gap:2px;height:52px;border-bottom:1px solid #2c2c2e;padding-bottom:2px}
+.m-health .bars24 i{flex:1;background:#3a3a3c;border-radius:1px 1px 0 0}
+.m-health .bars24 i.hot{background:#35d0a5}
+/* ---------- 6 Type Monument ---------- */
+.m-type{background:#000;color:#fff;padding:26px 36px;position:relative}
+.m-type .top{display:flex;justify-content:space-between;align-items:baseline;font-size:9px;color:#8b8b90;letter-spacing:.04em}
+.m-type .top .l{color:#fff;font-weight:600;font-size:12px;letter-spacing:-.01em}
+.m-type .num{font-size:152px;font-weight:600;letter-spacing:-.07em;line-height:.86;margin-top:14px}
+.m-type .cap{font-size:12px;color:#8b8b90;margin-top:8px;letter-spacing:.02em}
+.m-type .cap b{color:#2997ff;font-weight:500}
+.m-type .kbwrap{margin-top:20px;opacity:.9}
+.m-type .kb .key{background:#151517;border-radius:1px;font-size:0}
+.m-type .kb .key[data-lv="5"]{background:#f5f5f7}
+.m-type .kb .key[data-lv="4"]{background:#8a8a8f}
+.m-type .kb .key[data-lv="3"]{background:#3e3e42}
+.m-type .kb .key[data-lv="2"]{background:#262629}
+.m-type .line{margin-top:16px;padding-top:10px;border-top:1px solid #1d1d1f;display:flex;gap:18px;font-family:var(--mono);font-size:9px;color:#8b8b90}
+.m-type .line b{color:#f5f5f7;font-weight:400}
+.m-type .foot{position:absolute;right:36px;bottom:24px;text-align:right;font-size:9px;color:#5f5f63;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="board-head">
+  <h1>手脉 · 六个方向候选</h1>
+  <p>同一屏（键盘 / 今日）的六种骨架 · 480×300 缩略 · 数据同一份</p>
+</div>
+
+<div class="grid">
+
+<!-- 1 Gallery Dark -->
+<figure class="cell">
+  <div class="shot">
+    <div class="mini m-gallery">
+      <aside class="side">
+        <div class="brand">手脉<span>PROTO</span></div>
+        <nav><a class="on">键盘</a><a>鼠标</a><a>数据</a><a>设置</a></nav>
+        <div class="foot">
+          <div class="n">17,642</div>
+          <div class="l">今日动作 · 按键 12,438</div>
+          <div class="st"><i></i>采集 · 运行中</div>
+        </div>
+      </aside>
+      <div class="main">
+        <h1>键盘使用</h1>
+        <p class="lead">今天按了 12,438 次。W 出现最多，1,204 次。</p>
+        <div class="tools">
+          <div class="grp">显示 <span class="pill">全部</span> 热力 实时</div>
+          <div class="grp">布局 104 / 87</div>
+          <div class="spacer"></div>
+          <div class="grp">范围 本次 · <b style="color:#f5f5f7;font-weight:500">今日</b> · 7 天</div>
+        </div>
+        <div class="stage"><div class="kb" data-theme="gallery" data-u="18"></div></div>
+        <div class="chips">高频键 <b>W</b><b>A</b><b>D</b><b>Space</b><b>LShift</b><b>E</b><b>Q</b><b>R</b></div>
+      </div>
+    </div>
+  </div>
+  <figcaption><em>01</em><b>暗厅 · Gallery Dark</b><span>把键盘当产品拍</span></figcaption>
+</figure>
+
+<!-- 2 Pro Instrument -->
+<figure class="cell">
+  <div class="shot">
+    <div class="mini m-pro">
+      <div class="rail">
+        <div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <div class="ico">键盘</div><div class="ico">鼠标</div><div class="ico">数据</div><div class="ico">设置</div>
+      </div>
+      <div class="center">
+        <div class="transport"><span class="rec"><i></i>运行中</span><span>2026-11-04 周三</span>
+          <div class="seg"><span>本次</span><span class="on">今日</span><span>7 天</span></div>
+          <span class="spacer"></span><span class="mono">17,642 动作</span><span class="mono">21:43</span>
+        </div>
+        <div class="head"><h1>键盘使用</h1><span class="sub">今日 · 104 布局</span><span class="count">12,438</span></div>
+        <div class="stick"></div>
+        <div class="kbwrap"><div class="kb" data-theme="pro" data-u="18"></div></div>
+        <div class="legend"><span><i style="background:#d8b05a"></i>最高</span><span><i style="background:#4c8f75"></i>高</span><span><i style="background:#2a5b7e"></i>中</span><span><i style="background:#1d3654"></i>低</span><span style="margin-left:auto">按住 A 键 3.4 秒 · 计 1 次</span></div>
+        <div class="pro-table">
+          <div class="pt-head"><span>最近记录</span><span>时间 · 按键 · 点击 · 动作</span></div>
+          <div class="pt-row"><span>21:40</span><span>96</span><span>18</span><span>114</span><i><b style="width:44%"></b></i></div>
+          <div class="pt-row"><span>21:41</span><span>124</span><span>22</span><span>146</span><i><b style="width:56%"></b></i></div>
+          <div class="pt-row"><span>21:42</span><span>88</span><span>15</span><span>103</span><i><b style="width:40%"></b></i></div>
+          <div class="pt-row"><span>21:43</span><span>41</span><span>7</span><span>48</span><i><b style="width:18%"></b></i></div>
+        </div>
+        <div class="pro-lower">
+          <div class="pl">
+            <h4>TOP 10 键位</h4>
+            <div class="pl-grid">
+              <div><b>W</b><em>1,204</em><span>9.7%</span></div>
+              <div><b>A</b><em>986</em><span>7.9%</span></div>
+              <div><b>D</b><em>921</em><span>7.4%</span></div>
+              <div><b>Space</b><em>878</em><span>7.1%</span></div>
+              <div><b>LShift</b><em>764</em><span>6.1%</span></div>
+              <div><b>E</b><em>703</em><span>5.7%</span></div>
+              <div><b>Q</b><em>641</em><span>5.2%</span></div>
+              <div><b>R</b><em>588</em><span>4.7%</span></div>
+              <div><b>LCtrl</b><em>552</em><span>4.4%</span></div>
+              <div><b>S</b><em>497</em><span>4.0%</span></div>
+            </div>
+          </div>
+          <div class="ph">
+            <h4>24 小时</h4>
+            <div class="bars" id="proBars"></div>
+          </div>
+        </div>
+      </div>
+      <aside class="inspector">
+        <div class="ins-top"><span class="k">A</span><span>键位详情</span></div>
+        <div class="ins-sub">QWERTY · 左手小指区 · 按下 986 次</div>
+        <div class="row"><span>占今日按键</span><b>7.9%</b></div>
+        <div class="row"><span>平均按住</span><b>96 ms</b></div>
+        <div class="row"><span>最长按住</span><b>3,412 ms</b></div>
+        <div class="row"><span>首次出现</span><b>09:12</b></div>
+        <div class="row"><span>最近出现</span><b>21:41</b></div>
+        <div class="ins-note">按住超过 500 ms 才算长按；系统自动重复已过滤。</div>
+      </aside>
+    </div>
+  </div>
+  <figcaption><em>02</em><b>工作台 · Pro Instrument</b><span>测量仪器，不是报告</span></figcaption>
+</figure>
+
+<!-- 3 Liquid Glass -->
+<figure class="cell">
+  <div class="shot">
+    <div class="mini m-glass">
+      <div class="amb"></div>
+      <div class="kb-stage"><div class="kb" data-theme="glass" data-u="21"></div></div>
+      <div class="nav">
+        <div class="b">手脉</div>
+        <a class="on">键盘<em>12,438</em></a>
+        <a>鼠标<em>5,204</em></a>
+        <a>数据<em>今日</em></a>
+        <a>设置<em>60s</em></a>
+      </div>
+      <div class="float-tools"><span class="on">今日</span><span>7 天</span><span class="d"></span><span>全部</span><span>热力</span><span>实时</span></div>
+      <div class="meter"><div class="n">380</div><div class="l">APM 峰值 · 21:03</div><div class="bar"><i></i></div></div>
+      <div class="title"><h1>键盘</h1><p>今天按了 12,438 次。W 最多，1,204 次。</p></div>
+      <div class="panel">
+        <div class="pane top">
+          <h3>TOP 键位</h3>
+          <div class="row"><b>W</b><span class="track"><i style="width:100%"></i></span><em>1,204</em></div>
+          <div class="row"><b>A</b><span class="track"><i style="width:82%"></i></span><em>986</em></div>
+          <div class="row"><b>D</b><span class="track"><i style="width:76%"></i></span><em>921</em></div>
+          <div class="row"><b>Space</b><span class="track"><i style="width:73%"></i></span><em>878</em></div>
+        </div>
+        <div class="pane side">
+          <h3>现在</h3>
+          <div class="row" style="justify-content:space-between"><span>W</span><em>+ 14 次</em></div>
+          <div class="row" style="justify-content:space-between"><span>Space</span><em>+ 9 次</em></div>
+          <div class="row" style="justify-content:space-between"><span>LShift</span><em>+ 6 次</em></div>
+          <div class="row" style="justify-content:space-between;color:#8f96a3"><span>已记录 3 小时 12 分</span><em>21:43</em></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <figcaption><em>03</em><b>流体玻璃 · Liquid Glass</b><span>读数浮在数据之上</span></figcaption>
+</figure>
+
+<!-- 4 Light Gallery -->
+<figure class="cell">
+  <div class="shot">
+    <div class="mini m-light">
+      <aside class="side">
+        <div class="brand">手脉<span>PROTO</span></div>
+        <nav><a class="on">键盘</a><a>鼠标</a><a>数据</a><a>设置</a></nav>
+        <div class="foot">
+          <div class="n">17,642</div>
+          <div class="l">今日动作 · 按键 12,438</div>
+        </div>
+      </aside>
+      <div class="main">
+        <h1>键盘使用</h1>
+        <p class="lead">今天按了 12,438 次。W 出现最多，1,204 次。</p>
+        <div class="tools">
+          <div>显示 <span class="pill">全部</span> 热力 实时</div>
+          <div>布局 104 / 87</div>
+          <div class="spacer"></div>
+          <div>范围 本次 · <b style="color:#1d1d1f">今日</b> · 7 天</div>
+        </div>
+        <div class="stage"><div class="kb" data-theme="light" data-u="18"></div></div>
+        <div class="chips">高频键 <b>W</b><b>A</b><b>D</b><b>Space</b><b>LShift</b><b>E</b><b>Q</b><b>R</b></div>
+      </div>
+    </div>
+  </div>
+  <figcaption><em>04</em><b>白厅 · Light Gallery</b><span>参考文档原样（与「只做深色」冲突）</span></figcaption>
+</figure>
+
+<!-- 5 Health Dark -->
+<figure class="cell">
+  <div class="shot">
+    <div class="mini m-health">
+      <div class="top"><span class="b">手脉</span><nav><span class="on">键盘</span><span>鼠标</span><span>数据</span><span>设置</span></nav><span class="t">周三 21:43</span></div>
+      <div class="hero"><div class="n">17,642</div><div class="cap">今日动作<br>按键 12,438 · 点击 5,204</div></div>
+      <div class="grid">
+        <div class="card wide"><h3>键盘</h3><div class="kb" data-theme="health" data-u="15"></div><div class="status"><i></i>采集中 · 60s 桶</div></div>
+        <div class="card"><h3>最多</h3><div class="big">W</div><div class="small">1,204 次 · 9.7%</div><div class="status"><i></i>左手 · 中指</div></div>
+        <div class="card"><h3>峰值</h3><div class="big">380</div><div class="small">APM · 21:03</div><div class="status"><i></i>第 3 局</div></div>
+      </div>
+    </div>
+  </div>
+  <figcaption><em>05</em><b>体征 · Health Dark</b><span>一天的读数（小心滑向评分）</span></figcaption>
+</figure>
+
+<!-- 6 Type Monument -->
+<figure class="cell">
+  <div class="shot">
+    <div class="mini m-type">
+      <div class="top"><span class="l">手脉</span><span>键盘 / 今日 / 21:43</span></div>
+      <div class="num">12,438</div>
+      <div class="cap">今天按下的键。<b>W 1,204</b> · A 986 · D 921 · Space 878</div>
+      <div class="kbwrap"><div class="kb" data-theme="type" data-u="12"></div></div>
+      <div class="line"><span>ANCHOR <b>W</b></span><span>峰值 <b>380 APM</b></span><span>最长按住 <b>3.4 s</b></span><span>记录 <b>60 s 桶</b></span></div>
+      <div class="foot">不记录输入内容<br>不上传 · 不评分</div>
+    </div>
+  </div>
+  <figcaption><em>06</em><b>铭文 · Type Monument</b><span>一个数字说完今天</span></figcaption>
+</figure>
+
+</div>
+
+<script src="mock-gen.js"></script>
+<script>
+(function(){
+  var MAX = 1204;
+  var THEMES = {
+    gallery: ['#131316','#16283c','#1d4767','#2b7a92','#66b98a','#e9c25c'],
+    pro:     ['#111318','#16223a','#1d3654','#2a5b7e','#4c8f75','#d8b05a'],
+    glass:   ['rgba(255,255,255,.09)','rgba(76,141,255,.42)','rgba(70,150,200,.52)','rgba(80,180,180,.58)','rgba(150,205,120,.66)','rgba(255,205,90,.82)'],
+    light:   ['#f2f2f4','#dbe9fb','#b9d8f8','#7fb4e8','#4a8ecb','#1e5f9e'],
+    health:  ['#2c2c2e','#20344a','#22506b','#2f7f86','#5da86b','#e6c34a'],
+    type:    ['#151517','#1d1d20','#2a2a2e','#3e3e42','#8a8a8f','#f5f5f7']
+  };
+  function lv(c){
+    if (c >= 1200) return 5;
+    if (c >= 900) return 4;
+    if (c >= 700) return 3;
+    if (c >= 300) return 2;
+    if (c > 0) return 1;
+    return 0;
+  }
+  document.querySelectorAll('.kb').forEach(function(el){
+    var u = parseFloat(el.dataset.u || 16);
+    var theme = el.dataset.theme || 'gallery';
+    var pal = THEMES[theme];
+    el.style.setProperty('--u', u + 'px');
+    el.style.width = (24 * u) + 'px';
+    el.style.height = (6 * u) + 'px';
+    HP.keyboard.keys.forEach(function(k){
+      var d = document.createElement('div');
+      var l = lv(k.count);
+      d.className = 'key';
+      d.dataset.lv = l;
+      d.style.left = (k.x * u) + 'px';
+      d.style.top = (k.y * u) + 'px';
+      d.style.width = Math.max(2, k.w * u - 2) + 'px';
+      d.style.height = Math.max(2, k.h * u - 2) + 'px';
+      d.style.background = pal[l];
+      el.appendChild(d);
+    });
+  });
+  // Pro 的 24 小时柱 / Health 的 24 小时柱
+  var bars = document.getElementById('proBars');
+  if (bars) {
+    var mxh = Math.max.apply(null, HP.keyHour);
+    HP.keyHour.forEach(function(v){
+      var b = document.createElement('i');
+      b.style.height = Math.max(1, Math.round(v / mxh * 50)) + 'px';
+      if (v > mxh * 0.6) b.className = 'hot';
+      bars.appendChild(b);
+    });
+  }
+  var hbars = document.getElementById('healthBars');
+  if (hbars) {
+    var mx2 = Math.max.apply(null, HP.keyHour);
+    HP.keyHour.forEach(function(v){
+      var b = document.createElement('i');
+      b.style.height = Math.max(1, Math.round(v / mx2 * 50)) + 'px';
+      if (v > mx2 * 0.6) b.className = 'hot';
+      hbars.appendChild(b);
+    });
+  }
+  // Pro 的时间轴：60 根柱子，按真实分钟数据
+  var stick = document.querySelector('.m-pro .stick');
+  if (stick) {
+    var arr = HP.perMinute.keys.slice(21 * 60 + 40, 21 * 60 + 43 + 1);
+    var base = HP.perMinute.keys.slice(21 * 60 - 57, 21 * 60 + 43 + 1).filter(function(v){ return v != null; });
+    var mx = Math.max.apply(null, base) || 1;
+    for (var i = 0; i < 60; i++) {
+      var v = base[Math.max(0, base.length - 60 + i)] || 0;
+      var bar = document.createElement('i');
+      bar.style.height = Math.max(2, Math.round(v / mx * 20)) + 'px';
+      if (v > mx * 0.7) bar.className = 'hot';
+      stick.appendChild(bar);
+    }
+  }
+})();
+</script>
+</body>
+</html>
+
+

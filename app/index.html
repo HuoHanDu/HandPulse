@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>手脉 HandPulse</title>
+</head>
+<body>
+<div class="app" id="app">
+  <nav class="rail" aria-label="主导航">
+    <div class="rail-brand" aria-hidden="true">手脉</div>
+    <div class="rail-list">
+      <a class="rail-btn" href="#/keyboard" data-r="keyboard" aria-label="键盘查看" title="键盘查看">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="11" rx="1.8"/><path d="M6 10h.01M9 10h.01M12 10h.01M15 10h.01M18 10h.01M6 13.5h.01M18 13.5h.01M9 13.5h9"/></svg>
+      </a>
+      <a class="rail-btn" href="#/mouse" data-r="mouse" aria-label="鼠标查看" title="鼠标查看">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="7.5" y="2.5" width="9" height="19" rx="4.5"/><path d="M12 3v8M7.5 11h9"/></svg>
+      </a>
+      <a class="rail-btn" href="#/stats" data-r="stats" aria-label="数据展示" title="数据展示">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V11M9.3 19V5M14.7 19v-6M20 19V9"/></svg>
+      </a>
+      <a class="rail-btn" href="#/settings" data-r="settings" aria-label="设置" title="设置">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </a>
+    </div>
+    <div class="rail-foot">
+      <span class="live-dot" id="railDot" title="采集运行中"></span>
+    </div>
+  </nav>
+
+  <main class="main">
+    <header class="transport">
+      <h1 class="tp-title" id="tpTitle">键盘</h1>
+      <button class="status" id="statusBtn" type="button" aria-pressed="false" title="暂停记录">
+        <span class="live-dot" id="statusDot"></span><span id="statusText">运行中</span>
+      </button>
+      <span class="tp-date mono">2026-11-04 周三</span>
+      <div class="seg" id="rangeSeg" role="group" aria-label="时间范围"></div>
+      <div class="tp-spacer"></div>
+      <div class="tp-readout"><span>今日动作</span><b class="mono" id="roActions">17,642</b></div>
+      <div class="tp-readout"><span>按键</span><b class="mono" id="roKeys">12,438</b></div>
+      <div class="tp-readout"><span>点击</span><b class="mono" id="roClicks">5,204</b></div>
+      <span class="tp-time mono">21:43</span>
+      <button class="icon-btn" id="pauseBtn" type="button" aria-label="暂停记录" aria-pressed="false" title="暂停记录">
+        <svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.6" height="12" rx="1"/><rect x="9.4" y="2" width="3.6" height="12" rx="1"/></svg>
+      </button>
+    </header>
+
+    <div class="tape" id="tape">
+      <span class="tape-label">输入时间轴</span>
+      <span class="tape-meta mono">−60 秒</span>
+      <canvas id="tapeCanvas"></canvas>
+      <span class="tape-meta mono">现在</span>
+    </div>
+
+    <div class="view" id="view">
+
+      <!-- ============ 键盘 ============ -->
+      <section class="page" data-page="keyboard" aria-label="键盘查看">
+        <header class="g-head"><h1>键盘使用</h1><p>今天按了 12,438 次键。W 出现最多，1,204 次。</p></header>
+        <div class="panel kb-panel">
+          <div class="ph">
+            <span class="ph-title">键位热力</span>
+            <div class="seg" id="dispSeg" role="group" aria-label="显示模式"></div>
+            <div class="seg" id="layoutSeg" role="group" aria-label="键盘布局"></div>
+            <div class="ph-spacer"></div>
+            <span class="ph-meta" id="kbRangeMeta">今日</span>
+            <button class="tbtn" id="resetView" type="button">重置视图</button>
+            <button class="tbtn" id="exportKb" type="button">导出 CSV</button>
+          </div>
+          <div class="kbstage" id="kbstage">
+            <div class="kbc" id="kbc"></div>
+          </div>
+          <div class="page-mask" id="kbMask" hidden>
+            <div class="mask-title" id="kbMaskTitle">记录已暂停</div>
+            <div class="mask-note" id="kbMaskNote">已暂停</div>
+            <button class="mask-btn" id="kbMaskBtn" type="button">恢复采集</button>
+          </div>
+        </div>
+
+        <div class="panel band">
+          <div class="ph">
+            <span class="ph-title">近 60 分钟</span>
+            <span class="band-readout mono" id="bandReadout"></span>
+            <div class="ph-spacer"></div>
+            <span class="ph-meta">每分钟按键次数，越近越亮</span>
+          </div>
+          <div class="band-bars" id="bandBars"></div>
+          <div class="band-axis mono"><span id="bandA">20:44</span><span id="bandB">21:13</span><span id="bandC">21:43</span></div>
+        </div>
+
+        <div class="panel top10">
+          <div class="ph">
+            <span class="ph-title">Top 10 键位</span>
+            <div class="ph-spacer"></div>
+            <span class="ph-meta">占比 = 次数 / 全部按键</span>
+          </div>
+          <div class="top10-table" id="top10Table"></div>
+        </div>
+
+        <div class="kbfoot" id="kbFoot">
+          <div class="legend" id="legend"></div>
+          <div class="chips" id="chips"></div>
+          <div class="foot-note">按住 A 键 3.4 秒，仍计 1 次。</div>
+        </div>
+      </section>
+
+      <!-- ============ 鼠标 ============ -->
+      <section class="page" data-page="mouse" aria-label="鼠标查看">
+        <header class="g-head"><h1>鼠标使用</h1><p>今天点了 5,204 次，鼠标移动了约 12.4 公里。</p></header>
+        <div class="mouse-top">
+          <div class="panel grid-panel">
+            <div class="ph">
+              <span class="ph-title">屏幕网格</span>
+              <div class="seg" id="layerSeg" role="group" aria-label="图层"></div>
+              <div class="ph-spacer"></div>
+              <span class="ph-meta">主屏 32 × 18</span>
+            </div>
+            <div class="screenwrap">
+              <div class="screen" id="screenGrid"></div>
+            </div>
+            <div class="screen-foot">
+              <span id="gridFoot">准星区 —</span>
+              <span>16:9 虚线为主屏轮廓</span>
+            </div>
+            <div class="page-mask" id="mouseMask" hidden>
+              <div class="mask-title">移动一下鼠标</div>
+              <div class="mask-note">示例数据已清空。</div>
+              <button class="mask-btn" data-restore type="button">恢复演示数据</button>
+            </div>
+          </div>
+
+          <div class="panel metric-panel">
+            <div class="ph">
+              <span class="ph-title">指标</span>
+              <div class="ph-spacer"></div>
+              <span class="ph-meta" id="metricRange">今日</span>
+            </div>
+            <div class="metrics" id="metrics"></div>
+            <div class="rhythm">
+              <div class="rhythm-head"><span>每小时点击</span><b class="mono" id="rhythmPeak"></b></div>
+              <div class="rhythm-bars" id="rhythmBars"></div>
+            </div>
+            <div class="dist">
+              <div class="dist-head"><span>点击构成</span><span id="distTotal">5,204</span></div>
+              <div class="stack" id="distStack"></div>
+              <div class="dist-legend" id="distLegend"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mouse-bottom">
+          <div class="panel mouse-panel">
+            <div class="ph"><span class="ph-title">鼠标俯视</span></div>
+            <div class="mouseshape">
+              <svg id="mouseSvg" width="288" height="232" viewBox="0 0 288 232" role="img" aria-label="鼠标俯视图，显示左键、右键、中键、双侧键与滚轮的点击次数">
+                <path class="m-case" d="M144 10 C176 10 196 34 200 72 L204 168 C206 204 180 224 144 224 C108 224 82 204 84 168 L88 72 C92 34 112 10 144 10 Z"/>
+                <path class="m-btn" id="mLeft" d="M144 12 C114 12 92 34 90 72 L90 104 H144 Z"/>
+                <path class="m-btn" id="mRight" d="M144 12 C174 12 196 34 198 72 L198 104 H144 Z"/>
+                <line x1="144" y1="12" x2="144" y2="104" stroke="#2c3138" stroke-width="1"/>
+                <line x1="90" y1="104" x2="198" y2="104" stroke="#2c3138" stroke-width="1"/>
+                <rect class="m-wheel" id="mWheel" x="136" y="50" width="16" height="34" rx="8"/>
+                <rect class="m-side" id="mSide1" x="76" y="84" width="9" height="17" rx="2.5"/>
+                <rect class="m-side" id="mSide2" x="76" y="110" width="9" height="17" rx="2.5"/>
+                <text class="m-num" id="mLeftN" x="112" y="74" text-anchor="middle">3,204</text>
+                <text class="m-lbl" x="112" y="92" text-anchor="middle">左键</text>
+                <text class="m-num" id="mRightN" x="176" y="74" text-anchor="middle">1,872</text>
+                <text class="m-lbl" x="176" y="92" text-anchor="middle">右键</text>
+                <text class="m-lbl" x="144" y="128" text-anchor="middle">中键</text>
+                <text class="m-num" id="mMid" x="144" y="146" text-anchor="middle">12</text>
+                <line x1="200" y1="66" x2="220" y2="66" stroke="#2c3138" stroke-width="1"/>
+                <text class="m-lbl" x="226" y="54">滚轮</text>
+                <text class="m-num" id="mUp" x="226" y="72">↑1,204</text>
+                <text class="m-num" id="mDown" x="226" y="90">↓986</text>
+                <text class="m-lbl" x="68" y="92" text-anchor="end">侧键</text>
+                <text class="m-num" id="mSideN" x="68" y="110" text-anchor="end">116</text>
+                <text class="m-lbl" x="144" y="196" text-anchor="middle">总点击</text>
+                <text class="m-num" id="mTotal" x="144" y="214" text-anchor="middle">5,204</text>
+              </svg>
+            </div>
+          </div>
+
+          <div class="panel hotspot-panel">
+            <div class="ph">
+              <span class="ph-title">点击热点</span>
+              <div class="ph-spacer"></div>
+              <span class="ph-meta">按次数排序，前 6 格</span>
+            </div>
+            <div class="hotspots" id="hotspots"></div>
+            <div class="hotspot-note" id="hotspotNote">网格把主屏切 32 × 18 格。移动图层为原型近似：按点击热力平滑估算，正式版由采样点单独统计。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 数据 ============ -->
+      <section class="page" data-page="stats" aria-label="数据展示">
+        <header class="g-head"><h1>数据展示</h1><p>今日峰值 380 次/分，出现在 21:03。</p></header>
+        <div class="panel stat-top">
+          <div class="ph">
+            <span class="ph-title">输入强度</span>
+            <span class="ph-meta" id="lineUnit">次/分</span>
+            <div class="ph-spacer"></div>
+            <span class="line-readout mono" id="lineReadout"></span>
+          </div>
+          <div class="chart" id="lineChart"></div>
+          <div class="chart-note" id="lineNote"></div>
+        </div>
+
+        <div class="stat-mid">
+          <div class="panel">
+            <div class="ph">
+              <span class="ph-title">分布</span>
+              <div class="seg" id="histSeg" role="group" aria-label="直方图视图"></div>
+              <div class="ph-spacer"></div>
+              <span class="ph-meta" id="histReadout"></span>
+            </div>
+            <div class="chart" id="histChart"></div>
+          </div>
+          <div class="panel">
+            <div class="ph">
+              <span class="ph-title">使用热力</span>
+              <div class="seg" id="heatSeg" role="group" aria-label="热力图视图"></div>
+              <div class="ph-spacer"></div>
+              <span class="ph-meta" id="heatReadout"></span>
+            </div>
+            <div class="chart" id="heatChart"></div>
+          </div>
+        </div>
+
+        <div class="panel stat-table">
+          <div class="ph">
+            <span class="ph-title">明细</span>
+            <span class="ph-meta" id="tableGran">每桶 60 秒</span>
+            <div class="ph-spacer"></div>
+            <span class="ph-meta" id="tableCount"></span>
+            <button class="tbtn" id="exportTable" type="button">导出 CSV</button>
+          </div>
+          <div class="tablewrap">
+            <div class="t-head"><span>时间</span><span>动作数</span><span>键次数</span><span>点击</span><span>移动 (cm)</span></div>
+            <div id="tableRows"></div>
+          </div>
+          <div class="pager" id="pager"></div>
+        </div>
+
+        <div class="page-mask" id="statsMask" hidden>
+          <div class="mask-title">还没有数据，先在键盘/鼠标页敲几下</div>
+          <div class="mask-note">示例数据已清空。</div>
+          <button class="mask-btn" data-restore type="button">恢复演示数据</button>
+        </div>
+      </section>
+
+      <!-- ============ 设置 ============ -->
+      <section class="page" data-page="settings" aria-label="设置">
+        <header class="g-head"><h1>设置</h1><p>采集只在本机进行，不联网，也不记录你输入了什么。</p></header>
+        <div class="settings-wrap" id="settingsWrap">
+          <div class="prefs">
+            <div class="pref-group">
+              <div class="pref-head">采集</div>
+              <div class="pref-row">
+                <div class="pref-label">
+                  <div class="pref-name">采集总开关</div>
+                  <div class="pref-hint">关闭后立即停止写入，已记录的数据保留。</div>
+                </div>
+                <div class="pref-ctl">
+                  <button class="switch" id="swCollect" role="switch" aria-checked="true" aria-label="采集总开关"><span></span></button>
+                </div>
+              </div>
+              <div class="pref-row">
+                <div class="pref-label">
+                  <div class="pref-name">桶粒度</div>
+                  <div class="pref-hint">写入数据库的时间聚合粒度。</div>
+                </div>
+                <div class="pref-ctl"><div class="seg" id="granSeg" role="group" aria-label="桶粒度"></div></div>
+              </div>
+              <div class="pref-row">
+                <div class="pref-label">
+                  <div class="pref-name">开机自启</div>
+                  <div class="pref-hint">登录 Windows 后自动开始采集。</div>
+                </div>
+                <div class="pref-ctl">
+                  <button class="switch" id="swAuto" role="switch" aria-checked="true" aria-label="开机自启"><span></span></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="pref-group">
+              <div class="pref-head">数据</div>
+              <div class="pref-row">
+                <div class="pref-label">
+                  <div class="pref-name">数据保留</div>
+                  <div class="pref-hint">超过保留期的数据自动清理。</div>
+                </div>
+                <div class="pref-ctl"><div class="seg" id="keepSeg" role="group" aria-label="数据保留"></div></div>
+              </div>
+              <div class="pref-row">
+                <div class="pref-label">
+                  <div class="pref-name">数据库路径</div>
+                  <div class="pref-hint">只读展示。本地单文件，不联网。</div>
+                </div>
+                <div class="pref-ctl">
+                  <span class="path mono">%APPDATA%\HandPulse\data.db</span>
+                  <button class="tbtn" id="openDir" type="button">打开目录</button>
+                </div>
+              </div>
+              <div class="pref-row">
+                <div class="pref-label">
+                  <div class="pref-name">导出全部数据</div>
+                  <div class="pref-hint">导出当前保留期内的全部聚合桶。</div>
+                </div>
+                <div class="pref-ctl">
+                  <button class="tbtn" id="expCsv" type="button">导出 CSV</button>
+                  <button class="tbtn" id="expJson" type="button">导出 JSON</button>
+                </div>
+              </div>
+              <div class="pref-row">
+                <div class="pref-label">
+                  <div class="pref-name">清空全部数据</div>
+                  <div class="pref-hint">需要二次确认并输入 DELETE。删除后不可恢复。</div>
+                </div>
+                <div class="pref-ctl">
+                  <button class="tbtn danger" id="clearAll" type="button">清空全部数据</button>
+                </div>
+              </div>
+              <div class="banner" id="emptyBanner" hidden>
+                <span>全部数据已清空（原型演示，刷新页面可恢复）。</span>
+                <button class="tbtn" data-restore type="button">恢复演示数据</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="about">
+            <div class="pref-head">关于</div>
+            <div class="about-rows">
+              <div class="pref-row">
+                <div class="pref-label"><div class="pref-name">版本</div></div>
+                <div class="pref-ctl"><span class="ver mono">0.9.0<span>原型</span></span></div>
+              </div>
+              <div class="pref-row">
+                <div class="pref-label"><div class="pref-name">数据库 schema</div></div>
+                <div class="pref-ctl"><span class="ver mono">v3</span></div>
+              </div>
+              <div class="pref-row">
+                <div class="pref-label"><div class="pref-name">采集内核</div></div>
+                <div class="pref-ctl"><span class="ver mono">HandPulse Core 0.4.2<span>源码公开</span></span></div>
+              </div>
+            </div>
+            <div class="privacy">
+              <p>手脉只记录你按下哪个物理键、按了多少次、鼠标移动了多远。</p>
+              <p>它不记录你输入了什么字，不读取窗口标题，不截屏，不联网。</p>
+              <p>你可以随时在设置里暂停记录或清空全部数据。删除后不可恢复。</p>
+              <p>采集内核 HandPulse Core 的源码公开，你可以自行验证上述承诺。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <aside class="insp" id="insp" aria-label="检查器">
+    <div class="insp-head">
+      <span class="insp-title">检查器</span>
+      <span class="insp-sub" id="inspSub">键位</span>
+      <button class="insp-x" id="inspX" type="button" aria-label="关闭详情" hidden>×</button>
+    </div>
+    <div class="insp-body" id="inspBody"></div>
+  </aside>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head"><span id="modalTitle">清空全部数据</span><button id="modalX" type="button" aria-label="关闭">×</button></div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
