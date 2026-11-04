@@ -58,7 +58,7 @@ export const KeyboardCanvas = forwardRef<KeyboardHandle, Props>(function Keyboar
       const el = elsRef.current.get(label);
       if (!el) return;
       el.classList.add('flash');
-      window.setTimeout(() => el.classList.remove('flash'), 120);
+      window.setTimeout(() => el.classList.remove('flash'), 200);
     }
   }), []);
 
@@ -129,11 +129,11 @@ export const KeyboardCanvas = forwardRef<KeyboardHandle, Props>(function Keyboar
     return () => ro.disconnect();
   }, []);
 
-  // 实时帧：只给脏键加 .flash
+  // 实时帧：只给脏键加 .flash（这是核心输入反馈，不受系统「减少动态效果」影响）
   useEffect(() => {
     const stop = liveStore.subscribe(() => {
       const p = propsRef.current;
-      if (!p.active || p.paused || p.empty || p.reduce || p.disp === 'heat') return;
+      if (!p.active || p.paused || p.empty || p.disp === 'heat') return;
       const deltas = liveStore.getDeltas();
       deltas.keys.forEach((delta, keyId) => {
         if (!delta) return;
@@ -143,7 +143,7 @@ export const KeyboardCanvas = forwardRef<KeyboardHandle, Props>(function Keyboar
         const el = elsRef.current.get(key.label);
         if (!el) return;
         el.classList.add('flash');
-        window.setTimeout(() => el.classList.remove('flash'), 120);
+        window.setTimeout(() => el.classList.remove('flash'), 200);
       });
     });
     return stop;

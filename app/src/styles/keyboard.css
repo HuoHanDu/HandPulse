@@ -61,6 +61,20 @@
 .chip.is-sel{border-color:var(--accent);color:var(--accent-soft);background:var(--accent-dim)}
 .foot-note{flex:1 1 auto;text-align:right;font-size:12px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
+/* 实时按键反馈：键帽微微上浮 + 高亮描边/辉光，保证在「全部」热力底色上也一眼可见 */
+.key{transition:transform .1s ease,box-shadow .12s ease,background .12s ease,border-color .12s ease,color .12s ease,filter .12s ease}
+.key.flash{
+  background:#3f7fd0 !important;
+  color:#ffffff !important;
+  border-color:#a9d1ff !important;
+  transform:translateY(-3px) scale(1.02);
+  z-index:3;
+  outline:1px solid rgba(169,209,255,.95);outline-offset:1px;
+  box-shadow:0 10px 22px rgba(41,151,255,.45),0 0 26px rgba(76,141,255,.9),inset 0 1px 0 rgba(255,255,255,.75);
+  filter:brightness(1.15);
+  transition:transform .08s ease,background .04s ease,border-color .04s ease,color .04s ease,box-shadow .1s ease;
+}
+
 /* 键盘：暗房展品 */
 .kb-panel{flex:0 0 auto;position:relative}
 .kb-panel .ph-title{display:none}
