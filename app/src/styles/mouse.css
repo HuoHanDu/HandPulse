@@ -87,6 +87,8 @@
 .m-btn.lit{fill:#2A6FA8;stroke:#46A6C4}
 .m-wheel{fill:#232327;stroke:#3a3a3e}
 .m-wheel.lit{fill:#2A6FA8;stroke:#46A6C4}
+.m-mid{fill:none;stroke:transparent;stroke-width:1;transition:fill .12s ease,stroke .12s ease}
+.m-mid.lit{fill:rgba(42,111,168,.28);stroke:#46A6C4}
 .m-side{fill:#1c1c1f;stroke:#2e2e31}
 .m-side.lit{fill:#2A6FA8;stroke:#46A6C4}
 .m-txt{fill:#f5f5f7;font-size:12px}

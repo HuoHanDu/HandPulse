@@ -5,21 +5,22 @@
 
 #![cfg(windows)]
 
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Instant;
 
-use windows::core::w;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::UI::Input::{
-    GetRawInputData, RegisterRawInputDevices, HRAWINPUT, RAWINPUT, RAWINPUTDEVICE, RAWINPUTHEADER,
-    RIDEV_INPUTSINK, RID_INPUT, RIM_TYPEKEYBOARD, RIM_TYPEMOUSE,
+    GetRawInputData, HRAWINPUT, MOUSE_MOVE_ABSOLUTE, MOUSE_VIRTUAL_DESKTOP, RAWINPUT,
+    RAWINPUTDEVICE, RAWINPUTHEADER, RAWKEYBOARD, RAWMOUSE, RID_INPUT, RIDEV_INPUTSINK,
+    RIM_TYPEKEYBOARD, RIM_TYPEMOUSE, RegisterRawInputDevices,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DispatchMessageW, GetCursorPos, GetMessageW, GetSystemMetrics,
-    TranslateMessage, HWND_MESSAGE, MSG, SM_CXSCREEN, SM_CYSCREEN, WINDOW_EX_STYLE, WINDOW_STYLE,
+    HWND_MESSAGE, MSG, SM_CXSCREEN, SM_CYSCREEN, TranslateMessage, WINDOW_EX_STYLE, WINDOW_STYLE,
     WM_INPUT,
 };
+use windows::core::w;
 
 use super::keymap::Keymap;
 use super::{MouseBtn, RawEvent, Shared};
@@ -114,13 +115,14 @@ unsafe fn read_raw_input(
     let mut size = 0u32;
     let header_size = std::mem::size_of::<RAWINPUTHEADER>() as u32;
     let raw_handle = HRAWINPUT(lparam.0 as *mut core::ffi::c_void);
-    let res = unsafe {
-        GetRawInputData(raw_handle, RID_INPUT, None, &mut size, header_size)
-    };
-    if res == u32::MAX || size == 0 {
+    let res = unsafe { GetRawInputData(raw_handle, RID_INPUT, None, &mut size, header_size) };
+    if res == u32::MAX || (size as usize) < header_size as usize {
         return;
     }
-    let mut buf = vec![0u8; size as usize];
+    // Vec<u8> 不保证 8 字节对齐；至少按 RAWINPUT 大小分配（键盘包 40B < RAWINPUT 48B，
+    // 但下面的字段访问仍受 read / dwSize 的长度检查保护）。
+    let alloc = (size as usize).max(std::mem::size_of::<RAWINPUT>());
+    let mut buf: Vec<u64> = vec![0u64; alloc.div_ceil(std::mem::size_of::<u64>())];
     let read = unsafe {
         GetRawInputData(
             raw_handle,
@@ -130,27 +132,55 @@ unsafe fn read_raw_input(
             header_size,
         )
     };
-    if read == u32::MAX || read == 0 {
+    if read == u32::MAX
+        || (read as usize) < header_size as usize
+        || read as usize > buf.len() * std::mem::size_of::<u64>()
+    {
         return;
     }
+    let read = read as usize;
     let raw = unsafe { &*(buf.as_ptr() as *const RAWINPUT) };
     let at = Instant::now();
     if raw.header.dwType == RIM_TYPEKEYBOARD.0 {
+        if read < header_size as usize + std::mem::size_of::<RAWKEYBOARD>() {
+            return;
+        }
         {
             let kb = unsafe { raw.data.keyboard };
             let scan = kb.MakeCode;
             let flags = kb.Flags;
             if flags & RI_KEY_E1 != 0 {
-                // Pause 的 E1 序列暂不映射，计入 unmapped
-                send(tx, shared, RawEvent::Key { key_id: None, down: false, at, unmapped: Some(scan) });
+                // Pause 的 E1 1D 45 特殊序列：M2 暂不支持（见 README），计入 unmapped。
+                send(
+                    tx,
+                    shared,
+                    RawEvent::Key {
+                        key_id: None,
+                        down: false,
+                        at,
+                        unmapped: Some(scan),
+                    },
+                );
                 return;
             }
             let extended = flags & RI_KEY_E0 != 0;
             let down = flags & RI_KEY_BREAK == 0;
             let key_id = keymap.id_for(scan, extended);
-            send(tx, shared, RawEvent::Key { key_id, down, at, unmapped: key_id.is_none().then_some(scan) });
+            send(
+                tx,
+                shared,
+                RawEvent::Key {
+                    key_id,
+                    down,
+                    at,
+                    unmapped: key_id.is_none().then_some(scan),
+                },
+            );
         }
     } else if raw.header.dwType == RIM_TYPEMOUSE.0 {
+        if read < header_size as usize + std::mem::size_of::<RAWMOUSE>() {
+            return;
+        }
         {
             let mouse = unsafe { raw.data.mouse };
             let buttons = unsafe { mouse.Anonymous.Anonymous };
@@ -167,7 +197,15 @@ unsafe fn read_raw_input(
                 (RI_MOUSE_BUTTON_5_DOWN, MouseBtn::Side2),
             ] {
                 if flags & flag != 0 {
-                    send(tx, shared, RawEvent::Button { btn, down: true, at });
+                    send(
+                        tx,
+                        shared,
+                        RawEvent::Button {
+                            btn,
+                            down: true,
+                            at,
+                        },
+                    );
                 }
             }
             for (flag, btn) in [
@@ -178,11 +216,34 @@ unsafe fn read_raw_input(
                 (RI_MOUSE_BUTTON_5_UP, MouseBtn::Side2),
             ] {
                 if flags & flag != 0 {
-                    send(tx, shared, RawEvent::Button { btn, down: false, at });
+                    send(
+                        tx,
+                        shared,
+                        RawEvent::Button {
+                            btn,
+                            down: false,
+                            at,
+                        },
+                    );
                 }
             }
+            let absolute =
+                (mouse.usFlags.0 & (MOUSE_MOVE_ABSOLUTE.0 | MOUSE_VIRTUAL_DESKTOP.0)) != 0;
             if mouse.lLastX != 0 || mouse.lLastY != 0 {
-                send(tx, shared, RawEvent::Move { dx: mouse.lLastX, dy: mouse.lLastY, at });
+                if absolute {
+                    // RDP/绘图板/虚拟桌面：lLastX/lLastY 是绝对坐标，不能当增量用
+                    send(tx, shared, RawEvent::AbsoluteMove { at });
+                } else {
+                    send(
+                        tx,
+                        shared,
+                        RawEvent::Move {
+                            dx: mouse.lLastX,
+                            dy: mouse.lLastY,
+                            at,
+                        },
+                    );
+                }
             }
         }
     }

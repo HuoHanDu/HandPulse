@@ -260,6 +260,7 @@ export function Inspector() {
                 <Kv label="丢弃" value={nf(capture.dropped)} />
                 <Kv label="延迟 P95 / P99" value={capture.latencyP95Ms + ' / ' + capture.latencyP99Ms + ' ms'} />
                 <Kv label="未映射" value={nf(capture.unmapped)} />
+                <Kv label="绝对坐标跳过" value={nf(capture.absoluteSkipped)} />
               </>
             ) : (
               <Kv label="采集状态" value="连接中…" />

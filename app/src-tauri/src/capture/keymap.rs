@@ -38,7 +38,11 @@ pub enum KeymapError {
     #[error("keymap id 不连续: 期望 {expected}, 实际 {actual}")]
     IdGap { expected: u16, actual: u16 },
     #[error("scan/extended 重复: scan={scan} extended={extended} ({label})")]
-    Duplicate { scan: u16, extended: bool, label: String },
+    Duplicate {
+        scan: u16,
+        extended: bool,
+        label: String,
+    },
 }
 
 pub struct Keymap {
@@ -56,12 +60,24 @@ impl Keymap {
         let mut out = Vec::with_capacity(104);
         for (i, d) in defs.into_iter().enumerate() {
             if d.id != i as u16 {
-                return Err(KeymapError::IdGap { expected: i as u16, actual: d.id });
+                return Err(KeymapError::IdGap {
+                    expected: i as u16,
+                    actual: d.id,
+                });
             }
             if lookup.insert((d.scan, d.extended), d.id).is_some() {
-                return Err(KeymapError::Duplicate { scan: d.scan, extended: d.extended, label: d.label });
+                return Err(KeymapError::Duplicate {
+                    scan: d.scan,
+                    extended: d.extended,
+                    label: d.label,
+                });
             }
-            out.push(KeyDef { id: d.id, label: d.label, scan: d.scan, extended: d.extended });
+            out.push(KeyDef {
+                id: d.id,
+                label: d.label,
+                scan: d.scan,
+                extended: d.extended,
+            });
         }
         Ok(Self { defs: out, lookup })
     }
@@ -104,7 +120,10 @@ mod tests {
         let expected = frontend_labels();
         assert_eq!(expected.len(), 104);
         let actual: Vec<&str> = km.defs.iter().map(|d| d.label.as_str()).collect();
-        assert_eq!(actual, expected.iter().map(|s| s.as_str()).collect::<Vec<_>>());
+        assert_eq!(
+            actual,
+            expected.iter().map(|s| s.as_str()).collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -112,17 +131,34 @@ mod tests {
         let km = load();
         let mut seen = std::collections::HashSet::new();
         for def in &km.defs {
-            assert!(seen.insert((def.scan, def.extended)), "重复 scan/extended: {} {}", def.scan, def.label);
+            assert!(
+                seen.insert((def.scan, def.extended)),
+                "重复 scan/extended: {} {}",
+                def.scan,
+                def.label
+            );
         }
     }
 
     #[test]
     fn lookup_handles_base_and_extended_keys() {
         let km = load();
-        assert_eq!(km.id_for(0x11, false).map(|id| km.label_of(id).unwrap()), Some("W"));
-        assert_eq!(km.id_for(0x48, true).map(|id| km.label_of(id).unwrap()), Some("↑"));
-        assert_eq!(km.id_for(0x47, false).map(|id| km.label_of(id).unwrap()), Some("N7"));
-        assert_eq!(km.id_for(0x47, true).map(|id| km.label_of(id).unwrap()), Some("Home"));
+        assert_eq!(
+            km.id_for(0x11, false).map(|id| km.label_of(id).unwrap()),
+            Some("W")
+        );
+        assert_eq!(
+            km.id_for(0x48, true).map(|id| km.label_of(id).unwrap()),
+            Some("↑")
+        );
+        assert_eq!(
+            km.id_for(0x47, false).map(|id| km.label_of(id).unwrap()),
+            Some("N7")
+        );
+        assert_eq!(
+            km.id_for(0x47, true).map(|id| km.label_of(id).unwrap()),
+            Some("Home")
+        );
         assert_eq!(km.id_for(0x99, false), None);
     }
 }

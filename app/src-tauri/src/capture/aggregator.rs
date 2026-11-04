@@ -6,15 +6,15 @@
 //! - 最近 60 个秒样本与内存 60s 桶（M3 接 SQLite 时直接落盘）。
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use crossbeam_channel::{Receiver, RecvTimeoutError};
 
 use super::keymap::Keymap;
 use super::{
-    now_ms, CaptureStats, LiveFrame, MouseBtn, RawEvent, SessionSummary, Shared, Snapshot, TopKey,
+    CaptureStats, LiveFrame, MouseBtn, RawEvent, SessionSummary, Shared, Snapshot, TopKey, now_ms,
 };
 
 pub const KEY_COUNT: usize = 104;
@@ -90,6 +90,7 @@ pub struct Aggregator {
     pub key_events: u64,
     pub mouse_events: u64,
     pub unmapped: u64,
+    pub absolute_skipped: u64,
     pub latencies: VecDeque<u32>,
     pub seconds: VecDeque<SecondSample>,
     pub buckets: VecDeque<Bucket>,
@@ -108,8 +109,12 @@ pub struct Aggregator {
 pub fn grid_coords(x: i32, y: i32, width: i32, height: i32) -> (u8, u8) {
     let w = width.max(1) as f64;
     let h = height.max(1) as f64;
-    let gx = ((x as f64 / w) * GRID_W as f64).floor().clamp(0.0, (GRID_W - 1) as f64) as u8;
-    let gy = ((y as f64 / h) * GRID_H as f64).floor().clamp(0.0, (GRID_H - 1) as f64) as u8;
+    let gx = ((x as f64 / w) * GRID_W as f64)
+        .floor()
+        .clamp(0.0, (GRID_W - 1) as f64) as u8;
+    let gy = ((y as f64 / h) * GRID_H as f64)
+        .floor()
+        .clamp(0.0, (GRID_H - 1) as f64) as u8;
     (gx, gy)
 }
 
@@ -134,6 +139,7 @@ impl Aggregator {
             key_events: 0,
             mouse_events: 0,
             unmapped: 0,
+            absolute_skipped: 0,
             latencies: VecDeque::with_capacity(LATENCY_CAP),
             seconds: VecDeque::with_capacity(SECOND_CAP),
             buckets: VecDeque::with_capacity(BUCKET_CAP),
@@ -176,8 +182,16 @@ impl Aggregator {
         self.peak_speed = 0.0;
         self.grid = [0; GRID_W * GRID_H];
         self.chords = 0;
+        // 会话重置同时清空进程级事件统计，Inspector 重置后显示 0
+        self.events = 0;
+        self.key_events = 0;
+        self.mouse_events = 0;
+        self.unmapped = 0;
+        self.absolute_skipped = 0;
+        self.latencies.clear();
         self.frame.reset();
         self.seconds.clear();
+        self.buckets.clear();
         self.current_bucket = Bucket::default();
         self.bucket_start = now;
         self.second_start = now;
@@ -194,16 +208,18 @@ impl Aggregator {
                 RawEvent::Button { at, .. } => at,
                 RawEvent::Wheel { at, .. } => at,
                 RawEvent::Move { at, .. } => at,
+                RawEvent::AbsoluteMove { at } => at,
             };
             self.frame.event_ats.push(at);
         }
         self.events += 1;
         match ev {
-            RawEvent::Key { key_id, down, at, unmapped } => {
-                // keyEvents 只统计按下（一次按键 = 1，不把抬起重复算一次）
-                if down {
-                    self.key_events += 1;
-                }
+            RawEvent::Key {
+                key_id,
+                down,
+                at,
+                unmapped,
+            } => {
                 let Some(id) = key_id else {
                     let _ = unmapped;
                     self.unmapped += 1;
@@ -216,9 +232,10 @@ impl Aggregator {
                 }
                 if down {
                     if self.pressed.contains_key(&(id as u16)) {
-                        // 自动重复：不计数、不重置按住起点
+                        // 自动重复：不计数、不重置按住起点，也不计入 keyEvents
                         return;
                     }
+                    self.key_events += 1;
                     if !self.pressed.is_empty() {
                         self.chords += 1;
                     }
@@ -275,6 +292,11 @@ impl Aggregator {
                 let dist = ((dx as f64).powi(2) + (dy as f64).powi(2)).sqrt();
                 self.move_px += dist;
                 self.frame.move_px += dist;
+            }
+            RawEvent::AbsoluteMove { .. } => {
+                // RDP / 绘图板 / 虚拟桌面绝对坐标：M2 只统计主屏相对移动，跳过并计数
+                self.mouse_events += 1;
+                self.absolute_skipped += 1;
             }
         }
     }
@@ -348,11 +370,12 @@ impl Aggregator {
         let snapshot = self.snapshot(shared);
         *shared.snapshot.lock() = snapshot;
 
-        if let Some(ch) = shared.channel.lock().as_ref() {
-            if ch.send(frame).is_err() {
-                *shared.channel.lock() = None;
-            }
+        // 只锁一次并复用 guard；发送失败时在同一 guard 里清空订阅，避免 parking_lot 自锁
+        let mut slot = shared.channel.lock();
+        if slot.as_ref().is_some_and(|ch| ch.send(frame).is_err()) {
+            *slot = None;
         }
+        drop(slot);
 
         self.frame.reset();
         self.last_flush = now;
@@ -360,19 +383,21 @@ impl Aggregator {
 
     pub fn snapshot(&self, shared: &Shared) -> Snapshot {
         let lat = self.latency_percentiles();
+        let error = shared.error.lock().clone();
         let stats = CaptureStats {
-            running: true,
+            running: error.is_none(),
             paused: shared.paused.load(Ordering::Relaxed),
             events: self.events,
             key_events: self.key_events,
             mouse_events: self.mouse_events,
             dropped: shared.dropped.load(Ordering::Relaxed),
             unmapped: self.unmapped,
+            absolute_skipped: self.absolute_skipped,
             latency_p50_ms: lat.0,
             latency_p95_ms: lat.1,
             latency_p99_ms: lat.2,
             uptime_ms: shared.started.elapsed().as_millis() as u64,
-            error: shared.error.lock().clone(),
+            error,
         };
 
         let mut top: Vec<TopKey> = self
@@ -381,7 +406,10 @@ impl Aggregator {
             .iter()
             .filter_map(|d| {
                 let c = self.counts.get(d.id as usize).copied().unwrap_or(0);
-                (c > 0).then(|| TopKey { label: d.label.clone(), count: c })
+                (c > 0).then(|| TopKey {
+                    label: d.label.clone(),
+                    count: c,
+                })
             })
             .collect();
         top.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.label.cmp(&b.label)));
@@ -394,7 +422,9 @@ impl Aggregator {
             .find(|d| d.label == "A")
             .map(|d| d.id as usize);
         let (hold_avg_a, hold_max_a) = match a_id {
-            Some(id) if self.hold_n[id] > 0 => (self.hold_sum[id] / self.hold_n[id], self.hold_max[id]),
+            Some(id) if self.hold_n[id] > 0 => {
+                (self.hold_sum[id] / self.hold_n[id], self.hold_max[id])
+            }
             _ => (0, 0),
         };
 
@@ -431,10 +461,16 @@ pub fn run(shared: Arc<Shared>, keymap: Arc<Keymap>, rx: Receiver<RawEvent>) {
         agg.set_paused(shared.paused.load(Ordering::Relaxed));
         if shared.reset_request.swap(false, Ordering::Relaxed) {
             agg.reset_session();
+            shared.dropped.store(0, Ordering::Relaxed);
+            *shared.snapshot.lock() = agg.snapshot(&shared);
         }
 
         let elapsed = agg.last_flush.elapsed();
-        let target = if agg.has_pending_events() { ACTIVE_FLUSH_MS } else { FLUSH_MS };
+        let target = if agg.has_pending_events() {
+            ACTIVE_FLUSH_MS
+        } else {
+            FLUSH_MS
+        };
         if elapsed >= Duration::from_millis(target) {
             agg.flush(&shared);
             continue;
@@ -451,7 +487,11 @@ pub fn run(shared: Arc<Shared>, keymap: Arc<Keymap>, rx: Receiver<RawEvent>) {
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => break,
         }
-        let target = if agg.has_pending_events() { ACTIVE_FLUSH_MS } else { FLUSH_MS };
+        let target = if agg.has_pending_events() {
+            ACTIVE_FLUSH_MS
+        } else {
+            FLUSH_MS
+        };
         if agg.last_flush.elapsed() >= Duration::from_millis(target) {
             agg.flush(&shared);
         }
@@ -489,8 +529,18 @@ mod tests {
         let t0 = Instant::now();
         for i in 0..1000 {
             let at = t0 + Duration::from_millis(i * 2);
-            agg.handle(RawEvent::Key { key_id: Some(id), down: true, at, unmapped: None });
-            agg.handle(RawEvent::Key { key_id: Some(id), down: false, at: at + Duration::from_millis(50), unmapped: None });
+            agg.handle(RawEvent::Key {
+                key_id: Some(id),
+                down: true,
+                at,
+                unmapped: None,
+            });
+            agg.handle(RawEvent::Key {
+                key_id: Some(id),
+                down: false,
+                at: at + Duration::from_millis(50),
+                unmapped: None,
+            });
         }
         assert_eq!(agg.counts[id as usize], 1000);
         assert_eq!(agg.hold_n[id as usize], 1000);
@@ -506,10 +556,41 @@ mod tests {
         let id = key_id(&km, 0x11, false);
         let t0 = Instant::now();
         for i in 0..30 {
-            agg.handle(RawEvent::Key { key_id: Some(id), down: true, at: t0 + Duration::from_millis(i * 33), unmapped: None });
+            agg.handle(RawEvent::Key {
+                key_id: Some(id),
+                down: true,
+                at: t0 + Duration::from_millis(i * 33),
+                unmapped: None,
+            });
         }
         assert_eq!(agg.counts[id as usize], 1);
+        assert_eq!(agg.key_events, 1);
         assert_eq!(agg.chords, 0);
+    }
+
+    #[test]
+    fn ten_downs_one_up_counts_once() {
+        let (mut agg, km) = new_agg();
+        let id = key_id(&km, 0x11, false);
+        let t0 = Instant::now();
+        for i in 0..10 {
+            agg.handle(RawEvent::Key {
+                key_id: Some(id),
+                down: true,
+                at: t0 + Duration::from_millis(i * 30),
+                unmapped: None,
+            });
+        }
+        agg.handle(RawEvent::Key {
+            key_id: Some(id),
+            down: false,
+            at: t0 + Duration::from_millis(400),
+            unmapped: None,
+        });
+        assert_eq!(agg.counts[id as usize], 1);
+        assert_eq!(agg.key_events, 1);
+        assert_eq!(agg.hold_n[id as usize], 1);
+        assert_eq!(agg.events, 11);
     }
 
     #[test]
@@ -517,10 +598,24 @@ mod tests {
         let (mut agg, km) = new_agg();
         let id = key_id(&km, 0x1e, false); // A
         let t0 = Instant::now();
-        agg.handle(RawEvent::Key { key_id: Some(id), down: true, at: t0, unmapped: None });
-        agg.handle(RawEvent::Key { key_id: Some(id), down: false, at: t0 + Duration::from_secs(5), unmapped: None });
+        agg.handle(RawEvent::Key {
+            key_id: Some(id),
+            down: true,
+            at: t0,
+            unmapped: None,
+        });
+        agg.handle(RawEvent::Key {
+            key_id: Some(id),
+            down: false,
+            at: t0 + Duration::from_secs(5),
+            unmapped: None,
+        });
         assert_eq!(agg.counts[id as usize], 1);
-        assert!((4990..=5010).contains(&agg.hold_max[id as usize]), "hold = {}", agg.hold_max[id as usize]);
+        assert!(
+            (4990..=5010).contains(&agg.hold_max[id as usize]),
+            "hold = {}",
+            agg.hold_max[id as usize]
+        );
     }
 
     #[test]
@@ -529,8 +624,18 @@ mod tests {
         let w = key_id(&km, 0x11, false);
         let a = key_id(&km, 0x1e, false);
         let t0 = Instant::now();
-        agg.handle(RawEvent::Key { key_id: Some(w), down: true, at: t0, unmapped: None });
-        agg.handle(RawEvent::Key { key_id: Some(a), down: true, at: t0, unmapped: None });
+        agg.handle(RawEvent::Key {
+            key_id: Some(w),
+            down: true,
+            at: t0,
+            unmapped: None,
+        });
+        agg.handle(RawEvent::Key {
+            key_id: Some(a),
+            down: true,
+            at: t0,
+            unmapped: None,
+        });
         assert_eq!(agg.chords, 1);
     }
 
@@ -540,7 +645,10 @@ mod tests {
         let t0 = Instant::now();
         agg.handle(RawEvent::Wheel { delta: 120, at: t0 });
         agg.handle(RawEvent::Wheel { delta: 30, at: t0 });
-        agg.handle(RawEvent::Wheel { delta: -120, at: t0 });
+        agg.handle(RawEvent::Wheel {
+            delta: -120,
+            at: t0,
+        });
         // 120 + 30 - 120 = 30：已上滚 1 格，余 30 → 再 -120 后余 -90
         assert_eq!(agg.wheel, [1, 0]);
         assert_eq!(agg.wheel_accum, -90);
@@ -553,7 +661,10 @@ mod tests {
         agg.handle(RawEvent::Wheel { delta: 30, at: t0 });
         assert_eq!(agg.wheel, [2, 1]);
         assert_eq!(agg.wheel_accum, 0);
-        agg.handle(RawEvent::Wheel { delta: -120, at: t0 });
+        agg.handle(RawEvent::Wheel {
+            delta: -120,
+            at: t0,
+        });
         assert_eq!(agg.wheel, [2, 2]);
         assert_eq!(agg.wheel_accum, 0);
     }
@@ -563,10 +674,20 @@ mod tests {
         let (mut agg, km) = new_agg();
         let id = key_id(&km, 0x11, false);
         let t0 = Instant::now();
-        agg.handle(RawEvent::Key { key_id: Some(id), down: true, at: t0, unmapped: None });
+        agg.handle(RawEvent::Key {
+            key_id: Some(id),
+            down: true,
+            at: t0,
+            unmapped: None,
+        });
         assert_eq!(agg.pressed.len(), 1);
         agg.set_paused(true);
-        agg.handle(RawEvent::Key { key_id: Some(id), down: true, at: t0, unmapped: None });
+        agg.handle(RawEvent::Key {
+            key_id: Some(id),
+            down: true,
+            at: t0,
+            unmapped: None,
+        });
         agg.handle(RawEvent::Wheel { delta: 120, at: t0 });
         assert_eq!(agg.counts[id as usize], 1);
         assert_eq!(agg.wheel, [0, 0]);
@@ -578,20 +699,70 @@ mod tests {
     #[test]
     fn reset_session_clears_counts_but_keeps_running() {
         let (mut agg, km) = new_agg();
+        let shared = Shared::new();
         let id = key_id(&km, 0x11, false);
         let t0 = Instant::now();
-        agg.handle(RawEvent::Key { key_id: Some(id), down: true, at: t0, unmapped: None });
-        agg.handle(RawEvent::Button { btn: MouseBtn::Left, down: true, at: t0 });
+        agg.handle(RawEvent::Key {
+            key_id: Some(id),
+            down: true,
+            at: t0,
+            unmapped: None,
+        });
+        agg.handle(RawEvent::Key {
+            key_id: Some(id),
+            down: false,
+            at: t0 + Duration::from_millis(20),
+            unmapped: None,
+        });
+        agg.handle(RawEvent::Button {
+            btn: MouseBtn::Left,
+            down: true,
+            at: t0,
+        });
         agg.handle(RawEvent::Wheel { delta: 120, at: t0 });
+        agg.handle(RawEvent::AbsoluteMove { at: t0 });
+        agg.flush(&shared);
+        assert!(shared.snapshot.lock().stats.events > 0);
+
         agg.reset_session();
+        shared.dropped.store(0, Ordering::Relaxed);
+        agg.flush(&shared);
+        let snap = shared.snapshot.lock().clone();
         assert_eq!(agg.counts[id as usize], 0);
         assert_eq!(agg.clicks, [0; 5]);
         assert_eq!(agg.wheel, [0, 0]);
         assert!(agg.pressed.is_empty());
         assert_eq!(agg.counts.iter().sum::<u64>(), 0);
+        // 推荐方案：会话重置同时清空进程事件统计
+        assert_eq!(snap.stats.events, 0);
+        assert_eq!(snap.stats.key_events, 0);
+        assert_eq!(snap.stats.mouse_events, 0);
+        assert_eq!(snap.stats.unmapped, 0);
+        assert_eq!(snap.stats.absolute_skipped, 0);
+        assert_eq!(snap.stats.dropped, 0);
+        assert_eq!(snap.summary.keys, 0);
+        // 运行状态保留
+        assert!(snap.stats.running);
         // 重置后仍可继续计数
-        agg.handle(RawEvent::Key { key_id: Some(id), down: true, at: t0, unmapped: None });
+        agg.handle(RawEvent::Key {
+            key_id: Some(id),
+            down: true,
+            at: t0,
+            unmapped: None,
+        });
         assert_eq!(agg.counts[id as usize], 1);
+    }
+
+    #[test]
+    fn absolute_mouse_move_is_skipped() {
+        let (mut agg, _) = new_agg();
+        let t0 = Instant::now();
+        let before = agg.move_px;
+        agg.handle(RawEvent::AbsoluteMove { at: t0 });
+        assert_eq!(agg.absolute_skipped, 1);
+        assert_eq!(agg.mouse_events, 1);
+        assert_eq!(agg.move_px, before);
+        assert_eq!(agg.events, 1);
     }
 
     #[test]
@@ -607,8 +778,18 @@ mod tests {
     fn unmapped_does_not_panic() {
         let (mut agg, _) = new_agg();
         let t0 = Instant::now();
-        agg.handle(RawEvent::Key { key_id: None, down: true, at: t0, unmapped: Some(0x99) });
-        agg.handle(RawEvent::Key { key_id: Some(9999), down: true, at: t0, unmapped: None });
+        agg.handle(RawEvent::Key {
+            key_id: None,
+            down: true,
+            at: t0,
+            unmapped: Some(0x99),
+        });
+        agg.handle(RawEvent::Key {
+            key_id: Some(9999),
+            down: true,
+            at: t0,
+            unmapped: None,
+        });
         assert_eq!(agg.unmapped, 2);
         assert_eq!(agg.counts.iter().sum::<u64>(), 0);
     }
@@ -619,13 +800,18 @@ mod tests {
         let shared = Shared::new();
         let t0 = Instant::now();
         let id = key_id(&km, 0x11, false);
-        agg.handle(RawEvent::Key { key_id: Some(id), down: true, at: t0, unmapped: None });
+        agg.handle(RawEvent::Key {
+            key_id: Some(id),
+            down: true,
+            at: t0,
+            unmapped: None,
+        });
         std::thread::sleep(Duration::from_millis(5));
         agg.flush(&shared);
         let snap = shared.snapshot.lock().clone();
         assert_eq!(snap.stats.events, 1);
         assert_eq!(snap.stats.key_events, 1);
-        assert_eq!(snap.stats.latency_p99_ms, 5.max(0));
+        assert!(snap.stats.latency_p99_ms >= 5);
         assert!(snap.stats.running);
         assert_eq!(snap.summary.keys, 1);
         // 空帧心跳：seq 继续增长
@@ -634,5 +820,15 @@ mod tests {
         assert_eq!(agg.seq, seq_before + 1);
         assert!(shared.snapshot.lock().stats.events >= 1);
         let _ = agg.session_start;
+    }
+
+    #[test]
+    fn error_marks_capture_unavailable() {
+        let (agg, _) = new_agg();
+        let shared = Shared::new();
+        *shared.error.lock() = Some("Raw Input 不可用".into());
+        let snap = agg.snapshot(&shared);
+        assert!(!snap.stats.running);
+        assert_eq!(snap.stats.error.as_deref(), Some("Raw Input 不可用"));
     }
 }

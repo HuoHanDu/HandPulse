@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { AppContext, initialState, reducer } from './app/store';
 import { ensureDefaultHash, useHashRoute } from './app/router';
@@ -19,6 +19,8 @@ import { Toast } from './ui/Toast';
 export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const route = useHashRoute();
+  const pausedRef = useRef(state.paused);
+  pausedRef.current = state.paused;
 
   useEffect(() => {
     ensureDefaultHash();
@@ -33,10 +35,17 @@ export default function App() {
   useEffect(() => {
     let alive = true;
     let stop: (() => void) | undefined;
-    startLive().then((fn) => {
-      if (alive) stop = fn;
-      else fn();
-    });
+    startLive({
+      isPaused: () => pausedRef.current,
+      onError: (message) => dispatch({ type: 'toast', message })
+    })
+      .then((fn) => {
+        if (alive) stop = fn;
+        else fn();
+      })
+      .catch((err) => {
+        dispatch({ type: 'toast', message: '实时采集连接失败：' + String(err) });
+      });
     return () => {
       alive = false;
       stop?.();

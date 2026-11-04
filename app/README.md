@@ -9,7 +9,7 @@ Windows 桌面常驻应用「手脉」的 Tauri 2 工程。界面沿用已定稿
 |---|---|---|
 | M0 | Tauri 2 壳 + 原型原样迁移（vanilla-ts） | 已完成 |
 | M1 | React/TS 组件化、字体与样式拆分、类型化 IPC 边界 + live store（仍 mock） | 已完成 |
-| M2 | Windows Raw Input + Aggregator + `Channel<LiveFrame>` 实时层（历史仍 mock） | 本阶段 |
+| M2 | Windows Raw Input + Aggregator + `Channel<LiveFrame>` 实时层（历史仍 mock） | 已完成 |
 | M3+ | SQLite 落盘、真实历史查询、托盘/自启/打包 | 未开始 |
 
 ## 开发
@@ -70,7 +70,12 @@ app/
   这种情况会在设置页采集状态里体现为事件停滞，需要时再评估按需提权。
 - 屏幕网格只统计主屏，按 `GetSystemMetrics(SM_CXSCREEN/SM_CYSCREEN)` 归一化到 32×18；
   多显示器与 DPI 缩放暂不在 M2 覆盖范围。
-- Pause 的 E1 特殊序列暂不映射，会计入 `unmapped`，不会 panic 或误计其他键。
+- 绝对坐标鼠标（RDP / 绘图板 / `MOUSE_MOVE_ABSOLUTE` / `MOUSE_VIRTUAL_DESKTOP`）的移动包
+  不当增量使用，跳过并计入 `absoluteSkipped`；普通相对鼠标行为不变。
+- **Pause 键暂不支持**：Raw Input 的 E1 1D 45 特殊序列没有映射（keymap 里保留标签仅为 id 对齐），
+  按下会计入 `unmapped`，不会 panic 或误计 NumLock；计划 M3 再实现。
+- `reset_session` 同时清空会话计数与进程事件统计（events / keyEvents / mouseEvents / unmapped /
+  absoluteSkipped / dropped / 延迟样本 / 秒环 / 桶），保留运行状态与单调递增的 seq。
 
 ## 视觉基准
 

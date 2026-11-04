@@ -76,6 +76,7 @@ export interface CaptureStats {
   mouseEvents: number;
   dropped: number;
   unmapped: number;
+  absoluteSkipped: number;
   latencyP50Ms: number;
   latencyP95Ms: number;
   latencyP99Ms: number;

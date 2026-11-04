@@ -13,41 +13,90 @@ import type { LiveFrame } from './types';
  */
 
 const WATCHDOG_MS = 2000;
+/** 首次连接的退避重试（有上限，失败后交给 onError + 看门狗低频重试）。 */
+const RETRY_DELAYS = [400, 800, 1600, 3200];
 
-export async function startLive(): Promise<() => void> {
+export interface StartLiveOptions {
+  /** 暂停时跳过看门狗，避免 Rust 停发帧被误判成断线。 */
+  isPaused?: () => boolean;
+  /** 连接失败回调（只提示一次，成功后复位）。 */
+  onError?: (message: string) => void;
+}
+
+export async function startLive(options: StartLiveOptions = {}): Promise<() => void> {
   liveStore.restart();
-  if (isTauri) return startTauriLive();
+  if (isTauri) return startTauriLive(options);
   return startMockLive();
 }
 
-async function startTauriLive(): Promise<() => void> {
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => window.setTimeout(resolve, ms));
+}
+
+function errorText(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
+async function startTauriLive(options: StartLiveOptions): Promise<() => void> {
   let stopped = false;
   let connecting = false;
   let lastFrame = Date.now();
+  let notified = false;
 
-  const connect = async () => {
+  const reportError = (message: string) => {
+    if (notified) return;
+    notified = true;
+    options.onError?.(message);
+  };
+
+  const connectOnce = async () => {
+    const channel = new Channel<LiveFrame>();
+    channel.onmessage = (frame) => {
+      lastFrame = Date.now();
+      liveStore.push(frame);
+    };
+    await invoke('subscribe_live', { channel });
+    lastFrame = Date.now();
+    notified = false;
+  };
+
+  const connect = async (burst: boolean) => {
     if (stopped || connecting) return;
     connecting = true;
     try {
-      const channel = new Channel<LiveFrame>();
-      channel.onmessage = (frame) => {
-        lastFrame = Date.now();
-        liveStore.push(frame);
-      };
-      await invoke('subscribe_live', { channel });
+      const attempts = burst ? RETRY_DELAYS.length + 1 : 1;
+      for (let i = 0; i < attempts; i++) {
+        try {
+          await connectOnce();
+          return;
+        } catch (err) {
+          if (stopped) return;
+          if (i < attempts - 1) {
+            await sleep(RETRY_DELAYS[Math.min(i, RETRY_DELAYS.length - 1)]);
+          } else {
+            reportError('实时采集连接失败：' + errorText(err));
+          }
+        }
+      }
     } finally {
       connecting = false;
     }
   };
 
-  await connect();
+  await connect(true);
 
   // 心跳看门狗：Rust 空闲时每 100ms 仍会发空帧；超过 2s 没帧就重建订阅。
   const watchdog = window.setInterval(() => {
     if (stopped) return;
+    if (options.isPaused?.()) {
+      // 暂停期间 Rust 不发帧，保持水位新鲜；恢复后不会误触发重订阅
+      lastFrame = Date.now();
+      return;
+    }
     if (Date.now() - lastFrame < WATCHDOG_MS) return;
     lastFrame = Date.now();
-    connect().catch(() => {});
+    void connect(false);
   }, WATCHDOG_MS);
 
   return async () => {

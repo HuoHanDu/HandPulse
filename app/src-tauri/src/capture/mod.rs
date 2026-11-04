@@ -11,8 +11,8 @@ pub mod keymap;
 #[cfg(windows)]
 pub mod windows_raw;
 
-use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::time::Instant;
 
 use parking_lot::Mutex;
@@ -51,6 +51,8 @@ pub struct CaptureStats {
     pub mouse_events: u64,
     pub dropped: u64,
     pub unmapped: u64,
+    /// 绝对坐标鼠标（RDP / 绘图板 / MOUSE_VIRTUAL_DESKTOP）跳过的移动事件数
+    pub absolute_skipped: u64,
     pub latency_p50_ms: u64,
     pub latency_p95_ms: u64,
     pub latency_p99_ms: u64,
@@ -109,6 +111,10 @@ pub enum RawEvent {
         dy: i32,
         at: Instant,
     },
+    /// 绝对坐标/虚拟桌面鼠标的移动包：M2 只承诺主屏相对坐标，直接跳过并计数。
+    AbsoluteMove {
+        at: Instant,
+    },
 }
 
 /// 采集线程与命令共享的控制面。
@@ -143,7 +149,9 @@ pub struct CaptureHandle {
 
 impl CaptureHandle {
     pub fn new() -> Self {
-        Self { shared: Shared::new() }
+        Self {
+            shared: Shared::new(),
+        }
     }
 
     pub fn start(&self) {
@@ -157,7 +165,7 @@ impl CaptureHandle {
             .name("hp-aggregator".into())
             .spawn(move || aggregator::run(agg_shared, agg_keymap, rx))
         {
-            *shared.error.lock() = Some(format!("aggregator 线程启动失败：{err}"));
+            mark_error(&shared, format!("aggregator 线程启动失败：{err}"));
             return;
         }
 
@@ -169,16 +177,24 @@ impl CaptureHandle {
                 .name("hp-raw-input".into())
                 .spawn(move || windows_raw::run(raw_shared, raw_keymap, tx))
             {
-                *shared.error.lock() = Some(format!("Raw Input 线程启动失败：{err}"));
+                mark_error(&shared, format!("Raw Input 线程启动失败：{err}"));
             }
         }
 
         #[cfg(not(windows))]
         {
             let _ = (tx, keymap);
-            *shared.error.lock() = Some("当前平台不支持采集（仅 Windows）".into());
+            mark_error(&shared, "当前平台不支持采集（仅 Windows）".into());
         }
     }
+}
+
+/// 启动失败时同时写 error 与快照，保证 `get_capture_stats` 能立刻显示“采集不可用”。
+fn mark_error(shared: &Shared, message: String) {
+    *shared.error.lock() = Some(message.clone());
+    let mut snapshot = shared.snapshot.lock();
+    snapshot.stats.running = false;
+    snapshot.stats.error = Some(message);
 }
 
 impl Default for CaptureHandle {

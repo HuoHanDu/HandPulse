@@ -9,7 +9,7 @@ interface Props {
   empty: boolean;
 }
 
-const FLASH_IDS = ['mLeft', 'mRight', 'mWheel', 'mSide1', 'mSide2'];
+const FLASH_IDS = ['mLeft', 'mRight', 'mMiddle', 'mSide1', 'mSide2'];
 
 export function MouseSvg({ extra, factor, empty }: Props) {
   const { state } = useApp();
@@ -54,6 +54,7 @@ export function MouseSvg({ extra, factor, empty }: Props) {
       <line x1="144" y1="12" x2="144" y2="104" stroke="#2c3138" strokeWidth="1" />
       <line x1="90" y1="104" x2="198" y2="104" stroke="#2c3138" strokeWidth="1" />
       <rect className="m-wheel" id="mWheel" x="136" y="50" width="16" height="34" rx="8" />
+      <rect className="m-mid" id="mMiddle" x="131" y="44" width="26" height="46" rx="12" />
       <rect className="m-side" id="mSide1" x="76" y="84" width="9" height="17" rx="2.5" />
       <rect className="m-side" id="mSide2" x="76" y="110" width="9" height="17" rx="2.5" />
       <text className="m-num" id="mLeftN" x="112" y="74" textAnchor="middle">{n(extra.clicks.left)}</text>

@@ -2,13 +2,16 @@
 
 use std::sync::atomic::Ordering;
 
-use tauri::ipc::Channel;
 use tauri::State;
+use tauri::ipc::Channel;
 
 use crate::capture::{CaptureHandle, CaptureStats, LiveFrame, SessionSummary};
 
 #[tauri::command]
-pub fn subscribe_live(channel: Channel<LiveFrame>, state: State<'_, CaptureHandle>) -> Result<(), String> {
+pub fn subscribe_live(
+    channel: Channel<LiveFrame>,
+    state: State<'_, CaptureHandle>,
+) -> Result<(), String> {
     *state.shared.channel.lock() = Some(channel);
     Ok(())
 }
@@ -30,6 +33,11 @@ pub fn get_capture_stats(state: State<'_, CaptureHandle>) -> CaptureStats {
     let mut stats = state.shared.snapshot.lock().stats.clone();
     // 暂停状态是原子量，命令返回时以最新值为准（快照最多落后 100ms）
     stats.paused = state.shared.paused.load(Ordering::Relaxed);
+    // 采集线程启动失败 / Raw Input 失败时，快照可能还没刷新；以 error 为准
+    if let Some(err) = state.shared.error.lock().clone() {
+        stats.running = false;
+        stats.error = Some(err);
+    }
     stats
 }
 
