@@ -1,15 +1,12 @@
 import { useMemo, useReducer, useRef, useEffect } from 'react';
 import { useApp } from '../app/store';
+import { useReducedMotion } from '../app/useReducedMotion';
 import { loadKeyboard } from '../ipc/client';
 import { usePageData } from '../state/usePageData';
 import { KeyboardCanvas, type KeyboardHandle } from '../keyboard/KeyboardCanvas';
 import { displayKey } from '../keyboard/layout';
 import { Top10List } from '../keyboard/Top10List';
 import { LegendChips } from '../keyboard/LegendChips';
-
-const reduceMotion = typeof window !== 'undefined'
-  && !!window.matchMedia
-  && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function pad2(n: number) {
   return (n < 10 ? '0' : '') + n;
@@ -25,6 +22,7 @@ export function KeyboardPage({ active }: Props) {
   const { data } = usePageData(`keyboard:${range}`, () => loadKeyboard(range));
   const kbRef = useRef<KeyboardHandle>(null);
   const [, tick] = useReducer((x: number) => x + 1, 0);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (!state.paused) return;

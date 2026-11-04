@@ -1,7 +1,9 @@
 import { useEffect, useReducer } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { AppContext, initialState, reducer } from './app/store';
 import { ensureDefaultHash, useHashRoute } from './app/router';
 import { startLive } from './ipc/live';
+import { isTauri } from './ipc/client';
 import { clearPageDataCache } from './state/usePageData';
 import { Rail } from './shell/Rail';
 import { Transport } from './shell/Transport';
@@ -45,6 +47,12 @@ export default function App() {
   useEffect(() => {
     clearPageDataCache();
   }, [state.empty]);
+
+  // 暂停状态同步给 Rust 采集层（浏览器 mock 忽略）
+  useEffect(() => {
+    if (!isTauri) return;
+    invoke('set_paused', { paused: state.paused }).catch(() => {});
+  }, [state.paused]);
 
   useEffect(() => {
     if (!state.toast) return;

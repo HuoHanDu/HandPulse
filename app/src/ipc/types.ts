@@ -67,6 +67,38 @@ export interface LiveFrame {
   grid: Array<[number, number]>;
 }
 
+/** M2 采集层状态（camelCase 与 Rust CaptureStats 对齐）。 */
+export interface CaptureStats {
+  running: boolean;
+  paused: boolean;
+  events: number;
+  keyEvents: number;
+  mouseEvents: number;
+  dropped: number;
+  unmapped: number;
+  latencyP50Ms: number;
+  latencyP95Ms: number;
+  latencyP99Ms: number;
+  uptimeMs: number;
+  error: string | null;
+}
+
+export interface TopKey {
+  label: string;
+  count: number;
+}
+
+export interface SessionSummary {
+  keys: number;
+  clicks: number;
+  wheel: [number, number];
+  movePx: number;
+  chords: number;
+  topKeys: TopKey[];
+  holdAvgAMs: number;
+  holdMaxAMs: number;
+}
+
 /* ------------------------------------------------------------------ */
 /* 页面视图模型：M1 由 mock 派生；M2 后可以换成 Rust 返回的同构结构。      */
 /* ------------------------------------------------------------------ */

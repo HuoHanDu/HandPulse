@@ -1,17 +1,64 @@
+import { Channel, invoke } from '@tauri-apps/api/core';
 import { HP } from '../mock/mock';
+import { isTauri } from './client';
 import { liveStore } from '../state/liveStore';
 import type { LiveFrame } from './types';
 
 /**
  * 实时数据源。
  *
- * M1：mock ticker，每 100ms 产一帧（键盘随机一个加权键、鼠标随机点击/滚轮/位移、网格命中）。
- * M2：替换为 `new Channel<LiveFrame>()` + `invoke('subscribe_live', { channel })`，
- *      前端调用点（`startLive().then(stop => …)`）不变。
+ * - Tauri：`Channel<LiveFrame>` + `subscribe_live`，Rust 有事件时 20ms 一批、空闲 100ms 心跳；
+ * - 浏览器 dev：100ms mock ticker；
+ * 两条路径都走 `liveStore`，键盘/鼠标/时间轴只认 store 的增量。
  */
+
+const WATCHDOG_MS = 2000;
+
 export async function startLive(): Promise<() => void> {
   liveStore.restart();
+  if (isTauri) return startTauriLive();
   return startMockLive();
+}
+
+async function startTauriLive(): Promise<() => void> {
+  let stopped = false;
+  let connecting = false;
+  let lastFrame = Date.now();
+
+  const connect = async () => {
+    if (stopped || connecting) return;
+    connecting = true;
+    try {
+      const channel = new Channel<LiveFrame>();
+      channel.onmessage = (frame) => {
+        lastFrame = Date.now();
+        liveStore.push(frame);
+      };
+      await invoke('subscribe_live', { channel });
+    } finally {
+      connecting = false;
+    }
+  };
+
+  await connect();
+
+  // 心跳看门狗：Rust 空闲时每 100ms 仍会发空帧；超过 2s 没帧就重建订阅。
+  const watchdog = window.setInterval(() => {
+    if (stopped) return;
+    if (Date.now() - lastFrame < WATCHDOG_MS) return;
+    lastFrame = Date.now();
+    connect().catch(() => {});
+  }, WATCHDOG_MS);
+
+  return async () => {
+    stopped = true;
+    window.clearInterval(watchdog);
+    try {
+      await invoke('unsubscribe_live');
+    } catch {
+      // 窗口关闭/命令未注册时忽略
+    }
+  };
 }
 
 /** 浏览器 mock：每 100ms 产一帧，走与真实 Channel 相同的 liveStore 链路。 */

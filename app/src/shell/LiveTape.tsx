@@ -24,6 +24,8 @@ export function LiveTape() {
   const cellsRef = useRef<TapeCell[]>([]);
   const pausedRef = useRef(state.paused);
   pausedRef.current = state.paused;
+  const pendingRef = useRef(0);
+  const lastShiftRef = useRef(Date.now());
 
   const draw = () => {
     const cv = canvasRef.current;
@@ -74,16 +76,23 @@ export function LiveTape() {
 
   useEffect(() => {
     const stop = liveStore.subscribe(() => {
-      if (pausedRef.current) return;
+      if (pausedRef.current) { pendingRef.current = 0; return; }
       const d = liveStore.getDeltas();
       let intensity = 0;
       d.keys.forEach(v => { intensity += v; });
       d.clicks.forEach(v => { intensity += v; });
       intensity += Math.abs(d.wheel[0]) + Math.abs(d.wheel[1]);
+      pendingRef.current += intensity;
+      // 真实帧可能 20ms 一批（G1），时间轴仍按 100ms 一格推进，保持 −60 秒窗口
+      const now = Date.now();
+      if (now - lastShiftRef.current < 100) return;
+      lastShiftRef.current = now;
+      const total = pendingRef.current;
+      pendingRef.current = 0;
       cellsRef.current.shift();
-      cellsRef.current.push(intensity > 0
-        ? { ev: 0.45 + 0.55 * Math.min(1, intensity / 3), idle: 0.05 + Math.random() * 0.06 }
-        : idleCell());
+      cellsRef.current.push(total > 0
+        ? { ev: 0.45 + 0.55 * Math.min(1, total / 3), idle: 0.05 + Math.random() * 0.06 }
+        : { ev: 0, idle: 0.05 + Math.random() * 0.06 });
       draw();
     });
     return stop;

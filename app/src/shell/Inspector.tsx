@@ -1,10 +1,11 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useApp } from '../app/store';
 import { HP, LEVELS } from '../mock/mock';
 import { displayKey, keyPos } from '../keyboard/layout';
-import { getSummary, loadKeyboard, loadMouse, loadStats } from '../ipc/client';
-import { usePageData } from '../state/usePageData';
-import type { KeyStat } from '../ipc/types';
+import { getSummary, isTauri, loadKeyboard, loadMouse, loadStats } from '../ipc/client';
+import { clearPageDataCache, usePageData } from '../state/usePageData';
+import type { CaptureStats, KeyStat } from '../ipc/types';
 
 function nf(n: number) { return n.toLocaleString('en-US'); }
 function pf(v: number) { return (v * 100).toFixed(1) + '%'; }
@@ -43,6 +44,34 @@ export function Inspector() {
   const { data: mouse } = usePageData(`mouse:${state.ranges.mouse}`, () => loadMouse(state.ranges.mouse));
   const { data: stats } = usePageData(`stats:${state.ranges.stats}`, () => loadStats(state.ranges.stats));
   const { data: today } = usePageData('summary:today', () => getSummary('today'));
+
+  const [capture, setCapture] = useState<CaptureStats | null>(null);
+
+  // Tauri 下每秒拉一次采集层状态；浏览器 mock 不请求
+  useEffect(() => {
+    if (!isTauri) return;
+    let alive = true;
+    const poll = () => {
+      invoke<CaptureStats>('get_capture_stats')
+        .then((stats) => { if (alive) setCapture(stats); })
+        .catch(() => {});
+    };
+    poll();
+    const timer = window.setInterval(poll, 1000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const resetSession = () => {
+    invoke('reset_session')
+      .then(() => {
+        clearPageDataCache();
+        dispatch({ type: 'toast', message: '本次会话已重置。' });
+      })
+      .catch(() => {});
+  };
 
   const showKey = state.route === 'keyboard' && state.sel && !state.empty && !state.viewReset;
   const sub = showKey ? '键位 · ' + state.sel : (state.route === 'keyboard' ? '键位' : state.route === 'mouse' ? '点击分布' : state.route === 'stats' ? '图表摘要' : '采集与存储');
@@ -213,11 +242,35 @@ export function Inspector() {
         <div className="insp-sec">
           <div className="sec-head">采集内核</div>
           <div className="rows">
-            <Kv label="HandPulse Core" value={state.paused ? '已暂停' : '运行中'} />
+            <Kv label="HandPulse Core" value={(capture?.paused ?? state.paused) ? '已暂停' : '运行中'} />
             <Kv label="采样间隔" value="100 ms" />
             <Kv label="写入粒度" value={state.granularity + ' 秒'} />
             <Kv label="开机自启" value={state.autoStart ? '开' : '关'} />
           </div>
+        </div>
+        <div className="insp-sec">
+          <div className="sec-head">采集实时</div>
+          <div className="rows">
+            {!isTauri ? (
+              <Kv label="数据源" value="浏览器 mock" />
+            ) : capture ? (
+              <>
+                <Kv label="运行状态" value={capture.error ? '不可用' : capture.paused ? '已暂停' : '运行中'} />
+                <Kv label="事件" value={nf(capture.events)} />
+                <Kv label="丢弃" value={nf(capture.dropped)} />
+                <Kv label="延迟 P95 / P99" value={capture.latencyP95Ms + ' / ' + capture.latencyP99Ms + ' ms'} />
+                <Kv label="未映射" value={nf(capture.unmapped)} />
+              </>
+            ) : (
+              <Kv label="采集状态" value="连接中…" />
+            )}
+          </div>
+          {capture?.error ? <p className="insp-p" style={{ padding: '8px 0 0' }}>{capture.error}</p> : null}
+          {isTauri ? (
+            <div style={{ paddingTop: 10 }}>
+              <button className="tbtn" type="button" onClick={resetSession}>重置本次会话</button>
+            </div>
+          ) : null}
         </div>
         <div className="insp-sec">
           <div className="sec-head">存储</div>
