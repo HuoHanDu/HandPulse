@@ -2,6 +2,7 @@ import { useEffect, useReducer } from 'react';
 import { AppContext, initialState, reducer } from './app/store';
 import { ensureDefaultHash, useHashRoute } from './app/router';
 import { startLive } from './ipc/live';
+import { clearPageDataCache } from './state/usePageData';
 import { Rail } from './shell/Rail';
 import { Transport } from './shell/Transport';
 import { LiveTape } from './shell/LiveTape';
@@ -28,10 +29,22 @@ export default function App() {
   }, [route]);
 
   useEffect(() => {
+    let alive = true;
     let stop: (() => void) | undefined;
-    startLive().then((fn) => { stop = fn; });
-    return () => { stop?.(); };
+    startLive().then((fn) => {
+      if (alive) stop = fn;
+      else fn();
+    });
+    return () => {
+      alive = false;
+      stop?.();
+    };
   }, []);
+
+  // clear / restore 后历史数据缓存失效，下一次访问重新加载
+  useEffect(() => {
+    clearPageDataCache();
+  }, [state.empty]);
 
   useEffect(() => {
     if (!state.toast) return;

@@ -37,7 +37,13 @@ export function SettingsPage({ active }: Props) {
               <div className="pref-ctl">
                 <div className="seg" id="granSeg" role="group" aria-label="桶粒度">
                   {[10, 30, 60].map(g => (
-                    <button key={g} type="button" data-g={g} aria-pressed={state.granularity === g}>{g} 秒</button>
+                    <button
+                      key={g}
+                      type="button"
+                      data-g={g}
+                      aria-pressed={state.granularity === g}
+                      onClick={() => dispatch({ type: 'setGranularity', value: g as 10 | 30 | 60 })}
+                    >{g} 秒</button>
                   ))}
                 </div>
               </div>
@@ -72,7 +78,13 @@ export function SettingsPage({ active }: Props) {
               <div className="pref-ctl">
                 <div className="seg" id="keepSeg" role="group" aria-label="数据保留">
                   {[7, 30, 90].map(k => (
-                    <button key={k} type="button" data-k={k} aria-pressed={state.retention === k}>{k} 天</button>
+                    <button
+                      key={k}
+                      type="button"
+                      data-k={k}
+                      aria-pressed={state.retention === k}
+                      onClick={() => dispatch({ type: 'setRetention', value: k as 7 | 30 | 90 })}
+                    >{k} 天</button>
                   ))}
                 </div>
               </div>

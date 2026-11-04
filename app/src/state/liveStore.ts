@@ -77,13 +77,32 @@ class LiveStore {
   }
 
   reset(): void {
+    this.clearPending();
+    this.published = { seq: this.lastSeq, ts: 0, keys: new Map(), clicks: emptyClicks(), wheel: [0, 0], dx: 0, dy: 0, grid: [] };
+  }
+
+  /**
+   * 重新开始一条流：重置 seq 水位与所有累计增量。
+   * Tauri 重新订阅 / Rust 侧 seq 从 0 开始时调用，避免新帧被当成旧帧丢弃。
+   */
+  restart(seqBase = -1): void {
+    if (this.raf) {
+      cancelAnimationFrame(this.raf);
+      this.raf = 0;
+    }
+    this.lastSeq = seqBase;
+    this.pendingWhenVisible = false;
+    this.clearPending();
+    this.published = { seq: seqBase, ts: 0, keys: new Map(), clicks: emptyClicks(), wheel: [0, 0], dx: 0, dy: 0, grid: [] };
+  }
+
+  private clearPending(): void {
     this.pendingKeys.clear();
     this.pendingClicks = emptyClicks();
     this.pendingWheel = [0, 0];
     this.pendingDx = 0;
     this.pendingDy = 0;
     this.pendingGrid = [];
-    this.published = { seq: -1, ts: 0, keys: new Map(), clicks: emptyClicks(), wheel: [0, 0], dx: 0, dy: 0, grid: [] };
   }
 
   private schedule(): void {

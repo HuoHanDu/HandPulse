@@ -39,10 +39,10 @@ function zoneOf(x: number, y: number): string {
 
 export function Inspector() {
   const { state, dispatch } = useApp();
-  const kb = usePageData(`keyboard:${state.ranges.keyboard}`, () => loadKeyboard(state.ranges.keyboard));
-  const mouse = usePageData(`mouse:${state.ranges.mouse}`, () => loadMouse(state.ranges.mouse));
-  const stats = usePageData(`stats:${state.ranges.stats}`, () => loadStats(state.ranges.stats));
-  const today = usePageData('summary:today', () => getSummary('today'));
+  const { data: kb } = usePageData(`keyboard:${state.ranges.keyboard}`, () => loadKeyboard(state.ranges.keyboard));
+  const { data: mouse } = usePageData(`mouse:${state.ranges.mouse}`, () => loadMouse(state.ranges.mouse));
+  const { data: stats } = usePageData(`stats:${state.ranges.stats}`, () => loadStats(state.ranges.stats));
+  const { data: today } = usePageData('summary:today', () => getSummary('today'));
 
   const showKey = state.route === 'keyboard' && state.sel && !state.empty && !state.viewReset;
   const sub = showKey ? '键位 · ' + state.sel : (state.route === 'keyboard' ? '键位' : state.route === 'mouse' ? '点击分布' : state.route === 'stats' ? '图表摘要' : '采集与存储');
@@ -184,8 +184,8 @@ export function Inspector() {
             <Kv label="日总动作" value={nf(today?.actions ?? 0)} />
             <Kv label="今日按键" value={nf(today?.keys ?? 0)} />
             <Kv label="今日点击" value={nf(today?.clicks ?? 0)} />
-            <Kv label="峰值" value={HP.peak.value + ' APM'} />
-            <Kv label="峰值时刻" value={HP.peak.label} />
+            <Kv label="峰值" value={(stats?.line.peak.val ?? 0).toLocaleString('en-US') + ' ' + (stats?.line.unit === '次/分' ? 'APM' : stats?.line.unit ?? '')} />
+            <Kv label="峰值时刻" value={stats?.line.peakText.split('，').slice(1).join('，') || '—'} />
           </div>
         </div>
         <div className="insp-sec">

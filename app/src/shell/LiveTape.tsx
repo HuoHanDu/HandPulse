@@ -1,28 +1,29 @@
 import { useEffect, useRef } from 'react';
-import { HP } from '../mock/mock';
 import { useApp } from '../app/store';
+import { liveStore } from '../state/liveStore';
 
 const CELLS = 600;
-let rng = 20261104;
-function rnd(): number {
-  rng = (rng * 1664525 + 1013904223) >>> 0;
-  return rng / 4294967296;
-}
 
 interface TapeCell {
   ev: number;
   idle: number;
 }
 
-function newCell(rate: number): TapeCell {
-  return { ev: rnd() < rate / CELLS ? 0.45 + rnd() * 0.55 : 0, idle: 0.05 + rnd() * 0.06 };
+function idleCell(): TapeCell {
+  return { ev: 0, idle: 0.05 + Math.random() * 0.06 };
 }
 
-/** 输入时间轴 canvas；与原型同一绘制规则与种子。 */
+/**
+ * 输入时间轴 canvas。
+ * 消费 liveStore 的每批增量：强度 = 按键次数 + 点击次数 + 滚轮格数；
+ * 每次 flush 左移一格，10Hz 下 600 格正好覆盖 60 秒。浏览器 mock 走同一条路。
+ */
 export function LiveTape() {
   const { state } = useApp();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cellsRef = useRef<TapeCell[]>([]);
+  const pausedRef = useRef(state.paused);
+  pausedRef.current = state.paused;
 
   const draw = () => {
     const cv = canvasRef.current;
@@ -64,9 +65,7 @@ export function LiveTape() {
   };
 
   useEffect(() => {
-    const rate = (HP.perMinute.keys[HP.nowMinute] || 0) + (HP.perMinute.clicks[HP.nowMinute] || 0);
-    rng = 20261104;
-    cellsRef.current = Array.from({ length: CELLS }, () => newCell(rate));
+    cellsRef.current = Array.from({ length: CELLS }, idleCell);
     draw();
     const onResize = () => draw();
     window.addEventListener('resize', onResize);
@@ -74,15 +73,21 @@ export function LiveTape() {
   }, []);
 
   useEffect(() => {
-    if (state.paused) return;
-    const timer = window.setInterval(() => {
-      const rate = (HP.perMinute.keys[HP.nowMinute] || 0) + (HP.perMinute.clicks[HP.nowMinute] || 0);
+    const stop = liveStore.subscribe(() => {
+      if (pausedRef.current) return;
+      const d = liveStore.getDeltas();
+      let intensity = 0;
+      d.keys.forEach(v => { intensity += v; });
+      d.clicks.forEach(v => { intensity += v; });
+      intensity += Math.abs(d.wheel[0]) + Math.abs(d.wheel[1]);
       cellsRef.current.shift();
-      cellsRef.current.push(newCell(rate));
+      cellsRef.current.push(intensity > 0
+        ? { ev: 0.45 + 0.55 * Math.min(1, intensity / 3), idle: 0.05 + Math.random() * 0.06 }
+        : idleCell());
       draw();
-    }, 100);
-    return () => window.clearInterval(timer);
-  }, [state.paused]);
+    });
+    return stop;
+  }, []);
 
   return (
     <div className={'tape' + (state.paused ? ' is-paused' : '')} id="tape">

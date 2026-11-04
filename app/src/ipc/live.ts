@@ -9,7 +9,13 @@ import type { LiveFrame } from './types';
  * M2：替换为 `new Channel<LiveFrame>()` + `invoke('subscribe_live', { channel })`，
  *      前端调用点（`startLive().then(stop => …)`）不变。
  */
-export function startLive(): Promise<() => void> {
+export async function startLive(): Promise<() => void> {
+  liveStore.restart();
+  return startMockLive();
+}
+
+/** 浏览器 mock：每 100ms 产一帧，走与真实 Channel 相同的 liveStore 链路。 */
+function startMockLive(): () => void {
   const keyList = HP.keyList.slice(0, 40) as Array<{ label: string; count: number }>;
   const keyIndex = new Map<string, number>();
   (HP.keyboard.keys as Array<{ label: string }>).forEach((k, i) => keyIndex.set(k.label, i));
@@ -53,5 +59,5 @@ export function startLive(): Promise<() => void> {
     liveStore.push(frame);
   }, 100);
 
-  return Promise.resolve(() => window.clearInterval(timer));
+  return () => window.clearInterval(timer);
 }

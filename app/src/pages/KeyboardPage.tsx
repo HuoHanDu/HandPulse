@@ -3,6 +3,7 @@ import { useApp } from '../app/store';
 import { loadKeyboard } from '../ipc/client';
 import { usePageData } from '../state/usePageData';
 import { KeyboardCanvas, type KeyboardHandle } from '../keyboard/KeyboardCanvas';
+import { displayKey } from '../keyboard/layout';
 import { Top10List } from '../keyboard/Top10List';
 import { LegendChips } from '../keyboard/LegendChips';
 
@@ -21,7 +22,7 @@ interface Props {
 export function KeyboardPage({ active }: Props) {
   const { state, dispatch } = useApp();
   const range = state.ranges.keyboard;
-  const data = usePageData(`keyboard:${range}`, () => loadKeyboard(range));
+  const { data } = usePageData(`keyboard:${range}`, () => loadKeyboard(range));
   const kbRef = useRef<KeyboardHandle>(null);
   const [, tick] = useReducer((x: number) => x + 1, 0);
 
@@ -43,6 +44,13 @@ export function KeyboardPage({ active }: Props) {
   const maskShown = state.paused || state.empty;
   const elapsed = state.paused ? Math.floor((Date.now() - state.pausedAt) / 1000) : 0;
   const pauseText = `已暂停 ${Math.floor(elapsed / 60)}:${pad2(elapsed % 60)}，恢复后继续写入。`;
+  const topKey = data?.keyStats[0];
+  const rangePrefix = state.ranges.keyboard === 'session' ? '本次（最近 30 分钟）' : state.ranges.keyboard === 'week' ? '近 7 天' : '今天';
+  const intro = state.empty
+    ? '还没有记录到按键 —— 敲几个键试试。'
+    : !data
+      ? '正在读取按键数据…'
+      : `${rangePrefix}按了 ${data.total.toLocaleString('en-US')} 次键。${topKey ? displayKey(topKey.label) : '—'} 出现最多，${topKey ? topKey.count.toLocaleString('en-US') : '0'} 次。`;
 
   const pick = (label: string, pulse = false) => {
     dispatch({ type: 'select', label });
@@ -53,7 +61,7 @@ export function KeyboardPage({ active }: Props) {
     <section className={'page' + (active ? ' active' : '')} data-page="keyboard" aria-label="键盘查看">
       <header className="g-head">
         <h1>键盘使用</h1>
-        <p>今天按了 12,438 次键。W 出现最多，1,204 次。</p>
+        <p>{intro}</p>
       </header>
 
       <div className="panel kb-panel">

@@ -21,7 +21,7 @@ interface Props {
 export function MousePage({ active }: Props) {
   const { state, dispatch } = useApp();
   const range = state.ranges.mouse;
-  const data = usePageData(`mouse:${range}`, () => loadMouse(range));
+  const { data } = usePageData(`mouse:${range}`, () => loadMouse(range));
 
   const cells = state.layer === 'clicks' ? (data?.grid ?? []) : (data?.moveGrid ?? []);
   const factor = state.layer === 'clicks' ? (data?.factor ?? 1) : 1;
@@ -40,12 +40,18 @@ export function MousePage({ active }: Props) {
     : state.layer === 'clicks'
       ? '准星区格值最高。网格为主屏 32 × 18 归一化坐标；移动图层为按点击热力平滑估算的原型近似。'
       : '移动图层：按点击热力平滑估算的点数分布（原型近似），正式版由采样点单独统计。';
+  const rangePrefix = state.ranges.mouse === 'session' ? '本次（最近 30 分钟）' : state.ranges.mouse === 'week' ? '近 7 天' : '今天';
+  const intro = state.empty
+    ? '移动一下鼠标。'
+    : !data
+      ? '正在读取鼠标数据…'
+      : `${rangePrefix}点了 ${data.summary.clicks.toLocaleString('en-US')} 次，鼠标移动了约 ${data.summary.moveKm.toFixed(1)} 公里。`;
 
   return (
     <section className={'page' + (active ? ' active' : '')} data-page="mouse" aria-label="鼠标查看">
       <header className="g-head">
         <h1>鼠标使用</h1>
-        <p>今天点了 5,204 次，鼠标移动了约 12.4 公里。</p>
+        <p>{intro}</p>
       </header>
 
       <div className="mouse-top">

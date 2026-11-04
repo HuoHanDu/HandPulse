@@ -5,7 +5,7 @@ import { Segmented } from '../ui/Segmented';
 
 export function Transport() {
   const { state, dispatch } = useApp();
-  const summary = usePageData('summary:today', () => getSummary('today'));
+  const { data: summary } = usePageData('summary:today', () => getSummary('today'));
   const number = (v: number | undefined) => (state.empty ? '0' : (v ?? 0).toLocaleString('en-US'));
 
   return (

@@ -54,6 +54,8 @@ export type Action =
   | { type: 'setHist'; hist: HistTab }
   | { type: 'setHeat'; heat: HeatTab }
   | { type: 'setPage'; page: number }
+  | { type: 'setGranularity'; value: 10 | 30 | 60 }
+  | { type: 'setRetention'; value: 7 | 30 | 90 }
   | { type: 'setAutoStart'; value: boolean }
   | { type: 'modal'; modal: ModalKind }
   | { type: 'toast'; message: string }
@@ -114,6 +116,10 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, heat: action.heat };
     case 'setPage':
       return { ...state, page: action.page };
+    case 'setGranularity':
+      return { ...state, granularity: action.value };
+    case 'setRetention':
+      return { ...state, retention: action.value };
     case 'setAutoStart':
       return { ...state, autoStart: action.value };
     case 'modal':

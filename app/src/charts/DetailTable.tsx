@@ -5,7 +5,7 @@ interface Props {
 }
 
 export function DetailTable({ page }: Props) {
-  const rows = (page?.rows ?? []).slice(0, 8);
+  const rows = page?.rows ?? [];
   return (
     <div id="tableRows">
       {rows.map((r, i) => (

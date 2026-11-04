@@ -16,7 +16,6 @@ export function MouseSvg({ extra, factor, empty }: Props) {
   const ref = useRef<SVGSVGElement>(null);
   const pausedRef = useRef(state.paused);
   pausedRef.current = state.paused;
-  const lastFlash = useRef(0);
 
   const f = empty ? 0 : factor;
   const n = (v: number) => Math.round(v * f).toLocaleString('en-US');
@@ -25,19 +24,16 @@ export function MouseSvg({ extra, factor, empty }: Props) {
     const stop = liveStore.subscribe(() => {
       if (pausedRef.current || state.empty) return;
       const deltas = liveStore.getDeltas();
-      const clicked = deltas.clicks.some(v => v > 0);
-      if (!clicked && !deltas.wheel[0] && !deltas.wheel[1]) return;
-      if (Date.now() - lastFlash.current < 300) return;
-      lastFlash.current = Date.now();
       const svg = ref.current;
       if (!svg) return;
-      const id = (deltas.wheel[0] || deltas.wheel[1])
-        ? 'mWheel'
-        : FLASH_IDS[Math.floor(Math.random() * FLASH_IDS.length)];
-      const el = svg.querySelector('#' + id);
-      if (!el) return;
-      el.classList.add('lit');
-      window.setTimeout(() => el.classList.remove('lit'), 120);
+      const flash = (id: string) => {
+        const el = svg.querySelector('#' + id);
+        if (!el) return;
+        el.classList.add('lit');
+        window.setTimeout(() => el.classList.remove('lit'), 120);
+      };
+      deltas.clicks.forEach((v, i) => { if (v > 0) flash(FLASH_IDS[i]); });
+      if (deltas.wheel[0] || deltas.wheel[1]) flash('mWheel');
     });
     return stop;
   }, [state.empty]);

@@ -9,7 +9,10 @@
 .stat-mid .ph{flex:0 0 32px;height:32px}
 .stat-table{flex:1 1 auto;min-height:0}
 .stat-table .ph{flex:0 0 32px;height:32px}
-.tablewrap{flex:1 1 auto;min-height:0;overflow:hidden}
+.tablewrap{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
+.tablewrap::-webkit-scrollbar{width:6px}
+.tablewrap::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:3px}
+.tablewrap::-webkit-scrollbar-track{background:transparent}
 .t-head,.t-row{display:grid;grid-template-columns:150px 1fr 1fr 1fr 1fr;gap:8px;align-items:center;padding:0 12px}
 .t-head{height:26px;border-bottom:1px solid var(--line-soft);font-size:12px;color:var(--text-3)}
 .t-head span:nth-child(n+2){text-align:right}
@@ -32,7 +35,7 @@
 .chart-note{font-size:14px;color:#c7c7cc;padding:0;height:26px;flex:0 0 26px}
 .line-readout{font-size:12px;color:#8e8e93}
 .t-head,.t-row{grid-template-columns:130px 1fr 1fr 1fr 1fr;padding:0 2px}
-.t-head{color:#8e8e93;border-bottom:1px solid rgba(255,255,255,.08)}
+.t-head{color:#8e8e93;border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:2;background:#000}
 .t-row{height:27px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.05);color:#c7c7cc}
 .t-row:hover{background:rgba(255,255,255,.04)}
 .pager{border-top:1px solid rgba(255,255,255,.07);padding:0;margin-top:4px;height:44px}

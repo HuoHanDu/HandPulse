@@ -19,8 +19,8 @@ interface Props {
 export function StatsPage({ active }: Props) {
   const { state, dispatch } = useApp();
   const range = state.ranges.stats;
-  const data = usePageData(`stats:${range}`, () => loadStats(range));
-  const detail = usePageData(`detail:${range}:${state.page}`, () => getDetailPage(range, state.page));
+  const { data } = usePageData(`stats:${range}`, () => loadStats(range));
+  const { data: detail } = usePageData(`detail:${range}:${state.page}`, () => getDetailPage(range, state.page));
 
   const [lineReadout, setLineReadout] = useState('');
   const [histReadout, setHistReadout] = useState('');
@@ -49,12 +49,20 @@ export function StatsPage({ active }: Props) {
     : detail
       ? `共 ${detail.total.toLocaleString('en-US')} 行，每页 50 行`
       : '';
+  const rangePrefix = range === 'week' ? '近 7 天' : range === 'month' ? '近 30 天' : '今日';
+  const unitText = range === 'week' ? '次/时' : range === 'month' ? '次/天' : '次/分';
+  const peakTail = line?.peakText.includes('，') ? line.peakText.split('，').slice(1).join('，') : '';
+  const intro = state.empty
+    ? '还没有数据，先在键盘/鼠标页敲几下。'
+    : !line
+      ? '正在读取统计数据…'
+      : `${rangePrefix}峰值 ${line.peak.val.toLocaleString('en-US')} ${unitText}，出现在 ${peakTail}。`;
 
   return (
     <section className={'page' + (active ? ' active' : '')} data-page="stats" aria-label="数据展示">
       <header className="g-head">
         <h1>数据展示</h1>
-        <p>今日峰值 380 次/分，出现在 21:03。</p>
+        <p>{intro}</p>
       </header>
 
       <div className="panel stat-top">
