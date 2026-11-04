@@ -1,0 +1,626 @@
+[
+  {
+    "id": 0,
+    "label": "Esc",
+    "scan": 1,
+    "extended": false
+  },
+  {
+    "id": 1,
+    "label": "F1",
+    "scan": 59,
+    "extended": false
+  },
+  {
+    "id": 2,
+    "label": "F2",
+    "scan": 60,
+    "extended": false
+  },
+  {
+    "id": 3,
+    "label": "F3",
+    "scan": 61,
+    "extended": false
+  },
+  {
+    "id": 4,
+    "label": "F4",
+    "scan": 62,
+    "extended": false
+  },
+  {
+    "id": 5,
+    "label": "F5",
+    "scan": 63,
+    "extended": false
+  },
+  {
+    "id": 6,
+    "label": "F6",
+    "scan": 64,
+    "extended": false
+  },
+  {
+    "id": 7,
+    "label": "F7",
+    "scan": 65,
+    "extended": false
+  },
+  {
+    "id": 8,
+    "label": "F8",
+    "scan": 66,
+    "extended": false
+  },
+  {
+    "id": 9,
+    "label": "F9",
+    "scan": 67,
+    "extended": false
+  },
+  {
+    "id": 10,
+    "label": "F10",
+    "scan": 68,
+    "extended": false
+  },
+  {
+    "id": 11,
+    "label": "F11",
+    "scan": 87,
+    "extended": false
+  },
+  {
+    "id": 12,
+    "label": "F12",
+    "scan": 88,
+    "extended": false
+  },
+  {
+    "id": 13,
+    "label": "PrtSc",
+    "scan": 55,
+    "extended": true
+  },
+  {
+    "id": 14,
+    "label": "ScrLk",
+    "scan": 70,
+    "extended": false
+  },
+  {
+    "id": 15,
+    "label": "Pause",
+    "scan": 69,
+    "extended": true
+  },
+  {
+    "id": 16,
+    "label": "`",
+    "scan": 41,
+    "extended": false
+  },
+  {
+    "id": 17,
+    "label": "1",
+    "scan": 2,
+    "extended": false
+  },
+  {
+    "id": 18,
+    "label": "2",
+    "scan": 3,
+    "extended": false
+  },
+  {
+    "id": 19,
+    "label": "3",
+    "scan": 4,
+    "extended": false
+  },
+  {
+    "id": 20,
+    "label": "4",
+    "scan": 5,
+    "extended": false
+  },
+  {
+    "id": 21,
+    "label": "5",
+    "scan": 6,
+    "extended": false
+  },
+  {
+    "id": 22,
+    "label": "6",
+    "scan": 7,
+    "extended": false
+  },
+  {
+    "id": 23,
+    "label": "7",
+    "scan": 8,
+    "extended": false
+  },
+  {
+    "id": 24,
+    "label": "8",
+    "scan": 9,
+    "extended": false
+  },
+  {
+    "id": 25,
+    "label": "9",
+    "scan": 10,
+    "extended": false
+  },
+  {
+    "id": 26,
+    "label": "0",
+    "scan": 11,
+    "extended": false
+  },
+  {
+    "id": 27,
+    "label": "-",
+    "scan": 12,
+    "extended": false
+  },
+  {
+    "id": 28,
+    "label": "=",
+    "scan": 13,
+    "extended": false
+  },
+  {
+    "id": 29,
+    "label": "Backspace",
+    "scan": 14,
+    "extended": false
+  },
+  {
+    "id": 30,
+    "label": "Ins",
+    "scan": 82,
+    "extended": true
+  },
+  {
+    "id": 31,
+    "label": "Home",
+    "scan": 71,
+    "extended": true
+  },
+  {
+    "id": 32,
+    "label": "PgUp",
+    "scan": 73,
+    "extended": true
+  },
+  {
+    "id": 33,
+    "label": "Tab",
+    "scan": 15,
+    "extended": false
+  },
+  {
+    "id": 34,
+    "label": "Q",
+    "scan": 16,
+    "extended": false
+  },
+  {
+    "id": 35,
+    "label": "W",
+    "scan": 17,
+    "extended": false
+  },
+  {
+    "id": 36,
+    "label": "E",
+    "scan": 18,
+    "extended": false
+  },
+  {
+    "id": 37,
+    "label": "R",
+    "scan": 19,
+    "extended": false
+  },
+  {
+    "id": 38,
+    "label": "T",
+    "scan": 20,
+    "extended": false
+  },
+  {
+    "id": 39,
+    "label": "Y",
+    "scan": 21,
+    "extended": false
+  },
+  {
+    "id": 40,
+    "label": "U",
+    "scan": 22,
+    "extended": false
+  },
+  {
+    "id": 41,
+    "label": "I",
+    "scan": 23,
+    "extended": false
+  },
+  {
+    "id": 42,
+    "label": "O",
+    "scan": 24,
+    "extended": false
+  },
+  {
+    "id": 43,
+    "label": "P",
+    "scan": 25,
+    "extended": false
+  },
+  {
+    "id": 44,
+    "label": "[",
+    "scan": 26,
+    "extended": false
+  },
+  {
+    "id": 45,
+    "label": "]",
+    "scan": 27,
+    "extended": false
+  },
+  {
+    "id": 46,
+    "label": "\\",
+    "scan": 43,
+    "extended": false
+  },
+  {
+    "id": 47,
+    "label": "Del",
+    "scan": 83,
+    "extended": true
+  },
+  {
+    "id": 48,
+    "label": "End",
+    "scan": 79,
+    "extended": true
+  },
+  {
+    "id": 49,
+    "label": "PgDn",
+    "scan": 81,
+    "extended": true
+  },
+  {
+    "id": 50,
+    "label": "Caps",
+    "scan": 58,
+    "extended": false
+  },
+  {
+    "id": 51,
+    "label": "A",
+    "scan": 30,
+    "extended": false
+  },
+  {
+    "id": 52,
+    "label": "S",
+    "scan": 31,
+    "extended": false
+  },
+  {
+    "id": 53,
+    "label": "D",
+    "scan": 32,
+    "extended": false
+  },
+  {
+    "id": 54,
+    "label": "F",
+    "scan": 33,
+    "extended": false
+  },
+  {
+    "id": 55,
+    "label": "G",
+    "scan": 34,
+    "extended": false
+  },
+  {
+    "id": 56,
+    "label": "H",
+    "scan": 35,
+    "extended": false
+  },
+  {
+    "id": 57,
+    "label": "J",
+    "scan": 36,
+    "extended": false
+  },
+  {
+    "id": 58,
+    "label": "K",
+    "scan": 37,
+    "extended": false
+  },
+  {
+    "id": 59,
+    "label": "L",
+    "scan": 38,
+    "extended": false
+  },
+  {
+    "id": 60,
+    "label": ";",
+    "scan": 39,
+    "extended": false
+  },
+  {
+    "id": 61,
+    "label": "'",
+    "scan": 40,
+    "extended": false
+  },
+  {
+    "id": 62,
+    "label": "Enter",
+    "scan": 28,
+    "extended": false
+  },
+  {
+    "id": 63,
+    "label": "LShift",
+    "scan": 42,
+    "extended": false
+  },
+  {
+    "id": 64,
+    "label": "Z",
+    "scan": 44,
+    "extended": false
+  },
+  {
+    "id": 65,
+    "label": "X",
+    "scan": 45,
+    "extended": false
+  },
+  {
+    "id": 66,
+    "label": "C",
+    "scan": 46,
+    "extended": false
+  },
+  {
+    "id": 67,
+    "label": "V",
+    "scan": 47,
+    "extended": false
+  },
+  {
+    "id": 68,
+    "label": "B",
+    "scan": 48,
+    "extended": false
+  },
+  {
+    "id": 69,
+    "label": "N",
+    "scan": 49,
+    "extended": false
+  },
+  {
+    "id": 70,
+    "label": "M",
+    "scan": 50,
+    "extended": false
+  },
+  {
+    "id": 71,
+    "label": ",",
+    "scan": 51,
+    "extended": false
+  },
+  {
+    "id": 72,
+    "label": ".",
+    "scan": 52,
+    "extended": false
+  },
+  {
+    "id": 73,
+    "label": "/",
+    "scan": 53,
+    "extended": false
+  },
+  {
+    "id": 74,
+    "label": "RShift",
+    "scan": 54,
+    "extended": false
+  },
+  {
+    "id": 75,
+    "label": "↑",
+    "scan": 72,
+    "extended": true
+  },
+  {
+    "id": 76,
+    "label": "LCtrl",
+    "scan": 29,
+    "extended": false
+  },
+  {
+    "id": 77,
+    "label": "LWin",
+    "scan": 91,
+    "extended": true
+  },
+  {
+    "id": 78,
+    "label": "LAlt",
+    "scan": 56,
+    "extended": false
+  },
+  {
+    "id": 79,
+    "label": "Space",
+    "scan": 57,
+    "extended": false
+  },
+  {
+    "id": 80,
+    "label": "RAlt",
+    "scan": 56,
+    "extended": true
+  },
+  {
+    "id": 81,
+    "label": "RWin",
+    "scan": 92,
+    "extended": true
+  },
+  {
+    "id": 82,
+    "label": "Menu",
+    "scan": 93,
+    "extended": true
+  },
+  {
+    "id": 83,
+    "label": "RCtrl",
+    "scan": 29,
+    "extended": true
+  },
+  {
+    "id": 84,
+    "label": "←",
+    "scan": 75,
+    "extended": true
+  },
+  {
+    "id": 85,
+    "label": "↓",
+    "scan": 80,
+    "extended": true
+  },
+  {
+    "id": 86,
+    "label": "→",
+    "scan": 77,
+    "extended": true
+  },
+  {
+    "id": 87,
+    "label": "NumLock",
+    "scan": 69,
+    "extended": false
+  },
+  {
+    "id": 88,
+    "label": "NDiv",
+    "scan": 53,
+    "extended": true
+  },
+  {
+    "id": 89,
+    "label": "NMul",
+    "scan": 55,
+    "extended": false
+  },
+  {
+    "id": 90,
+    "label": "NSub",
+    "scan": 74,
+    "extended": false
+  },
+  {
+    "id": 91,
+    "label": "N7",
+    "scan": 71,
+    "extended": false
+  },
+  {
+    "id": 92,
+    "label": "N8",
+    "scan": 72,
+    "extended": false
+  },
+  {
+    "id": 93,
+    "label": "N9",
+    "scan": 73,
+    "extended": false
+  },
+  {
+    "id": 94,
+    "label": "NAdd",
+    "scan": 78,
+    "extended": false
+  },
+  {
+    "id": 95,
+    "label": "N4",
+    "scan": 75,
+    "extended": false
+  },
+  {
+    "id": 96,
+    "label": "N5",
+    "scan": 76,
+    "extended": false
+  },
+  {
+    "id": 97,
+    "label": "N6",
+    "scan": 77,
+    "extended": false
+  },
+  {
+    "id": 98,
+    "label": "N1",
+    "scan": 79,
+    "extended": false
+  },
+  {
+    "id": 99,
+    "label": "N2",
+    "scan": 80,
+    "extended": false
+  },
+  {
+    "id": 100,
+    "label": "N3",
+    "scan": 81,
+    "extended": false
+  },
+  {
+    "id": 101,
+    "label": "NEnter",
+    "scan": 28,
+    "extended": true
+  },
+  {
+    "id": 102,
+    "label": "N0",
+    "scan": 82,
+    "extended": false
+  },
+  {
+    "id": 103,
+    "label": "NDot",
+    "scan": 83,
+    "extended": false
+  }
+]
