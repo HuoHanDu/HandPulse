@@ -1,0 +1,35 @@
+:root{
+  --bg:#08090b;
+  --panel:#101114;
+  --panel-2:#0b0c0f;
+  --panel-3:#15171b;
+  --line:#23252a;
+  --line-soft:#1b1d21;
+  --text:#e9edf3;
+  --text-2:#a7b1bd;
+  --text-3:#8a94a1;
+  --text-4:#848e9b;
+  --accent:#4c8dff;
+  --accent-soft:#9cc0ff;
+  --accent-dim:rgba(76,141,255,.16);
+  --ok:#35d0a5;
+  --warn:#f5a623;
+  --danger:#ff5c5c;
+  --mono:'JetBrains Mono','Noto Sans SC','Microsoft YaHei',monospace;
+  --sans:'Inter','Noto Sans SC','Microsoft YaHei','PingFang SC',sans-serif;
+  --insp:320px;
+  --keylabel:12px;
+}
+/* =====================================================================
+   最终混搭版 · 暗厅 × 工作台
+   结构来自方向 2（rail + transport + tape + 工作区 + inspector）
+   视觉来自方向 1（纯黑、display 紧字距、单一 Action 蓝、胶囊、无边框、
+   键盘作为被顶光打亮的实物、整套只有一处产品阴影）
+   ===================================================================== */
+:root{
+  --bg:#000; --panel:#0a0a0b; --panel-2:#000; --panel-3:#101012;
+  --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+  --text:#f5f5f7; --text-2:#c7c7cc; --text-3:#8e8e93; --text-4:#8e8e93;
+  --accent:#2997ff; --accent-soft:#9ccaff; --accent-dim:rgba(41,151,255,.12);
+  --insp:300px; --keylabel:13px;
+}
