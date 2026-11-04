@@ -200,7 +200,10 @@ impl Aggregator {
         self.events += 1;
         match ev {
             RawEvent::Key { key_id, down, at, unmapped } => {
-                self.key_events += 1;
+                // keyEvents 只统计按下（一次按键 = 1，不把抬起重复算一次）
+                if down {
+                    self.key_events += 1;
+                }
                 let Some(id) = key_id else {
                     let _ = unmapped;
                     self.unmapped += 1;
@@ -493,7 +496,7 @@ mod tests {
         assert_eq!(agg.hold_n[id as usize], 1000);
         assert_eq!(agg.hold_sum[id as usize], 1000 * 50);
         assert_eq!(agg.events, 2000);
-        assert_eq!(agg.key_events, 2000);
+        assert_eq!(agg.key_events, 1000);
         assert_eq!(agg.chords, 0);
     }
 
