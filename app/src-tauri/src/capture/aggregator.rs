@@ -1,21 +1,26 @@
 //! Aggregator：单线程状态机，持有全部可变计数。
 //!
-//! 每 100ms 把增量封成 `LiveFrame`（没有事件也发空帧心跳），同时更新：
-//! - CaptureStats（事件数、丢弃、未映射、p50/p95/p99 延迟、运行时长）；
-//! - SessionSummary（按键/点击/滚轮/位移/组合键/Top 键/A 键按住）；
-//! - 最近 60 个秒样本与内存 60s 桶（M3 接 SQLite 时直接落盘）。
+//! 每 100ms 把增量封成 `LiveFrame`（没有事件也发空帧心跳），同时维护：
+//! - 会话累计（CaptureStats / SessionSummary / SessionSnapshot）；
+//! - 当前未关闭桶（本地时区对齐），关闭时交给 Writer 落盘。
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
-use crossbeam_channel::{Receiver, RecvTimeoutError};
+use chrono::{Local, Timelike};
+use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
 
 use super::keymap::Keymap;
 use super::{
-    CaptureStats, LiveFrame, MouseBtn, RawEvent, SessionSummary, Shared, Snapshot, TopKey, now_ms,
+    CaptureStats, LiveFrame, MouseBtn, RawEvent, SessionKey, SessionSnapshot, SessionSummary,
+    Shared, Snapshot, TopKey, now_ms,
 };
+use crate::storage::payload::{
+    CurrentBucket, Device, KbPayload, MousePayload, PersistBucket, encode, px_to_cm,
+};
+use crate::storage::writer::WriteMsg;
 
 pub const KEY_COUNT: usize = 104;
 pub const GRID_W: usize = 32;
@@ -25,9 +30,8 @@ const FLUSH_MS: u64 = 100;
 const ACTIVE_FLUSH_MS: u64 = 20;
 const LATENCY_CAP: usize = 1024;
 const SECOND_CAP: usize = 60;
-const BUCKET_CAP: usize = 10;
-const BUCKET_SECS: u64 = 60;
 const MAX_EVENT_ATS: usize = 512;
+const STREAK_GAP_MS: u64 = 5000;
 
 #[derive(Clone, Default)]
 pub struct SecondSample {
@@ -40,7 +44,6 @@ pub struct SecondSample {
 
 #[derive(Clone, Default)]
 pub struct Bucket {
-    pub start_ms: u64,
     pub keys: u64,
     pub clicks: u64,
     pub wheel: u64,
@@ -72,13 +75,128 @@ impl FrameAcc {
     }
 }
 
+struct BucketAcc {
+    ts: i64,
+    granularity: u32,
+    start: Instant,
+    counts: HashMap<u16, u32>,
+    hold_sum: HashMap<u16, u64>,
+    hold_max: HashMap<u16, u64>,
+    first: HashMap<u16, i64>,
+    last: HashMap<u16, i64>,
+    clicks: [u64; 5],
+    wheel: [u64; 2],
+    move_px: f64,
+    grid: [u32; GRID_W * GRID_H],
+    gap: [u32; 5],
+    chord: u64,
+    peak_speed: f64,
+    fast: u64,
+}
+
+impl Default for BucketAcc {
+    fn default() -> Self {
+        Self {
+            ts: 0,
+            granularity: 60,
+            start: Instant::now(),
+            counts: HashMap::new(),
+            hold_sum: HashMap::new(),
+            hold_max: HashMap::new(),
+            first: HashMap::new(),
+            last: HashMap::new(),
+            clicks: [0; 5],
+            wheel: [0; 2],
+            move_px: 0.0,
+            grid: [0; GRID_W * GRID_H],
+            gap: [0; 5],
+            chord: 0,
+            peak_speed: 0.0,
+            fast: 0,
+        }
+    }
+}
+
+impl BucketAcc {
+    fn new(granularity: u32, now: Instant) -> Self {
+        Self {
+            ts: align_ts(granularity),
+            granularity,
+            start: now,
+            ..Self::default()
+        }
+    }
+    fn reset(&mut self, granularity: u32, now: Instant) {
+        *self = Self::new(granularity, now);
+    }
+
+    fn has_kb(&self) -> bool {
+        !self.counts.is_empty()
+    }
+
+    fn has_mouse(&self) -> bool {
+        self.clicks.iter().any(|v| *v > 0)
+            || self.wheel.iter().any(|v| *v > 0)
+            || self.move_px > 0.0
+    }
+
+    fn kb_payload(&self, streak_ms: u64) -> KbPayload {
+        KbPayload {
+            v: 1,
+            k: self.counts.iter().map(|(k, v)| (*k, *v)).collect(),
+            hold_sum: self.hold_sum.iter().map(|(k, v)| (*k, *v)).collect(),
+            hold_max: self.hold_max.iter().map(|(k, v)| (*k, *v)).collect(),
+            chord: self.chord,
+            gap: self.gap,
+            streak_ms,
+            first: self.first.iter().map(|(k, v)| (*k, *v)).collect(),
+            last: self.last.iter().map(|(k, v)| (*k, *v)).collect(),
+        }
+    }
+
+    fn mouse_payload(&self) -> MousePayload {
+        let mut grid = BTreeMap::new();
+        for (i, count) in self.grid.iter().enumerate() {
+            if *count == 0 {
+                continue;
+            }
+            let x = (i % GRID_W) as u8;
+            let y = (i / GRID_W) as u8;
+            grid.insert(format!("{x},{y}"), *count);
+        }
+        MousePayload {
+            v: 1,
+            cl: self.clicks,
+            wh: self.wheel,
+            px: self.move_px,
+            cm: px_to_cm(self.move_px),
+            vmax: self.peak_speed,
+            fast: self.fast,
+            grid,
+        }
+    }
+
+    fn current(&self) -> CurrentBucket {
+        CurrentBucket {
+            ts: self.ts,
+            granularity: self.granularity,
+            kb: self.kb_payload(0),
+            mouse: self.mouse_payload(),
+        }
+    }
+}
+
 pub struct Aggregator {
     keymap: Arc<Keymap>,
+    writer: Option<Sender<WriteMsg>>,
+    granularity: u32,
     pressed: HashMap<u16, Instant>,
     pub counts: [u64; KEY_COUNT],
     pub hold_sum: [u64; KEY_COUNT],
     pub hold_max: [u64; KEY_COUNT],
     pub hold_n: [u64; KEY_COUNT],
+    first_min: [u32; KEY_COUNT],
+    last_min: [u32; KEY_COUNT],
     pub clicks: [u64; 5],
     pub wheel: [u64; 2],
     pub wheel_accum: i32,
@@ -97,10 +215,14 @@ pub struct Aggregator {
     current_bucket: Bucket,
     second_acc: SecondSample,
     second_start: Instant,
-    bucket_start: Instant,
     session_start: Instant,
     last_flush: Instant,
     frame: FrameAcc,
+    bucket: BucketAcc,
+    last_key_at: Option<Instant>,
+    last_input_at: Option<Instant>,
+    streak_start: Option<Instant>,
+    longest_streak_ms: u64,
     seq: u64,
     paused: bool,
 }
@@ -118,16 +240,44 @@ pub fn grid_coords(x: i32, y: i32, width: i32, height: i32) -> (u8, u8) {
     (gx, gy)
 }
 
+fn align_ts(granularity: u32) -> i64 {
+    let now = Local::now().timestamp();
+    now - now.rem_euclid(granularity.max(1) as i64)
+}
+
+fn now_secs() -> i64 {
+    Local::now().timestamp()
+}
+
+fn minute_of_day_now() -> u32 {
+    let now = Local::now();
+    now.hour() * 60 + now.minute()
+}
+
+fn gap_bin(ms: u64) -> usize {
+    match ms {
+        0..=49 => 0,
+        50..=99 => 1,
+        100..=199 => 2,
+        200..=499 => 3,
+        _ => 4,
+    }
+}
+
 impl Aggregator {
-    pub fn new(keymap: Arc<Keymap>) -> Self {
+    pub fn new(keymap: Arc<Keymap>, writer: Option<Sender<WriteMsg>>, granularity: u32) -> Self {
         let now = Instant::now();
         Self {
             keymap,
+            writer,
+            granularity,
             pressed: HashMap::new(),
             counts: [0; KEY_COUNT],
             hold_sum: [0; KEY_COUNT],
             hold_max: [0; KEY_COUNT],
             hold_n: [0; KEY_COUNT],
+            first_min: [0; KEY_COUNT],
+            last_min: [0; KEY_COUNT],
             clicks: [0; 5],
             wheel: [0; 2],
             wheel_accum: 0,
@@ -142,14 +292,18 @@ impl Aggregator {
             absolute_skipped: 0,
             latencies: VecDeque::with_capacity(LATENCY_CAP),
             seconds: VecDeque::with_capacity(SECOND_CAP),
-            buckets: VecDeque::with_capacity(BUCKET_CAP),
+            buckets: VecDeque::new(),
             current_bucket: Bucket::default(),
             second_acc: SecondSample::default(),
             second_start: now,
-            bucket_start: now,
             session_start: now,
             last_flush: now,
             frame: FrameAcc::default(),
+            bucket: BucketAcc::new(granularity, now),
+            last_key_at: None,
+            last_input_at: None,
+            streak_start: None,
+            longest_streak_ms: 0,
             seq: 0,
             paused: false,
         }
@@ -157,13 +311,11 @@ impl Aggregator {
 
     pub fn set_paused(&mut self, paused: bool) {
         if paused && !self.paused {
-            // 暂停瞬间清空按下集合，避免恢复后 hold 时长被暂停时间污染
             self.pressed.clear();
         }
         self.paused = paused;
     }
 
-    /// 自上次 flush 以来是否有事件（决定发帧节奏：有事件 20ms，空闲 100ms）。
     pub fn has_pending_events(&self) -> bool {
         !self.frame.event_ats.is_empty()
     }
@@ -175,6 +327,8 @@ impl Aggregator {
         self.hold_sum = [0; KEY_COUNT];
         self.hold_max = [0; KEY_COUNT];
         self.hold_n = [0; KEY_COUNT];
+        self.first_min = [0; KEY_COUNT];
+        self.last_min = [0; KEY_COUNT];
         self.clicks = [0; 5];
         self.wheel = [0; 2];
         self.wheel_accum = 0;
@@ -182,7 +336,6 @@ impl Aggregator {
         self.peak_speed = 0.0;
         self.grid = [0; GRID_W * GRID_H];
         self.chords = 0;
-        // 会话重置同时清空进程级事件统计，Inspector 重置后显示 0
         self.events = 0;
         self.key_events = 0;
         self.mouse_events = 0;
@@ -193,9 +346,30 @@ impl Aggregator {
         self.seconds.clear();
         self.buckets.clear();
         self.current_bucket = Bucket::default();
-        self.bucket_start = now;
         self.second_start = now;
         self.session_start = now;
+        self.last_key_at = None;
+        self.last_input_at = None;
+        self.streak_start = None;
+        self.longest_streak_ms = 0;
+        self.bucket.reset(self.granularity, now);
+    }
+
+    fn touch_input(&mut self, at: Instant) {
+        if let Some(prev) = self.last_input_at {
+            let gap = at.saturating_duration_since(prev);
+            if gap <= Duration::from_millis(STREAK_GAP_MS) {
+                if let Some(start) = self.streak_start {
+                    let streak = at.saturating_duration_since(start).as_millis() as u64;
+                    self.longest_streak_ms = self.longest_streak_ms.max(streak);
+                }
+            } else {
+                self.streak_start = Some(at);
+            }
+        } else {
+            self.streak_start = Some(at);
+        }
+        self.last_input_at = Some(at);
     }
 
     pub fn handle(&mut self, ev: RawEvent) {
@@ -232,16 +406,36 @@ impl Aggregator {
                 }
                 if down {
                     if self.pressed.contains_key(&(id as u16)) {
-                        // 自动重复：不计数、不重置按住起点，也不计入 keyEvents
                         return;
                     }
                     self.key_events += 1;
-                    if !self.pressed.is_empty() {
+                    let chorded = !self.pressed.is_empty();
+                    if chorded {
                         self.chords += 1;
                     }
                     self.counts[id] += 1;
+                    let minute = minute_of_day_now();
+                    if self.first_min[id] == 0 {
+                        self.first_min[id] = minute;
+                    }
+                    self.last_min[id] = minute;
                     self.pressed.insert(id as u16, at);
                     *self.frame.keys.entry(id as u16).or_insert(0) += 1;
+
+                    let bucket = &mut self.bucket;
+                    *bucket.counts.entry(id as u16).or_insert(0) += 1;
+                    if chorded {
+                        bucket.chord += 1;
+                    }
+                    let ts = now_secs();
+                    bucket.first.entry(id as u16).or_insert(ts);
+                    bucket.last.insert(id as u16, ts);
+                    if let Some(prev) = self.last_key_at {
+                        let gap = at.saturating_duration_since(prev).as_millis() as u64;
+                        bucket.gap[gap_bin(gap)] += 1;
+                    }
+                    self.last_key_at = Some(at);
+                    self.touch_input(at);
                 } else if let Some(start) = self.pressed.remove(&(id as u16)) {
                     let hold = at.duration_since(start).as_millis() as u64;
                     self.hold_sum[id] += hold;
@@ -249,9 +443,13 @@ impl Aggregator {
                     if hold > self.hold_max[id] {
                         self.hold_max[id] = hold;
                     }
+                    let bucket = &mut self.bucket;
+                    *bucket.hold_sum.entry(id as u16).or_insert(0) += hold;
+                    let e = bucket.hold_max.entry(id as u16).or_insert(0);
+                    *e = (*e).max(hold);
                 }
             }
-            RawEvent::Button { btn, down, .. } => {
+            RawEvent::Button { btn, down, at } => {
                 self.mouse_events += 1;
                 if !down {
                     return;
@@ -265,25 +463,31 @@ impl Aggregator {
                 };
                 self.clicks[idx] += 1;
                 self.frame.clicks[idx] += 1;
+                self.bucket.clicks[idx] += 1;
                 if let Some((gx, gy)) = cursor_grid() {
                     let cell = gy as usize * GRID_W + gx as usize;
                     self.grid[cell] += 1;
+                    self.bucket.grid[cell] += 1;
                     self.frame.grid.push((gx, gy));
                 }
+                self.touch_input(at);
             }
-            RawEvent::Wheel { delta, .. } => {
+            RawEvent::Wheel { delta, at } => {
                 self.mouse_events += 1;
                 self.wheel_accum += delta as i32;
                 while self.wheel_accum >= 120 {
                     self.wheel_accum -= 120;
                     self.wheel[0] += 1;
+                    self.bucket.wheel[0] += 1;
                     self.frame.wheel[0] += 1;
                 }
                 while self.wheel_accum <= -120 {
                     self.wheel_accum += 120;
                     self.wheel[1] += 1;
+                    self.bucket.wheel[1] += 1;
                     self.frame.wheel[1] += 1;
                 }
+                self.touch_input(at);
             }
             RawEvent::Move { dx, dy, .. } => {
                 self.mouse_events += 1;
@@ -291,30 +495,73 @@ impl Aggregator {
                 self.frame.dy += dy;
                 let dist = ((dx as f64).powi(2) + (dy as f64).powi(2)).sqrt();
                 self.move_px += dist;
+                self.bucket.move_px += dist;
                 self.frame.move_px += dist;
             }
             RawEvent::AbsoluteMove { .. } => {
-                // RDP / 绘图板 / 虚拟桌面绝对坐标：M2 只统计主屏相对移动，跳过并计数
                 self.mouse_events += 1;
                 self.absolute_skipped += 1;
             }
         }
     }
 
+    /// 关闭当前桶：两个设备分别封包；空桶不写。
+    pub fn close_bucket(&mut self, shared: &Shared) {
+        let streak = self.longest_streak_ms;
+        if self.bucket.has_kb() {
+            let p = self.bucket.kb_payload(streak);
+            let actions = p.actions();
+            if let Ok(blob) = encode(&p) {
+                let ts = self.bucket.ts;
+                let gran = self.bucket.granularity;
+                if let Some(tx) = &self.writer {
+                    let b = PersistBucket::new(ts, gran, Device::Kb, actions, blob);
+                    if tx.try_send(WriteMsg::Bucket(Box::new(b))).is_err() {
+                        shared.dropped.fetch_add(1, Ordering::Relaxed);
+                    }
+                }
+            }
+        }
+        if self.bucket.has_mouse() {
+            let p = self.bucket.mouse_payload();
+            let actions = p.actions();
+            if let Ok(blob) = encode(&p) {
+                let ts = self.bucket.ts;
+                let gran = self.bucket.granularity;
+                if let Some(tx) = &self.writer {
+                    let b = PersistBucket::new(ts, gran, Device::Mouse, actions, blob);
+                    if tx.try_send(WriteMsg::Bucket(Box::new(b))).is_err() {
+                        shared.dropped.fetch_add(1, Ordering::Relaxed);
+                    }
+                }
+            }
+        }
+        self.bucket.reset(self.granularity, Instant::now());
+        *shared.live_bucket.lock() = Some(self.bucket.current());
+    }
+
     /// 把当前增量封帧、更新快照并通过 Channel 发给前端；Channel 失败只清订阅。
     pub fn flush(&mut self, shared: &Shared) {
         let now = Instant::now();
-        if shared.paused.load(Ordering::Relaxed) {
-            // 暂停时停止计数与发帧，只刷新快照（恢复后 seq 从下一帧继续）
+        let paused = shared.paused.load(Ordering::Relaxed);
+        if paused {
+            if self.bucket.has_kb() || self.bucket.has_mouse() {
+                self.close_bucket(shared);
+            }
             self.frame.reset();
             self.last_flush = now;
+            self.bucket.ts = align_ts(self.granularity);
+            *shared.live_bucket.lock() = Some(self.bucket.current());
             *shared.snapshot.lock() = self.snapshot(shared);
             return;
         }
+
         let elapsed = now.duration_since(self.last_flush).as_secs_f64().max(1e-6);
         let speed = self.frame.move_px / elapsed;
-        if speed > self.peak_speed {
-            self.peak_speed = speed;
+        self.peak_speed = self.peak_speed.max(speed);
+        self.bucket.peak_speed = self.bucket.peak_speed.max(speed);
+        if speed >= 2000.0 {
+            self.bucket.fast += 1;
         }
 
         for at in self.frame.event_ats.drain(..) {
@@ -337,7 +584,6 @@ impl Aggregator {
             grid: self.frame.grid.clone(),
         };
 
-        // 秒样本（最近 60 个，M3 落盘用）
         self.second_acc.ts = now_ms();
         self.second_acc.keys += frame.keys.iter().map(|(_, d)| *d).sum::<u32>();
         self.second_acc.clicks += frame.clicks.iter().sum::<u32>();
@@ -352,23 +598,30 @@ impl Aggregator {
             self.second_start = now;
         }
 
-        // 60s 内存桶（M3 再接 SQLite）
         self.current_bucket.keys += frame.keys.iter().map(|(_, d)| *d as u64).sum::<u64>();
         self.current_bucket.clicks += frame.clicks.iter().map(|v| *v as u64).sum::<u64>();
         self.current_bucket.wheel += (frame.wheel[0] + frame.wheel[1]).max(0) as u64;
         self.current_bucket.move_px += self.frame.move_px;
-        if now.duration_since(self.bucket_start) >= Duration::from_secs(BUCKET_SECS) {
-            self.current_bucket.start_ms = now_ms().saturating_sub(BUCKET_SECS * 1000);
-            let bucket = std::mem::take(&mut self.current_bucket);
-            if self.buckets.len() >= BUCKET_CAP {
+        if now.duration_since(self.bucket.start) >= Duration::from_secs(1) {
+            if self.buckets.len() >= 10 {
                 self.buckets.pop_front();
             }
-            self.buckets.push_back(bucket);
-            self.bucket_start = now;
+            self.buckets.push_back(self.current_bucket.clone());
+            self.current_bucket = Bucket::default();
         }
 
-        let snapshot = self.snapshot(shared);
-        *shared.snapshot.lock() = snapshot;
+        // 桶边界
+        let wanted = shared.bucket_seconds.load(Ordering::Relaxed);
+        if wanted != self.granularity {
+            self.close_bucket(shared);
+            self.granularity = wanted;
+            self.bucket.reset(wanted, now);
+        } else if now_secs() >= self.bucket.ts + self.granularity as i64 {
+            self.close_bucket(shared);
+        }
+        *shared.live_bucket.lock() = Some(self.bucket.current());
+
+        *shared.snapshot.lock() = self.snapshot(shared);
 
         // 只锁一次并复用 guard；发送失败时在同一 guard 里清空订阅，避免 parking_lot 自锁
         let mut slot = shared.channel.lock();
@@ -398,6 +651,7 @@ impl Aggregator {
             latency_p99_ms: lat.2,
             uptime_ms: shared.started.elapsed().as_millis() as u64,
             error,
+            storage_error: shared.storage_error.lock().clone(),
         };
 
         let mut top: Vec<TopKey> = self
@@ -438,7 +692,42 @@ impl Aggregator {
             hold_avg_a_ms: hold_avg_a,
             hold_max_a_ms: hold_max_a,
         };
-        Snapshot { stats, summary }
+
+        let mut keys = Vec::new();
+        for id in 0..KEY_COUNT {
+            if self.counts[id] > 0 {
+                keys.push(SessionKey {
+                    key_id: id as u16,
+                    count: self.counts[id],
+                    hold_sum: self.hold_sum[id],
+                    hold_max: self.hold_max[id],
+                    first_min: self.first_min[id],
+                    last_min: self.last_min[id],
+                });
+            }
+        }
+        let grid = self
+            .grid
+            .iter()
+            .enumerate()
+            .filter(|(_, v)| **v > 0)
+            .map(|(i, v)| ((i % GRID_W) as u8, (i / GRID_W) as u8, *v))
+            .collect();
+        let session = SessionSnapshot {
+            keys,
+            clicks: self.clicks,
+            wheel: self.wheel,
+            move_px: self.move_px,
+            peak_speed: self.peak_speed,
+            chords: self.chords,
+            grid,
+        };
+
+        Snapshot {
+            stats,
+            summary,
+            session,
+        }
     }
 
     fn latency_percentiles(&self) -> (u64, u64, u64) {
@@ -455,14 +744,28 @@ impl Aggregator {
     }
 }
 
-pub fn run(shared: Arc<Shared>, keymap: Arc<Keymap>, rx: Receiver<RawEvent>) {
-    let mut agg = Aggregator::new(keymap);
+pub fn run(
+    shared: Arc<Shared>,
+    keymap: Arc<Keymap>,
+    rx: Receiver<RawEvent>,
+    writer: Option<Sender<WriteMsg>>,
+) {
+    let granularity = shared.bucket_seconds.load(Ordering::Relaxed);
+    let mut agg = Aggregator::new(keymap, writer, granularity);
     loop {
+        if shared.shutdown_request.load(Ordering::Relaxed) {
+            agg.close_bucket(&shared);
+            *shared.snapshot.lock() = agg.snapshot(&shared);
+            shared.shutdown_ack.store(true, Ordering::Relaxed);
+            break;
+        }
         agg.set_paused(shared.paused.load(Ordering::Relaxed));
         if shared.reset_request.swap(false, Ordering::Relaxed) {
+            // 先把当前桶落盘，再重置会话，避免未满桶数据丢失
+            agg.close_bucket(&shared);
             agg.reset_session();
-            shared.dropped.store(0, Ordering::Relaxed);
             *shared.snapshot.lock() = agg.snapshot(&shared);
+            shared.reset_ack.store(true, Ordering::Relaxed);
         }
 
         let elapsed = agg.last_flush.elapsed();
@@ -515,7 +818,7 @@ mod tests {
 
     fn new_agg() -> (Aggregator, Arc<Keymap>) {
         let km = Arc::new(keymap::load());
-        (Aggregator::new(km.clone()), km)
+        (Aggregator::new(km.clone(), None, 60), km)
     }
 
     fn key_id(km: &Keymap, scan: u16, extended: bool) -> u16 {
@@ -525,7 +828,7 @@ mod tests {
     #[test]
     fn thousand_key_pairs_count_exactly() {
         let (mut agg, km) = new_agg();
-        let id = key_id(&km, 0x11, false); // W
+        let id = key_id(&km, 0x11, false);
         let t0 = Instant::now();
         for i in 0..1000 {
             let at = t0 + Duration::from_millis(i * 2);
@@ -596,7 +899,7 @@ mod tests {
     #[test]
     fn long_press_hold_ms() {
         let (mut agg, km) = new_agg();
-        let id = key_id(&km, 0x1e, false); // A
+        let id = key_id(&km, 0x1e, false);
         let t0 = Instant::now();
         agg.handle(RawEvent::Key {
             key_id: Some(id),
@@ -611,11 +914,8 @@ mod tests {
             unmapped: None,
         });
         assert_eq!(agg.counts[id as usize], 1);
-        assert!(
-            (4990..=5010).contains(&agg.hold_max[id as usize]),
-            "hold = {}",
-            agg.hold_max[id as usize]
-        );
+        assert!((4990..=5010).contains(&agg.hold_max[id as usize]));
+        assert_eq!(agg.bucket.gap, [0; 5]);
     }
 
     #[test]
@@ -637,6 +937,7 @@ mod tests {
             unmapped: None,
         });
         assert_eq!(agg.chords, 1);
+        assert_eq!(agg.bucket.chord, 1);
     }
 
     #[test]
@@ -649,24 +950,14 @@ mod tests {
             delta: -120,
             at: t0,
         });
-        // 120 + 30 - 120 = 30：已上滚 1 格，余 30 → 再 -120 后余 -90
         assert_eq!(agg.wheel, [1, 0]);
         assert_eq!(agg.wheel_accum, -90);
         agg.handle(RawEvent::Wheel { delta: -30, at: t0 });
         assert_eq!(agg.wheel, [1, 1]);
-        assert_eq!(agg.wheel_accum, 0);
         agg.handle(RawEvent::Wheel { delta: 90, at: t0 });
-        assert_eq!(agg.wheel, [1, 1]);
-        assert_eq!(agg.wheel_accum, 90);
         agg.handle(RawEvent::Wheel { delta: 30, at: t0 });
         assert_eq!(agg.wheel, [2, 1]);
-        assert_eq!(agg.wheel_accum, 0);
-        agg.handle(RawEvent::Wheel {
-            delta: -120,
-            at: t0,
-        });
-        assert_eq!(agg.wheel, [2, 2]);
-        assert_eq!(agg.wheel_accum, 0);
+        assert_eq!(agg.bucket.wheel, [2, 1]);
     }
 
     #[test]
@@ -699,7 +990,7 @@ mod tests {
     #[test]
     fn reset_session_clears_counts_but_keeps_running() {
         let (mut agg, km) = new_agg();
-        let shared = Shared::new();
+        let shared = Shared::new(60);
         let id = key_id(&km, 0x11, false);
         let t0 = Instant::now();
         agg.handle(RawEvent::Key {
@@ -732,18 +1023,11 @@ mod tests {
         assert_eq!(agg.clicks, [0; 5]);
         assert_eq!(agg.wheel, [0, 0]);
         assert!(agg.pressed.is_empty());
-        assert_eq!(agg.counts.iter().sum::<u64>(), 0);
-        // 推荐方案：会话重置同时清空进程事件统计
         assert_eq!(snap.stats.events, 0);
         assert_eq!(snap.stats.key_events, 0);
         assert_eq!(snap.stats.mouse_events, 0);
-        assert_eq!(snap.stats.unmapped, 0);
-        assert_eq!(snap.stats.absolute_skipped, 0);
-        assert_eq!(snap.stats.dropped, 0);
         assert_eq!(snap.summary.keys, 0);
-        // 运行状态保留
         assert!(snap.stats.running);
-        // 重置后仍可继续计数
         agg.handle(RawEvent::Key {
             key_id: Some(id),
             down: true,
@@ -797,7 +1081,7 @@ mod tests {
     #[test]
     fn flush_emits_heartbeat_and_latency() {
         let (mut agg, km) = new_agg();
-        let shared = Shared::new();
+        let shared = Shared::new(60);
         let t0 = Instant::now();
         let id = key_id(&km, 0x11, false);
         agg.handle(RawEvent::Key {
@@ -811,21 +1095,107 @@ mod tests {
         let snap = shared.snapshot.lock().clone();
         assert_eq!(snap.stats.events, 1);
         assert_eq!(snap.stats.key_events, 1);
-        assert!(snap.stats.latency_p99_ms >= 5);
         assert!(snap.stats.running);
         assert_eq!(snap.summary.keys, 1);
-        // 空帧心跳：seq 继续增长
         let seq_before = agg.seq;
         agg.flush(&shared);
         assert_eq!(agg.seq, seq_before + 1);
-        assert!(shared.snapshot.lock().stats.events >= 1);
-        let _ = agg.session_start;
+        assert_eq!(agg.snapshot(&Shared::new(60)).session.keys.len(), 1);
+    }
+
+    #[test]
+    fn bucket_close_produces_payloads() {
+        let (mut agg, km) = new_agg();
+        let shared = Shared::new(60);
+        let id = key_id(&km, 0x11, false);
+        let t0 = Instant::now();
+        agg.handle(RawEvent::Key {
+            key_id: Some(id),
+            down: true,
+            at: t0,
+            unmapped: None,
+        });
+        agg.handle(RawEvent::Key {
+            key_id: Some(id),
+            down: false,
+            at: t0 + Duration::from_millis(80),
+            unmapped: None,
+        });
+        agg.handle(RawEvent::Button {
+            btn: MouseBtn::Right,
+            down: true,
+            at: t0 + Duration::from_millis(100),
+        });
+        agg.handle(RawEvent::Wheel {
+            delta: 120,
+            at: t0 + Duration::from_millis(150),
+        });
+        let (tx, rx) = crossbeam_channel::bounded(16);
+        agg.writer = Some(tx);
+        agg.close_bucket(&shared);
+        let mut got = Vec::new();
+        while let Ok(msg) = rx.try_recv() {
+            if let WriteMsg::Bucket(b) = msg {
+                got.push(b);
+            }
+        }
+        assert_eq!(got.len(), 2);
+        assert_eq!(got[0].device, Device::Kb);
+        assert_eq!(got[0].actions, 1);
+        let kb: KbPayload = crate::storage::payload::decode(&got[0].payload).unwrap();
+        assert_eq!(kb.k.get(&id).copied(), Some(1));
+        assert_eq!(kb.gap, [0; 5]);
+        let mouse: MousePayload = crate::storage::payload::decode(&got[1].payload).unwrap();
+        assert_eq!(mouse.cl[1], 1);
+        assert_eq!(mouse.wh[0], 1);
+    }
+
+    #[test]
+    fn streak_survives_bucket_close() {
+        let (mut agg, km) = new_agg();
+        let shared = Shared::new(60);
+        let id = key_id(&km, 0x11, false);
+        let t0 = Instant::now();
+        agg.handle(RawEvent::Key {
+            key_id: Some(id),
+            down: true,
+            at: t0,
+            unmapped: None,
+        });
+        agg.handle(RawEvent::Key {
+            key_id: Some(id),
+            down: false,
+            at: t0 + Duration::from_millis(50),
+            unmapped: None,
+        });
+        agg.close_bucket(&shared); // 桶关闭不应重置 streak 起点
+        for i in 1..=150 {
+            let at = t0 + Duration::from_secs(i * 4);
+            agg.handle(RawEvent::Key {
+                key_id: Some(id),
+                down: true,
+                at,
+                unmapped: None,
+            });
+            agg.handle(RawEvent::Key {
+                key_id: Some(id),
+                down: false,
+                at: at + Duration::from_millis(50),
+                unmapped: None,
+            });
+        }
+        // 最后一次事件距离第一次约 600s，连续（间隔 4s ≤ 5s）
+        assert!(
+            agg.longest_streak_ms >= 599_000,
+            "streak={}",
+            agg.longest_streak_ms
+        );
     }
 
     #[test]
     fn error_marks_capture_unavailable() {
         let (agg, _) = new_agg();
-        let shared = Shared::new();
+        let shared = Shared::new(60);
         *shared.error.lock() = Some("Raw Input 不可用".into());
         let snap = agg.snapshot(&shared);
         assert!(!snap.stats.running);

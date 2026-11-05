@@ -2,7 +2,7 @@
 //!
 //! 线程原则：
 //! - Raw Input 线程只解析原始事件，不碰磁盘 / UI；
-//! - Aggregator 单线程持有全部可变计数，避免锁竞争；
+//! - Aggregator 单线程持有全部可变计数，桶关闭时交给 Writer；
 //! - Channel 发送失败时清空订阅，采集线程继续跑；
 //! - 暂停时丢弃事件并清空 pressed，恢复后不会出现“卡住的键”。
 
@@ -12,12 +12,17 @@ pub mod keymap;
 pub mod windows_raw;
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64};
-use std::time::Instant;
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::time::{Duration, Instant};
 
+use crossbeam_channel::{Sender, bounded};
 use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::ipc::Channel;
+
+use crate::storage::Db;
+use crate::storage::payload::CurrentBucket;
+use crate::storage::writer::{WriteMsg, spawn as spawn_writer};
 
 /// 实时帧，字段与 `app/src/ipc/types.ts` 的 LiveFrame 一一对应。
 #[derive(Clone, Serialize)]
@@ -58,6 +63,7 @@ pub struct CaptureStats {
     pub latency_p99_ms: u64,
     pub uptime_ms: u64,
     pub error: Option<String>,
+    pub storage_error: Option<String>,
 }
 
 #[derive(Clone, Serialize, Default)]
@@ -73,10 +79,34 @@ pub struct SessionSummary {
     pub hold_max_a_ms: u64,
 }
 
+#[derive(Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionKey {
+    pub key_id: u16,
+    pub count: u64,
+    pub hold_sum: u64,
+    pub hold_max: u64,
+    pub first_min: u32,
+    pub last_min: u32,
+}
+
+#[derive(Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionSnapshot {
+    pub keys: Vec<SessionKey>,
+    pub clicks: [u64; 5],
+    pub wheel: [u64; 2],
+    pub move_px: f64,
+    pub peak_speed: f64,
+    pub chords: u64,
+    pub grid: Vec<(u8, u8, u32)>,
+}
+
 #[derive(Clone, Default)]
 pub struct Snapshot {
     pub stats: CaptureStats,
     pub summary: SessionSummary,
+    pub session: SessionSnapshot,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -121,49 +151,87 @@ pub enum RawEvent {
 pub struct Shared {
     pub paused: AtomicBool,
     pub reset_request: AtomicBool,
+    pub reset_ack: AtomicBool,
     pub dropped: AtomicU64,
     pub error: Mutex<Option<String>>,
+    pub storage_error: Arc<Mutex<Option<String>>>,
     pub snapshot: Mutex<Snapshot>,
     pub channel: Mutex<Option<Channel<LiveFrame>>>,
+    pub live_bucket: Mutex<Option<CurrentBucket>>,
+    pub bucket_seconds: AtomicU32,
+    pub shutdown_request: AtomicBool,
+    pub shutdown_ack: AtomicBool,
     pub started: Instant,
 }
 
 impl Shared {
-    fn new() -> Arc<Self> {
+    fn new(bucket_seconds: u32) -> Arc<Self> {
         Arc::new(Self {
             paused: AtomicBool::new(false),
             reset_request: AtomicBool::new(false),
+            reset_ack: AtomicBool::new(false),
             dropped: AtomicU64::new(0),
             error: Mutex::new(None),
+            storage_error: Arc::new(Mutex::new(None)),
             snapshot: Mutex::new(Snapshot::default()),
             channel: Mutex::new(None),
+            live_bucket: Mutex::new(None),
+            bucket_seconds: AtomicU32::new(bucket_seconds),
+            shutdown_request: AtomicBool::new(false),
+            shutdown_ack: AtomicBool::new(false),
             started: Instant::now(),
         })
     }
 }
 
-/// `app.manage(CaptureHandle::new())` 后由 setup 启动采集线程。
+/// `app.manage(CaptureHandle::new(...))` 后由 setup 启动采集线程。
 pub struct CaptureHandle {
     pub shared: Arc<Shared>,
+    pub db: Option<Arc<Db>>,
+    pub init_error: Option<String>,
+    writer_tx: Mutex<Option<Sender<WriteMsg>>>,
+    writer_handle: Mutex<Option<std::thread::JoinHandle<()>>>,
 }
 
 impl CaptureHandle {
-    pub fn new() -> Self {
-        Self {
-            shared: Shared::new(),
+    pub fn new(db: Option<Arc<Db>>, init_error: Option<String>) -> Self {
+        let bucket_seconds = db
+            .as_ref()
+            .and_then(|d| d.get_settings().ok())
+            .map(|s| s.bucket_seconds)
+            .unwrap_or(60);
+        let handle = Self {
+            shared: Shared::new(bucket_seconds),
+            db,
+            init_error,
+            writer_tx: Mutex::new(None),
+            writer_handle: Mutex::new(None),
+        };
+        if let Some(err) = &handle.init_error {
+            *handle.shared.storage_error.lock() = Some(err.clone());
         }
+        handle
     }
 
     pub fn start(&self) {
         let shared = self.shared.clone();
         let keymap = Arc::new(keymap::load());
+        let writer_tx = if let Some(db) = &self.db {
+            let (tx, handle) = spawn_writer(db.path().to_path_buf(), shared.storage_error.clone());
+            *self.writer_tx.lock() = Some(tx.clone());
+            *self.writer_handle.lock() = Some(handle);
+            Some(tx)
+        } else {
+            None
+        };
 
         let (tx, rx) = crossbeam_channel::bounded::<RawEvent>(8192);
         let agg_shared = shared.clone();
         let agg_keymap = keymap.clone();
+        let agg_writer = writer_tx.clone();
         if let Err(err) = std::thread::Builder::new()
             .name("hp-aggregator".into())
-            .spawn(move || aggregator::run(agg_shared, agg_keymap, rx))
+            .spawn(move || aggregator::run(agg_shared, agg_keymap, rx, agg_writer))
         {
             mark_error(&shared, format!("aggregator 线程启动失败：{err}"));
             return;
@@ -187,6 +255,48 @@ impl CaptureHandle {
             mark_error(&shared, "当前平台不支持采集（仅 Windows）".into());
         }
     }
+
+    /// 退出前：让 aggregator 关闭当前桶，再让 writer drain 并退出。
+    pub fn shutdown(&self) {
+        self.shared.shutdown_request.store(true, Ordering::Relaxed);
+        let deadline = Instant::now() + Duration::from_millis(800);
+        while Instant::now() < deadline {
+            if self.shared.shutdown_ack.load(Ordering::Relaxed) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let tx = self.writer_tx.lock().take();
+        if let Some(tx) = tx {
+            let (ack_tx, ack_rx) = bounded(1);
+            if tx.send(WriteMsg::Shutdown(ack_tx)).is_ok() {
+                let _ = ack_rx.recv_timeout(Duration::from_secs(1));
+            }
+        }
+        if let Some(handle) = self.writer_handle.lock().take() {
+            let _ = handle.join();
+        }
+    }
+
+    pub fn clear_storage(&self) -> Result<(), String> {
+        let tx = self
+            .writer_tx
+            .lock()
+            .clone()
+            .ok_or_else(|| "数据库不可用".to_string())?;
+        let (ack_tx, ack_rx) = bounded(1);
+        tx.send(WriteMsg::Clear(ack_tx))
+            .map_err(|e| format!("清空任务发送失败：{e}"))?;
+        ack_rx
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|e| format!("清空数据库超时：{e}"))?
+    }
+
+    pub fn request_purge(&self) {
+        if let Some(tx) = self.writer_tx.lock().clone() {
+            let _ = tx.try_send(WriteMsg::Purge);
+        }
+    }
 }
 
 /// 启动失败时同时写 error 与快照，保证 `get_capture_stats` 能立刻显示“采集不可用”。
@@ -199,7 +309,7 @@ fn mark_error(shared: &Shared, message: String) {
 
 impl Default for CaptureHandle {
     fn default() -> Self {
-        Self::new()
+        Self::new(None, Some("数据库未初始化".into()))
     }
 }
 

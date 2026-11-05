@@ -1,14 +1,28 @@
 mod capture;
 mod commands;
+mod storage;
+
+use std::sync::Arc;
 
 use capture::CaptureHandle;
+use storage::Db;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .manage(CaptureHandle::new())
+    let app = tauri::Builder::default()
         .setup(|app| {
+            let (db, init_error) = match app.path().app_data_dir() {
+                Ok(dir) => match Db::open(dir.join("data.db")) {
+                    Ok(db) => (Some(Arc::new(db)), None),
+                    Err(err) => {
+                        eprintln!("[handpulse] 初始化数据库失败: {err:#}");
+                        (None, Some(format!("初始化数据库失败：{err}")))
+                    }
+                },
+                Err(err) => (None, Some(format!("无法获取数据目录：{err}"))),
+            };
+            app.manage(CaptureHandle::new(db, init_error));
             app.state::<CaptureHandle>().start();
             Ok(())
         })
@@ -19,7 +33,26 @@ pub fn run() {
             commands::capture::get_capture_stats,
             commands::capture::get_session_summary,
             commands::capture::reset_session,
+            commands::history::get_summary,
+            commands::history::get_key_stats,
+            commands::history::get_mouse_stats,
+            commands::history::get_buckets,
+            commands::history::get_histogram,
+            commands::history::get_heatmap,
+            commands::history::get_grid,
+            commands::history::get_detail,
+            commands::history::get_data_version,
+            commands::history::get_settings,
+            commands::history::set_settings,
+            commands::history::clear_all_data,
+            commands::history::get_current_bucket,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        if let tauri::RunEvent::ExitRequested { .. } = event {
+            app_handle.state::<CaptureHandle>().shutdown();
+        }
+    });
 }
