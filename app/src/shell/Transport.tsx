@@ -7,6 +7,10 @@ export function Transport() {
   const { state, dispatch } = useApp();
   const { data: summary } = usePageData('summary:today', () => getSummary('today'));
   const number = (v: number | undefined) => (state.empty ? '0' : (v ?? 0).toLocaleString('en-US'));
+  const now = new Date();
+  const week = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][now.getDay()];
+  const dateText = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${week}`;
+  const timeText = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
   return (
     <header className="transport">
@@ -22,7 +26,7 @@ export function Transport() {
         <span className={'live-dot' + (state.paused ? ' is-paused' : '')} id="statusDot" />
         <span id="statusText">{state.paused ? '已暂停' : '运行中'}</span>
       </button>
-      <span className="tp-date mono">2026-11-04 周三</span>
+      <span className="tp-date mono">{dateText}</span>
       {state.route === 'settings' ? (
         <div className="seg" id="rangeSeg" role="group" aria-label="时间范围">
           <span className="tp-static">全部时间</span>
@@ -40,7 +44,7 @@ export function Transport() {
       <div className="tp-readout"><span>今日动作</span><b className="mono" id="roActions">{number(summary?.actions)}</b></div>
       <div className="tp-readout"><span>按键</span><b className="mono" id="roKeys">{number(summary?.keys)}</b></div>
       <div className="tp-readout"><span>点击</span><b className="mono" id="roClicks">{number(summary?.clicks)}</b></div>
-      <span className="tp-time mono">21:43</span>
+      <span className="tp-time mono">{timeText}</span>
       <button
         className="icon-btn"
         id="pauseBtn"

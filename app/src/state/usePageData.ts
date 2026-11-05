@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useApp } from '../app/store';
 
 export interface PageDataResult<T> {
   data: T | null;
@@ -13,14 +14,16 @@ export interface PageDataResult<T> {
 const cache = new Map<string, unknown>();
 
 export function usePageData<T>(key: string | null, loader: () => Promise<T>): PageDataResult<T> {
+  const { state } = useApp();
+  const versionedKey = key ? `${key}@${state.dataVersion}` : null;
   const [result, setResult] = useState<PageDataResult<T>>(() => ({
-    data: key ? ((cache.get(key) as T | undefined) ?? null) : null,
+    data: versionedKey ? ((cache.get(versionedKey) as T | undefined) ?? null) : null,
     error: null
   }));
 
   useEffect(() => {
-    if (!key) return;
-    const cached = cache.get(key) as T | undefined;
+    if (!versionedKey) return;
+    const cached = cache.get(versionedKey) as T | undefined;
     if (cached !== undefined) {
       setResult({ data: cached, error: null });
       return;
@@ -28,7 +31,7 @@ export function usePageData<T>(key: string | null, loader: () => Promise<T>): Pa
     let alive = true;
     loader()
       .then((value) => {
-        cache.set(key, value);
+        cache.set(versionedKey, value);
         if (alive) setResult({ data: value, error: null });
       })
       .catch((err: unknown) => {
@@ -41,7 +44,7 @@ export function usePageData<T>(key: string | null, loader: () => Promise<T>): Pa
     return () => { alive = false; };
     // loader 由调用方按 key 决定，key 变化即重新加载
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [versionedKey]);
 
   return result;
 }

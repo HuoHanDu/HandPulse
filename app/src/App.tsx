@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { AppContext, initialState, reducer } from './app/store';
 import { ensureDefaultHash, useHashRoute } from './app/router';
 import { startLive } from './ipc/live';
-import { isTauri } from './ipc/client';
+import { getDataVersion, isTauri } from './ipc/client';
 import { clearPageDataCache } from './state/usePageData';
 import { Rail } from './shell/Rail';
 import { Transport } from './shell/Transport';
@@ -56,6 +56,33 @@ export default function App() {
   useEffect(() => {
     clearPageDataCache();
   }, [state.empty]);
+
+  // 历史数据版本：writer 落桶/清空/设置变更后递增；每 5s 轮询一次并刷新页面缓存。
+  // 同时每 5s 递增本地 cache generation，让“今日”查询能把未关闭的当前桶也算进去。
+  useEffect(() => {
+    if (!isTauri) return;
+    let alive = true;
+    let local = 0;
+    const poll = () => {
+      getDataVersion()
+        .then((version) => {
+          if (!alive) return;
+          local += 1;
+          dispatch({ type: 'setDataVersion', value: Math.max(version, local) });
+        })
+        .catch(() => {});
+    };
+    poll();
+    const timer = window.setInterval(poll, 5000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (state.dataVersion > 1) clearPageDataCache();
+  }, [state.dataVersion]);
 
   // 暂停状态同步给 Rust 采集层（浏览器 mock 忽略）
   useEffect(() => {

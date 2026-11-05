@@ -38,9 +38,9 @@ export function MousePage({ active }: Props) {
   const hotspotNote = state.empty
     ? '示例数据已清空。'
     : state.layer === 'clicks'
-      ? '准星区格值最高。网格为主屏 32 × 18 归一化坐标；移动图层为按点击热力平滑估算的原型近似。'
-      : '移动图层：按点击热力平滑估算的点数分布（原型近似），正式版由采样点单独统计。';
-  const rangePrefix = state.ranges.mouse === 'session' ? '本次（最近 30 分钟）' : state.ranges.mouse === 'week' ? '近 7 天' : '今天';
+      ? '准星区格值最高。网格仅覆盖主屏，按 32 × 18 归一化。'
+      : '移动图层：M3 暂用点击网格近似，后续版本按采样点单独统计。';
+  const rangePrefix = state.ranges.mouse === 'session' ? '本次（启动/重置以来）' : state.ranges.mouse === 'week' ? '近 7 天' : '今天';
   const intro = state.empty
     ? '移动一下鼠标。'
     : !data

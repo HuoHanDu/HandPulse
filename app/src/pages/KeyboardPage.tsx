@@ -43,7 +43,7 @@ export function KeyboardPage({ active }: Props) {
   const elapsed = state.paused ? Math.floor((Date.now() - state.pausedAt) / 1000) : 0;
   const pauseText = `已暂停 ${Math.floor(elapsed / 60)}:${pad2(elapsed % 60)}，恢复后继续写入。`;
   const topKey = data?.keyStats[0];
-  const rangePrefix = state.ranges.keyboard === 'session' ? '本次（最近 30 分钟）' : state.ranges.keyboard === 'week' ? '近 7 天' : '今天';
+  const rangePrefix = state.ranges.keyboard === 'session' ? '本次（启动/重置以来）' : state.ranges.keyboard === 'week' ? '近 7 天' : '今天';
   const intro = state.empty
     ? '还没有记录到按键 —— 敲几个键试试。'
     : !data

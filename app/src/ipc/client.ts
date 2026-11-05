@@ -2,27 +2,24 @@ import { invoke } from '@tauri-apps/api/core';
 import { HP } from '../mock/mock';
 import type {
   Bucket, DetailPage, DetailRowView, GridCell, Heatmap, HeatmapChart, HeatType,
-  Histogram, HistogramChart, HistDim, KeyStat, KeyboardData, LineSeries, MouseData, RangeKey,
-  StatsData, Summary
+  Histogram, HistogramChart, HistDim, KeyStat, KeyboardData, LineSeries, MouseData,
+  MouseStats, RangeKey, Settings, StatsData, Summary
 } from './types';
 
 /**
  * IPC 客户端。
  *
- * M1：Rust 命令尚未实现，`IPC_READY = false`，浏览器与 Tauri 都走 mock；
- * M2：把 IPC_READY 置 true，Tauri 环境走 `invoke`，浏览器 dev 继续回退 mock。
- * 命令名与 `docs/02-原型需求报告.md` 6.2 对齐：get_summary / get_key_stats / get_buckets /
- * get_histogram / get_heatmap / get_grid / get_detail。
+ * - Tauri：全部命令走 `invoke`，历史数据来自 SQLite；
+ * - 浏览器 dev：回退到 mock，方便不启动 Rust 时看四页视觉。
  */
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-const IPC_READY = false;
 
 async function call<T>(cmd: string, args: Record<string, unknown> | undefined, fallback: () => T): Promise<T> {
-  if (!IPC_READY || !isTauri) return fallback();
+  if (!isTauri) return fallback();
   return invoke<T>(cmd, args);
 }
 
-/* ---------------- mock selectors ---------------- */
+/* ---------------- mock selectors（仅浏览器 dev / 无 Tauri 环境） ---------------- */
 
 function sum(arr: number[]): number {
   let s = 0;
@@ -77,7 +74,6 @@ function hashStr(s: string): number {
   return h;
 }
 
-/** 键位首次/最近出现（分钟数），与原型同规则。 */
 function keyTimes(label: string): [number, number] {
   if (label === 'A') return [9 * 60 + 12, 21 * 60 + 41];
   const h = hashStr(label);
@@ -90,32 +86,6 @@ function keyTimes(label: string): [number, number] {
 function keyIdOf(label: string): number {
   return HP.keyboard.keys.findIndex((k: { label: string }) => k.label === label);
 }
-
-const MOVE_GRID: GridCell[] = (() => {
-  const map: Record<number, number> = {};
-  HP.grid.forEach((g: GridCell) => { map[g.y * 32 + g.x] = g.v; });
-  const total = sum(HP.moveHour);
-  const out: GridCell[] = [];
-  for (let y = 0; y < 18; y++) {
-    for (let x = 0; x < 32; x++) {
-      let s = 0, w = 0;
-      for (let dy = -2; dy <= 2; dy++) {
-        for (let dx = -2; dx <= 2; dx++) {
-          const nx = x + dx, ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= 32 || ny >= 18) continue;
-          const wgt = Math.exp(-(dx * dx + dy * dy) / 3.4);
-          s += (map[ny * 32 + nx] || 0) * wgt;
-          w += wgt;
-        }
-      }
-      const v = s / (w || 1);
-      if (v > 0.5) out.push({ x, y, v });
-    }
-  }
-  const sv = sum(out.map(o => o.v)) || 1;
-  out.forEach(o => { o.v = Math.round(o.v / sv * total); });
-  return out;
-})();
 
 function statsSummary(range: RangeKey): string {
   if (range === 'week') {
@@ -136,7 +106,7 @@ function statsSummary(range: RangeKey): string {
   return hmax + ' 时最忙，平均每分钟 ' + Math.round(hv / 60) + ' 次；' + HP.peak.label + ' 单分钟峰值 ' + HP.peak.value + ' APM。';
 }
 
-/* ---------------- public IPC commands ---------------- */
+/* ---------------- 命令 ---------------- */
 
 export function getSummary(range: RangeKey): Promise<Summary> {
   return call('get_summary', { range }, () => {
@@ -150,8 +120,8 @@ export function getSummary(range: RangeKey): Promise<Summary> {
   });
 }
 
-export function getKeyStats(range: RangeKey, _layout: number = 104): Promise<KeyStat[]> {
-  return call('get_key_stats', { range, layout: _layout }, () => {
+export function getKeyStats(range: RangeKey, layout: number = 104): Promise<KeyStat[]> {
+  return call('get_key_stats', { range, layout }, () => {
     const kr = keyRange(range);
     return HP.keyList.map((x: { label: string; count: number }) => {
       const count = round(HP.keyCounts[x.label] * kr.factor);
@@ -168,6 +138,23 @@ export function getKeyStats(range: RangeKey, _layout: number = 104): Promise<Key
         lastTs: times[1]
       };
     });
+  });
+}
+
+export function getMouseStats(range: RangeKey): Promise<MouseStats> {
+  return call('get_mouse_stats', { range }, () => {
+    const cr = clickRange(range);
+    const f = cr.factor;
+    return {
+      clicks: {
+        left: round(HP.clicks.left * f), right: round(HP.clicks.right * f),
+        middle: round(HP.clicks.middle * f), side1: round(HP.clicks.side1 * f),
+        side2: round(HP.clicks.side2 * f), total: cr.total
+      },
+      wheel: [round(HP.wheel.up * f), round(HP.wheel.down * f)],
+      peakSpeed: HP.peakSpeed,
+      moveKm: Math.round(HP.moveKm * f * 10) / 10
+    };
   });
 }
 
@@ -292,33 +279,53 @@ export function getDetail(range: RangeKey, page: number, pageSize = 50): Promise
   });
 }
 
-/* ---------------- page loaders（页面只依赖这些 + IPC 命令） ---------------- */
+/* ---------------- 页面 loaders ---------------- */
 
 export async function loadKeyboard(range: RangeKey): Promise<KeyboardData> {
   const [summary, keyStats] = await Promise.all([getSummary(range), getKeyStats(range)]);
-  return { summary, keyStats, rangeLabel: keyRange(range).label, total: keyRange(range).total };
+  const label = isTauri
+    ? (range === 'session' ? '本次' : range === 'week' ? '7 天' : '今日')
+    : keyRange(range).label;
+  return { summary, keyStats, rangeLabel: label, total: summary.keys };
 }
 
 export async function loadMouse(range: RangeKey): Promise<MouseData> {
-  const summary = await getSummary(range);
-  const cr = clickRange(range);
+  const [summary, extra, grid] = await Promise.all([
+    getSummary(range), getMouseStats(range), getGrid(range)
+  ]);
+  const label = range === 'session' ? '本次' : range === 'week' ? '7 天' : '今日';
+  const gridMax = grid.reduce((m, g) => Math.max(m, g.v), 0);
   return {
     summary,
-    rangeLabel: cr.label,
-    factor: cr.factor,
-    grid: HP.grid,
-    moveGrid: MOVE_GRID,
-    gridMax: HP.gridMax,
-    extra: {
-      clicks: HP.clicks,
-      wheel: [HP.wheel.up, HP.wheel.down],
-      peakSpeed: HP.peakSpeed,
-      moveKm: HP.moveKm
-    }
+    rangeLabel: label,
+    factor: 1,
+    grid,
+    // M3 暂未单独保存移动采样网格；移动图层沿用点击网格（README 中注明）
+    moveGrid: grid,
+    gridMax,
+    extra
   };
 }
 
-export function getLineSeries(range: RangeKey): Promise<LineSeries> {
+/* ---------------- 图表派生 ---------------- */
+
+const WEEK_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+const MONTH_SHORT = ['1 月', '2 月', '3 月', '4 月', '5 月', '6 月', '7 月', '8 月', '9 月', '10 月', '11 月', '12 月'];
+
+function startOfLocalDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+function mondayIndex(d: Date): number {
+  return (d.getDay() + 6) % 7;
+}
+
+export async function getLineSeries(range: RangeKey): Promise<LineSeries> {
+  if (isTauri) return realLineSeries(range);
+  return mockLineSeries(range);
+}
+
+function mockLineSeries(range: RangeKey): Promise<LineSeries> {
   return call('get_buckets', { range, view: 'line' }, () => {
     if (range === 'week') {
       const vals: number[] = [];
@@ -364,7 +371,99 @@ export function getLineSeries(range: RangeKey): Promise<LineSeries> {
   });
 }
 
-export function getHistogramChart(range: RangeKey, dim: HistDim): Promise<HistogramChart> {
+async function realLineSeries(range: RangeKey): Promise<LineSeries> {
+  const raw = await getBuckets(range);
+  const now = new Date();
+  const maxOf = (vals: number[]) => {
+    let idx = 0, val = 0;
+    vals.forEach((v, i) => { if (v > val) { val = v; idx = i; } });
+    return { idx, val };
+  };
+  if (range === 'week') {
+    const start = startOfLocalDay(new Date(now.getTime() - 6 * 86400000));
+    const vals = new Array(7 * 24).fill(0);
+    raw.forEach(b => {
+      const d = new Date(b.ts);
+      const idx = Math.floor((startOfLocalDay(d) - start) / 86400000) * 24 + d.getHours();
+      if (idx >= 0 && idx < vals.length) vals[idx] += b.actions;
+    });
+    const pk = maxOf(vals);
+    const wd = Math.floor(pk.idx / 24), hr = pk.idx % 24;
+    return {
+      values: vals, unit: '次/时', xMode: 'index', xMax: vals.length,
+      xTicks: WEEK_LABELS.map((l, i) => ({ label: l, pos: (i * 24 + 12) / 168 })),
+      peak: pk,
+      peakText: '峰值 ' + nf(pk.val) + ' 次/时，' + WEEK_LABELS[wd] + ' ' + pad2(hr) + ' 时',
+      tip: (i) => WEEK_LABELS[Math.floor(i / 24)] + ' ' + pad2(i % 24) + ':00，' + nf(vals[i]) + ' 次/时',
+      note: peakNote('week', pk.val, WEEK_LABELS[wd] + ' ' + pad2(hr) + ':00'),
+      aria: '近 7 天每小时动作数折线图'
+    };
+  }
+  if (range === 'month') {
+    const start = startOfLocalDay(new Date(now.getTime() - 29 * 86400000));
+    const vals = new Array(30).fill(0);
+    const labels = new Array(30).fill('');
+    raw.forEach(b => {
+      const d = new Date(b.ts);
+      const idx = Math.round((startOfLocalDay(d) - start) / 86400000);
+      if (idx >= 0 && idx < 30) vals[idx] += b.actions;
+    });
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(start + i * 86400000);
+      labels[i] = (d.getMonth() + 1) + '/' + d.getDate();
+    }
+    const pk = maxOf(vals);
+    return {
+      values: vals, unit: '次/天', xMode: 'index', xMax: vals.length,
+      xTicks: labels.map((l, i) => i % 5 === 0 ? { label: l, pos: i / 29 } : null).filter(Boolean) as Array<{ label: string; pos: number }>,
+      peak: pk,
+      peakText: '峰值 ' + nf(pk.val) + ' 次，' + labels[pk.idx],
+      tip: (i) => labels[i] + '，' + nf(vals[i]) + ' 次',
+      note: peakNote('month', pk.val, labels[pk.idx]),
+      aria: '近 30 天每日动作数折线图'
+    };
+  }
+  // today
+  const start = startOfLocalDay(now);
+  const nowMin = Math.floor((now.getTime() - start) / 60000);
+  const vals = new Array(nowMin + 1).fill(0);
+  raw.forEach(b => {
+    const m = Math.floor((b.ts - start) / 60000);
+    if (m >= 0 && m < vals.length) vals[m] += b.actions;
+  });
+  const pk = maxOf(vals);
+  const peakTime = clk(pk.idx);
+  return {
+    values: vals, unit: '次/分', xMode: 'time', xMax: 1440,
+    xTicks: [0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => ({ label: h === 24 ? '24' : pad2(h), pos: h / 24 })),
+    peak: pk,
+    peakText: '峰值 ' + pk.val + ' APM，' + peakTime,
+    tip: (i) => clk(i) + '，' + nf(vals[i]) + ' 次/分',
+    note: peakNote('today', pk.val, peakTime),
+    aria: '今日每分钟动作数折线图'
+  };
+}
+
+function peakNote(range: RangeKey, peak: number, at: string): string {
+  const unit = range === 'week' ? '次/时' : range === 'month' ? '次/天' : '次/分';
+  return '峰值 ' + nf(peak) + ' ' + unit + '，出现在 ' + at + '。';
+}
+
+export async function getHistogramChart(range: RangeKey, dim: HistDim): Promise<HistogramChart> {
+  if (!isTauri) return mockHistogramChart(range, dim);
+  const rustDim = dim === 'top20' ? 'key' : dim === 'hours' ? 'hour' : 'gap';
+  const raw = await getHistogram(range, rustDim as 'key' | 'hour' | 'gap');
+  const items = raw.items;
+  const max = items.reduce((m, i) => Math.max(m, i.value), 0);
+  const top = items.slice().sort((a, b) => b.value - a.value)[0];
+  return {
+    dim, items, log: dim === 'gaps', max,
+    readout: top ? top.label + '，' + nf(top.value) + ' 次' : '无记录',
+    aria: dim === 'gaps' ? '按键间隔分布（对数轴）' : dim === 'hours' ? '24 小时动作分布柱状图' : '按键次数 Top 20 横向条形图'
+  };
+}
+
+function mockHistogramChart(range: RangeKey, dim: HistDim): Promise<HistogramChart> {
   return call('get_histogram', { range, dim }, () => {
     if (dim === 'hours') {
       const items = HP.apmHour.map((v: number, i: number) => ({ label: pad2(i), value: v }));
@@ -391,7 +490,52 @@ export function getHistogramChart(range: RangeKey, dim: HistDim): Promise<Histog
   });
 }
 
-export function getHeatmapChart(range: RangeKey, type: HeatType): Promise<HeatmapChart> {
+export async function getHeatmapChart(range: RangeKey, type: HeatType): Promise<HeatmapChart> {
+  if (!isTauri) return mockHeatmapChart(range, type);
+  const rawType = type === 'week' ? 'week_hour' : 'calendar';
+  const raw = await getHeatmap(range, rawType);
+  if (type === 'cal') {
+    const today = new Date();
+    const start = new Date(startOfLocalDay(today) - 370 * 86400000);
+    const cells = raw.cells.map(c => {
+      const d = new Date(start.getTime() + ((c.x * 7 + c.y - mondayIndex(start)) * 86400000));
+      return { ...c, iso: d.toISOString().slice(0, 10) };
+    });
+    const months: Array<{ label: string; col: number }> = [];
+    const seen = new Set<number>();
+    for (let i = 0; i < 371; i++) {
+      const d = new Date(start.getTime() + i * 86400000);
+      const col = Math.floor((i + mondayIndex(start)) / 7);
+      if (d.getDate() === 1 && !seen.has(d.getMonth())) {
+        seen.add(d.getMonth());
+        months.push({ label: MONTH_SHORT[d.getMonth()], col });
+      }
+    }
+    const todayKey = today.toLocaleDateString('en-US');
+    const todayCell = cells.find(c => c.iso === new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10));
+    return {
+      type: 'cal', cells, max: raw.max,
+      readout: (todayCell?.iso ?? '') + '，' + nf(todayCell?.v ?? 0) + ' 次',
+      aria: '日历热力，今日描边高亮',
+      months,
+      footnote: '近 371 天，最高 ' + nf(raw.max) + ' 次/天；蓝框为今日。',
+      legendMin: '少',
+      legendMax: nf(raw.max) + ' 次/天',
+      todayLabel: (today.getMonth() + 1) + '/' + today.getDate() + ' ' + todayKey
+    };
+  }
+  const peak = raw.cells.reduce((a, b) => b.v > a.v ? b : a, raw.cells[0] ?? { x: 0, y: 0, v: 0 });
+  return {
+    type: 'week', cells: raw.cells, max: raw.max,
+    readout: WEEK_LABELS[peak.y] + ' ' + pad2(peak.x) + ' 时，' + peak.v.toFixed(1) + ' 次/分',
+    aria: '7 乘 24 小时平均动作热力图',
+    weekLabels: WEEK_LABELS,
+    legendMin: '0',
+    legendMax: raw.max.toFixed(1) + ' 次/分'
+  };
+}
+
+function mockHeatmapChart(range: RangeKey, type: HeatType): Promise<HeatmapChart> {
   return call('get_heatmap', { range, type }, () => {
     if (type === 'cal') {
       const firstWd = ((2 - 370) % 7 + 7) % 7;
@@ -410,13 +554,12 @@ export function getHeatmapChart(range: RangeKey, type: HeatType): Promise<Heatma
           months.push({ label: (dt.getMonth() + 1) + ' 月', col });
         }
       });
-      const mx30 = HP.days30.reduce((a: { actions: number }, b: { actions: number }) => b.actions > a.actions ? b : a);
       return {
         type: 'cal', cells, max: HP.calendarMax,
         readout: '11/04，' + nf(HP.calendar[HP.calendar.length - 1].v) + ' 次',
         aria: '日历热力，今日描边高亮',
         months,
-        footnote: '近 ' + HP.calendar.length + ' 天，最高 ' + mx30.date + ' ' + nf(mx30.actions) + ' 次；蓝框为今日 11/04。',
+        footnote: '近 ' + HP.calendar.length + ' 天，最高 ' + HP.calendarMax + ' 次/天；蓝框为今日 11/04。',
         legendMin: '少', legendMax: nf(HP.calendarMax) + ' 次/天',
         todayLabel: '11/04'
       };
@@ -453,7 +596,11 @@ export async function loadStats(range: RangeKey): Promise<StatsData> {
 }
 
 export async function getDetailPage(range: RangeKey, page: number): Promise<DetailPage> {
-  const [rows, all] = await Promise.all([getDetail(range, page), detailRows(range)]);
+  if (isTauri) {
+    return invoke<DetailPage>('get_detail', { range, page });
+  }
+  const rows = await getDetail(range, page);
+  const all = detailRows(range);
   return {
     rows,
     total: all.length,
@@ -461,4 +608,34 @@ export async function getDetailPage(range: RangeKey, page: number): Promise<Deta
     pageSize: 50,
     granLabel: range === 'week' ? '每桶 1 小时' : range === 'month' ? '每桶 1 天' : '每桶 60 秒'
   };
+}
+
+/* ---------------- 设置 / 维护 ---------------- */
+
+export function getDataVersion(): Promise<number> {
+  return call('get_data_version', undefined, () => 1);
+}
+
+export function getSettings(): Promise<Settings> {
+  return call('get_settings', undefined, () => ({
+    bucketSeconds: 60,
+    retentionDays: 30,
+    dbPath: '%APPDATA%\\HandPulse\\data.db',
+    schemaVersion: 1,
+    dataVersion: 1
+  }));
+}
+
+export function setSettings(bucketSeconds: number, retentionDays: number): Promise<Settings> {
+  return call('set_settings', { bucketSeconds, retentionDays }, () => ({
+    bucketSeconds,
+    retentionDays,
+    dbPath: '%APPDATA%\\HandPulse\\data.db',
+    schemaVersion: 1,
+    dataVersion: 1
+  }));
+}
+
+export function clearAllData(): Promise<void> {
+  return call('clear_all_data', undefined, () => undefined);
 }

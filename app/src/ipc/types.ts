@@ -82,6 +82,7 @@ export interface CaptureStats {
   latencyP99Ms: number;
   uptimeMs: number;
   error: string | null;
+  storageError: string | null;
 }
 
 export interface TopKey {
@@ -124,6 +125,18 @@ export interface MouseExtra {
   wheel: [number, number];
   peakSpeed: number;
   moveKm: number;
+}
+
+/** Rust get_mouse_stats 的返回结构（与 MouseExtra 同构）。 */
+export type MouseStats = MouseExtra;
+
+/** Rust get_settings 的返回结构。 */
+export interface Settings {
+  bucketSeconds: number;
+  retentionDays: number;
+  dbPath: string;
+  schemaVersion: number;
+  dataVersion: number;
 }
 
 export interface KeyboardData {

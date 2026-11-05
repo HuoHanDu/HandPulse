@@ -1,4 +1,7 @@
+import { useEffect } from 'react';
 import { useApp } from '../app/store';
+import { getSettings, isTauri, setSettings } from '../ipc/client';
+import { clearPageDataCache, usePageData } from '../state/usePageData';
 import { Switch } from '../ui/Switch';
 
 interface Props {
@@ -8,6 +11,30 @@ interface Props {
 export function SettingsPage({ active }: Props) {
   const { state, dispatch } = useApp();
   const toast = (message: string) => dispatch({ type: 'toast', message });
+  const { data: settings } = usePageData('settings', getSettings);
+
+  useEffect(() => {
+    if (!settings) return;
+    if (state.granularity !== settings.bucketSeconds) {
+      dispatch({ type: 'setGranularity', value: settings.bucketSeconds as 10 | 30 | 60 });
+    }
+    if (state.retention !== settings.retentionDays) {
+      dispatch({ type: 'setRetention', value: settings.retentionDays as 7 | 30 | 90 });
+    }
+  }, [settings, state.granularity, state.retention, dispatch]);
+
+  const save = (granularity: 10 | 30 | 60, retention: 7 | 30 | 90) => {
+    dispatch({ type: 'setGranularity', value: granularity });
+    dispatch({ type: 'setRetention', value: retention });
+    setSettings(granularity, retention)
+      .then(() => {
+        clearPageDataCache();
+        toast('设置已保存。');
+      })
+      .catch((err) => {
+        toast('设置保存失败：' + String(err));
+      });
+  };
 
   return (
     <section className={'page' + (active ? ' active' : '')} data-page="settings" aria-label="设置">
@@ -42,7 +69,7 @@ export function SettingsPage({ active }: Props) {
                       type="button"
                       data-g={g}
                       aria-pressed={state.granularity === g}
-                      onClick={() => dispatch({ type: 'setGranularity', value: g as 10 | 30 | 60 })}
+                      onClick={() => save(g as 10 | 30 | 60, state.retention)}
                     >{g} 秒</button>
                   ))}
                 </div>
@@ -83,7 +110,7 @@ export function SettingsPage({ active }: Props) {
                       type="button"
                       data-k={k}
                       aria-pressed={state.retention === k}
-                      onClick={() => dispatch({ type: 'setRetention', value: k as 7 | 30 | 90 })}
+                      onClick={() => save(state.granularity, k as 7 | 30 | 90)}
                     >{k} 天</button>
                   ))}
                 </div>
@@ -95,7 +122,7 @@ export function SettingsPage({ active }: Props) {
                 <div className="pref-hint">只读展示。本地单文件，不联网。</div>
               </div>
               <div className="pref-ctl">
-                <span className="path mono">%APPDATA%\HandPulse\data.db</span>
+                <span className="path mono">{settings?.dbPath ?? '%APPDATA%\\HandPulse\\data.db'}</span>
                 <button className="tbtn" id="openDir" type="button" onClick={() => toast('打开目录为原型占位。')}>打开目录</button>
               </div>
             </div>
@@ -119,8 +146,10 @@ export function SettingsPage({ active }: Props) {
               </div>
             </div>
             <div className="banner" id="emptyBanner" hidden={!state.empty}>
-              <span>全部数据已清空（原型演示，刷新页面可恢复）。</span>
-              <button className="tbtn" type="button" onClick={() => dispatch({ type: 'restore' })}>恢复演示数据</button>
+              <span>{isTauri ? '全部数据已清空。' : '全部数据已清空（原型演示，刷新页面可恢复）。'}</span>
+              {!isTauri && (
+                <button className="tbtn" type="button" onClick={() => dispatch({ type: 'restore' })}>恢复演示数据</button>
+              )}
             </div>
           </div>
         </div>
@@ -134,7 +163,7 @@ export function SettingsPage({ active }: Props) {
             </div>
             <div className="pref-row">
               <div className="pref-label"><div className="pref-name">数据库 schema</div></div>
-              <div className="pref-ctl"><span className="ver mono">v3</span></div>
+              <div className="pref-ctl"><span className="ver mono">v{settings?.schemaVersion ?? 1}</span></div>
             </div>
             <div className="pref-row">
               <div className="pref-label"><div className="pref-name">采集内核</div></div>

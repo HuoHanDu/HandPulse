@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useApp } from '../app/store';
 import { HP, LEVELS } from '../mock/mock';
 import { displayKey, keyPos } from '../keyboard/layout';
-import { getSummary, isTauri, loadKeyboard, loadMouse, loadStats } from '../ipc/client';
+import { getSettings, getSummary, isTauri, loadKeyboard, loadMouse, loadStats } from '../ipc/client';
 import { clearPageDataCache, usePageData } from '../state/usePageData';
 import type { CaptureStats, KeyStat } from '../ipc/types';
 
@@ -44,6 +44,7 @@ export function Inspector() {
   const { data: mouse } = usePageData(`mouse:${state.ranges.mouse}`, () => loadMouse(state.ranges.mouse));
   const { data: stats } = usePageData(`stats:${state.ranges.stats}`, () => loadStats(state.ranges.stats));
   const { data: today } = usePageData('summary:today', () => getSummary('today'));
+  const { data: settings } = usePageData('settings', getSettings);
 
   const [capture, setCapture] = useState<CaptureStats | null>(null);
 
@@ -119,7 +120,7 @@ export function Inspector() {
         const rank = (kb?.keyStats.findIndex(s => s.label === label) ?? -1) + 1;
         const name = displayKey(label);
         const rangeKey = state.ranges.keyboard;
-        const rt = rangeKey === 'session' ? '本次（最近 30 分钟）' : rangeKey === 'week' ? '7 天' : '今日';
+        const rt = rangeKey === 'session' ? '本次（启动/重置以来）' : rangeKey === 'week' ? '7 天' : '今日';
         const rankText = rangeKey === 'today' ? '按次数第 ' + rank + ' 位' : rt + ' 读数';
         body = (
           <>
@@ -193,14 +194,15 @@ export function Inspector() {
           {state.empty
             ? '示例数据已清空。'
             : state.layer === 'clicks'
-              ? '范围换算：本次取最近 30 分钟，7 天按点击总量等比折算；网格只覆盖主屏。'
-              : '移动图层为原型近似：按点击热力平滑估算，正式版由采样点单独统计。'}
+              ? '范围换算：本次取启动/重置以来，7 天按点击总量等比折算；网格只覆盖主屏。'
+              : '移动图层：M3 暂用点击网格近似，后续版本按采样点单独统计。'}
         </p>
       </>
     );
   } else if (state.route === 'stats') {
     const r = state.ranges.stats;
-    const view = r === 'today' ? '今日 · 分钟桶 1,304 行' : r === 'week' ? '7 天 · 小时桶 168 行' : '30 天 · 天桶 30 行';
+    const view = r === 'today' ? '今日 · 分钟桶' : r === 'week' ? '7 天 · 小时桶' : '30 天 · 天桶';
+    const viewRows = stats?.line.values.length ?? 0;
     body = (
       <>
         <div className="insp-sec">
@@ -220,7 +222,7 @@ export function Inspector() {
         <div className="insp-sec">
           <div className="sec-head">当前视图</div>
           <div className="rows">
-            <Kv label="范围" value={view} />
+            <Kv label="范围" value={view + ' ' + nf(viewRows) + ' 行'} />
             <Kv label="粒度" value={r === 'today' ? '1 分钟' : r === 'week' ? '1 小时' : '1 天'} />
           </div>
           <div style={{ paddingTop: 10 }}>
@@ -236,7 +238,6 @@ export function Inspector() {
       </>
     );
   } else {
-    const buckets = state.ranges.keyboard === 'session' ? 30 : state.ranges.keyboard === 'week' ? 128 : 1304;
     body = (
       <>
         <div className="insp-sec">
@@ -244,7 +245,7 @@ export function Inspector() {
           <div className="rows">
             <Kv label="HandPulse Core" value={(capture?.paused ?? state.paused) ? '已暂停' : '运行中'} />
             <Kv label="采样间隔" value="100 ms" />
-            <Kv label="写入粒度" value={state.granularity + ' 秒'} />
+            <Kv label="写入粒度" value={(settings?.bucketSeconds ?? state.granularity) + ' 秒'} />
             <Kv label="开机自启" value={state.autoStart ? '开' : '关'} />
           </div>
         </div>
@@ -267,6 +268,7 @@ export function Inspector() {
             )}
           </div>
           {capture?.error ? <p className="insp-p" style={{ padding: '8px 0 0' }}>{capture.error}</p> : null}
+          {capture?.storageError ? <p className="insp-p" style={{ padding: '8px 0 0' }}>{capture.storageError}</p> : null}
           {isTauri ? (
             <div style={{ paddingTop: 10 }}>
               <button className="tbtn" type="button" onClick={resetSession}>重置本次会话</button>
@@ -276,9 +278,10 @@ export function Inspector() {
         <div className="insp-sec">
           <div className="sec-head">存储</div>
           <div className="rows">
-            <Kv label="数据库" value="data.db" />
-            <Kv label="保留" value={state.retention + ' 天'} />
-            <Kv label="当前范围桶数" value={nf(buckets)} />
+            <Kv label="数据库" value={settings?.dbPath ? settings.dbPath.split(/[\\/]/).pop() ?? 'data.db' : 'data.db'} />
+            <Kv label="保留" value={(settings?.retentionDays ?? state.retention) + ' 天'} />
+            <Kv label="Schema 版本" value={'v' + (settings?.schemaVersion ?? 1)} />
+            <Kv label="数据版本" value={nf(settings?.dataVersion ?? 0)} />
             <Kv label="今日动作" value={nf(today?.actions ?? 0)} />
           </div>
         </div>

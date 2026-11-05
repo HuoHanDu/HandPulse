@@ -34,6 +34,7 @@ export interface AppState {
   granularity: 10 | 30 | 60;
   retention: 7 | 30 | 90;
   autoStart: boolean;
+  dataVersion: number;
   modal: ModalKind;
   toast: string | null;
 }
@@ -57,6 +58,7 @@ export type Action =
   | { type: 'setGranularity'; value: 10 | 30 | 60 }
   | { type: 'setRetention'; value: 7 | 30 | 90 }
   | { type: 'setAutoStart'; value: boolean }
+  | { type: 'setDataVersion'; value: number }
   | { type: 'modal'; modal: ModalKind }
   | { type: 'toast'; message: string }
   | { type: 'hideToast' };
@@ -80,6 +82,7 @@ export const initialState: AppState = {
   granularity: 60,
   retention: 30,
   autoStart: true,
+  dataVersion: 1,
   modal: null,
   toast: null
 };
@@ -122,6 +125,8 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, retention: action.value };
     case 'setAutoStart':
       return { ...state, autoStart: action.value };
+    case 'setDataVersion':
+      return { ...state, dataVersion: action.value };
     case 'modal':
       return { ...state, modal: action.modal };
     case 'toast':

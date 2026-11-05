@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../app/store';
+import { clearAllData, getDataVersion, isTauri } from '../ipc/client';
+import { clearPageDataCache } from '../state/usePageData';
 
 export function Modal() {
   const { state, dispatch } = useApp();
@@ -53,8 +55,24 @@ export function Modal() {
                   type="button"
                   disabled={!canClear}
                   onClick={() => {
-                    dispatch({ type: 'clearData' });
-                    dispatch({ type: 'toast', message: '全部数据已清空（原型演示：刷新页面可恢复）。' });
+                    void (async () => {
+                      try {
+                        if (isTauri) await clearAllData();
+                        clearPageDataCache();
+                        // 浏览器 mock 用 clearData 显示空态；Tauri 下数据库已真空，页面直接显示真实 0
+                        if (!isTauri) dispatch({ type: 'clearData' });
+                        if (isTauri) {
+                          const v = await getDataVersion().catch(() => 0);
+                          if (v) dispatch({ type: 'setDataVersion', value: v });
+                        }
+                        dispatch({
+                          type: 'toast',
+                          message: isTauri ? '全部数据已清空，数据库已 VACUUM。' : '全部数据已清空（原型演示：刷新页面可恢复）。'
+                        });
+                      } catch (err) {
+                        dispatch({ type: 'toast', message: '清空失败：' + String(err) });
+                      }
+                    })();
                   }}
                 >清空全部数据</button>
               </div>
