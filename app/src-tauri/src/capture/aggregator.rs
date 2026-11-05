@@ -223,6 +223,7 @@ pub struct Aggregator {
     pub unmapped: u64,
     pub absolute_skipped: u64,
     pub latencies: VecDeque<u32>,
+    pub last_event_ms: u64,
     pub seconds: VecDeque<SecondSample>,
     pub buckets: VecDeque<Bucket>,
     current_bucket: Bucket,
@@ -308,6 +309,7 @@ impl Aggregator {
             unmapped: 0,
             absolute_skipped: 0,
             latencies: VecDeque::with_capacity(LATENCY_CAP),
+            last_event_ms: 0,
             seconds: VecDeque::with_capacity(SECOND_CAP),
             buckets: VecDeque::new(),
             current_bucket: Bucket::default(),
@@ -363,6 +365,7 @@ impl Aggregator {
         self.unmapped = 0;
         self.absolute_skipped = 0;
         self.latencies.clear();
+        self.last_event_ms = 0;
         self.frame.reset();
         self.seconds.clear();
         self.buckets.clear();
@@ -400,6 +403,7 @@ impl Aggregator {
         if self.paused {
             return;
         }
+        self.last_event_ms = now_ms();
         if self.frame.event_ats.len() < MAX_EVENT_ATS {
             let at = match ev {
                 RawEvent::Key { at, .. } => at,
@@ -690,6 +694,10 @@ impl Aggregator {
             latency_p95_ms: lat.1,
             latency_p99_ms: lat.2,
             uptime_ms: shared.started.elapsed().as_millis() as u64,
+            last_event_ms: self.last_event_ms,
+            foreground_elevated: false,
+            app_elevated: false,
+            uipi_suspected: false,
             error,
             storage_error: shared.storage_error.lock().clone(),
         };

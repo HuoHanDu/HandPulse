@@ -11,7 +11,7 @@ M3 起 Tauri 下的历史数据来自本机 SQLite；浏览器 dev 仍回退 moc
 | M1 | React/TS 组件化、字体与样式拆分、类型化 IPC 边界 + live store（仍 mock） | 已完成 |
 | M2 | Windows Raw Input + Aggregator + `Channel<LiveFrame>` 实时层（历史仍 mock） | 已完成 |
 | M3 | SQLite 落盘、真实历史查询、四页接真实数据、设置持久化 | 已完成 |
-| M4+ | CSV/JSON 导出、托盘/自启/单实例/打包签名 | 未开始 |
+| M4+ | CSV/JSON 导出、托盘、自启、打包签名（单实例已提前实现） | 未开始 |
 
 ## Demo 状态（本次收尾）
 
@@ -21,7 +21,22 @@ M3 起 Tauri 下的历史数据来自本机 SQLite；浏览器 dev 仍回退 moc
 - Windows 11 Snap Layouts 的分屏菜单依赖原生标题栏，自绘标题栏的 demo **暂无 Snap 菜单**；
   后续可接 `tauri-plugin-frame`。
 - 清空数据后进入明确空态；浏览器 mock 仍可“恢复演示数据”，Tauri 下按钮为“开始记录”。
+- 无边框窗口补了 8 个缩放热区 + `WS_THICKFRAME`，四边/四角可拖动缩放。
+- 单实例：第二次启动会聚焦已有窗口并退出，避免两个采集器重复计数。
+- 采集状态增加“最后事件/前台权限”诊断：前台应用以管理员权限运行时，Raw Input 可能受
+  Windows UIPI 限制，设置页会明确提示。
 - 仓库不包含演示 DB/WAL；新机器首次启动为空库，采集后自动建库。
+- 安装包未签名：`npm run tauri build` 可生成 NSIS/MSI，但对外分发前需要代码签名。
+
+## 打安装包
+
+```powershell
+cd 'D:\Code\壳隐\HandPulse\app'
+npm run tauri build
+# 产物：
+# src-tauri/target/release/bundle/nsis/HandPulse_0.9.0_x64-setup.exe
+# src-tauri/target/release/bundle/msi/HandPulse_0.9.0_x64_en-US.msi
+```
 
 ## 开发
 

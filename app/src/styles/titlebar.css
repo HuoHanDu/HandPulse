@@ -25,3 +25,15 @@
 .tb-btn:disabled{opacity:.35;cursor:not-allowed}
 .tb-close:hover{background:#e5484d;color:#fff}
 .tb-close:active{background:#c93c41}
+
+/* 无边框窗口的缩放热区：4–6px，不挡内容，不挡标题栏按钮 */
+.resize-layer{position:fixed;inset:0;pointer-events:none;z-index:120}
+.resize-handle{position:fixed;pointer-events:auto;background:transparent}
+.rh-n{top:0;left:8px;right:8px;height:5px;cursor:n-resize}
+.rh-s{bottom:0;left:8px;right:8px;height:5px;cursor:s-resize}
+.rh-w{left:0;top:8px;bottom:8px;width:5px;cursor:w-resize}
+.rh-e{right:0;top:8px;bottom:8px;width:5px;cursor:e-resize}
+.rh-nw{left:0;top:0;width:9px;height:9px;cursor:nw-resize}
+.rh-ne{right:0;top:0;width:9px;height:9px;cursor:ne-resize}
+.rh-sw{left:0;bottom:0;width:9px;height:9px;cursor:sw-resize}
+.rh-se{right:0;bottom:0;width:9px;height:9px;cursor:se-resize}

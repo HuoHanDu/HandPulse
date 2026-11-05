@@ -272,6 +272,14 @@ export function Inspector() {
               <>
                 <Kv label="运行状态" value={capture.error ? '不可用' : capture.paused ? '已暂停' : '运行中'} />
                 <Kv label="事件" value={nf(capture.events)} />
+                <Kv label="最后事件" value={
+                  capture.lastEventMs
+                    ? (Date.now() - capture.lastEventMs < 1000
+                      ? '刚刚'
+                      : Math.round((Date.now() - capture.lastEventMs) / 1000) + ' 秒前')
+                    : '暂无'
+                } />
+                <Kv label="前台权限" value={capture.uipiSuspected ? '更高（可能被 UIPI 拦截）' : '正常'} />
                 <Kv label="丢弃" value={nf(capture.dropped)} />
                 <Kv label="延迟 P95 / P99" value={capture.latencyP95Ms + ' / ' + capture.latencyP99Ms + ' ms'} />
                 <Kv label="未映射" value={nf(capture.unmapped)} />
@@ -283,6 +291,11 @@ export function Inspector() {
           </div>
           {capture?.error ? <p className="insp-p" style={{ padding: '8px 0 0' }}>{capture.error}</p> : null}
           {capture?.storageError ? <p className="insp-p" style={{ padding: '8px 0 0' }}>{capture.storageError}</p> : null}
+          {capture?.uipiSuspected ? (
+            <p className="insp-p" style={{ padding: '8px 0 0' }}>
+              前台应用以管理员权限运行，Windows UIPI 可能阻止 HandPulse 接收它的输入。可尝试让前台应用以普通权限运行，或以管理员身份重启 HandPulse 后验证。
+            </p>
+          ) : null}
           {isTauri ? (
             <div style={{ paddingTop: 10 }}>
               <button className="tbtn" type="button" onClick={resetSession}>重置本次会话</button>

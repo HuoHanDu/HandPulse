@@ -38,6 +38,13 @@ pub fn get_capture_stats(state: State<'_, CaptureHandle>) -> CaptureStats {
         stats.running = false;
         stats.error = Some(err);
     }
+    #[cfg(windows)]
+    {
+        let (foreground_elevated, app_elevated) = crate::capture::windows_raw::elevation_status();
+        stats.foreground_elevated = foreground_elevated;
+        stats.app_elevated = app_elevated;
+        stats.uipi_suspected = foreground_elevated && !app_elevated;
+    }
     stats
 }
 

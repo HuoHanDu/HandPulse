@@ -9,16 +9,21 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
 
-use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows::Win32::Security::{GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation};
+use windows::Win32::System::Threading::{
+    GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
+};
 use windows::Win32::UI::Input::{
     GetRawInputData, HRAWINPUT, MOUSE_MOVE_ABSOLUTE, MOUSE_VIRTUAL_DESKTOP, RAWINPUT,
     RAWINPUTDEVICE, RAWINPUTHEADER, RAWKEYBOARD, RAWMOUSE, RID_INPUT, RIDEV_INPUTSINK,
     RIM_TYPEKEYBOARD, RIM_TYPEMOUSE, RegisterRawInputDevices,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DispatchMessageW, GetCursorPos, GetMessageW, GetSystemMetrics,
-    HWND_MESSAGE, MSG, SM_CXSCREEN, SM_CYSCREEN, TranslateMessage, WINDOW_EX_STYLE, WINDOW_STYLE,
-    WM_INPUT,
+    CreateWindowExW, DefWindowProcW, DispatchMessageW, GetCursorPos, GetForegroundWindow,
+    GetMessageW, GetSystemMetrics, GetWindowThreadProcessId, HWND_MESSAGE, MSG, SM_CXSCREEN,
+    SM_CYSCREEN, TranslateMessage, WINDOW_EX_STYLE, WINDOW_STYLE, WM_DISPLAYCHANGE, WM_INPUT,
+    WM_INPUT_DEVICE_CHANGE,
 };
 use windows::core::w;
 
@@ -70,6 +75,31 @@ unsafe fn run_inner(
     }
     .map_err(|e| format!("创建 Raw Input 消息窗口失败：{e}"))?;
 
+    register(hwnd)?;
+
+    let mut msg = MSG::default();
+    loop {
+        let ret = unsafe { GetMessageW(&mut msg, None, 0, 0) };
+        if !ret.as_bool() {
+            break;
+        }
+        if msg.message == WM_INPUT {
+            unsafe { read_raw_input(msg.lParam, shared, keymap, tx) };
+        } else if msg.message == WM_DISPLAYCHANGE || msg.message == WM_INPUT_DEVICE_CHANGE {
+            // 全屏切换/显示器变更后重新注册，避免设备列表或焦点路径变化导致 WM_INPUT 停发。
+            if let Err(err) = register(hwnd) {
+                *shared.error.lock() = Some(err);
+            }
+        }
+        unsafe {
+            let _ = TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    }
+    Ok(())
+}
+
+fn register(hwnd: HWND) -> Result<(), String> {
     let devices = [
         RAWINPUTDEVICE {
             usUsagePage: 0x01,
@@ -87,21 +117,6 @@ unsafe fn run_inner(
     unsafe {
         RegisterRawInputDevices(&devices, std::mem::size_of::<RAWINPUTDEVICE>() as u32)
             .map_err(|e| format!("RegisterRawInputDevices 失败：{e}"))?;
-    }
-
-    let mut msg = MSG::default();
-    loop {
-        let ret = unsafe { GetMessageW(&mut msg, None, 0, 0) };
-        if !ret.as_bool() {
-            break;
-        }
-        if msg.message == WM_INPUT {
-            unsafe { read_raw_input(msg.lParam, shared, keymap, tx) };
-        }
-        unsafe {
-            let _ = TranslateMessage(&msg);
-            DispatchMessageW(&msg);
-        }
     }
     Ok(())
 }
@@ -257,6 +272,45 @@ fn send(tx: &crossbeam_channel::Sender<RawEvent>, shared: &Shared, ev: RawEvent)
             shared.dropped.fetch_add(1, Ordering::Relaxed);
         }
         Err(TrySendError::Disconnected(_)) => {}
+    }
+}
+
+/// 当前进程与前台窗口是否处于提升后的权限。
+/// 只返回布尔值，不读取窗口标题/路径，避免把前台应用信息带进数据库。
+pub fn elevation_status() -> (bool, bool) {
+    unsafe {
+        let app_elevated = token_elevated(GetCurrentProcess());
+        let fg = GetForegroundWindow();
+        let mut pid = 0u32;
+        let _ = GetWindowThreadProcessId(fg, Some(&mut pid));
+        let process =
+            OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).unwrap_or_default();
+        let foreground_elevated = token_elevated(process);
+        if process != HANDLE::default() {
+            let _ = CloseHandle(process);
+        }
+        (foreground_elevated, app_elevated)
+    }
+}
+
+fn token_elevated(process: HANDLE) -> bool {
+    unsafe {
+        let mut token = HANDLE::default();
+        if OpenProcessToken(process, TOKEN_QUERY, &mut token).is_err() {
+            return false;
+        }
+        let mut elevation = TOKEN_ELEVATION::default();
+        let mut ret = 0u32;
+        let ok = GetTokenInformation(
+            token,
+            TokenElevation,
+            Some(&mut elevation as *mut _ as *mut core::ffi::c_void),
+            std::mem::size_of::<TOKEN_ELEVATION>() as u32,
+            &mut ret,
+        )
+        .is_ok();
+        let _ = CloseHandle(token);
+        ok && elevation.TokenIsElevated != 0
     }
 }
 

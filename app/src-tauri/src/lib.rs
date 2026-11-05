@@ -1,5 +1,6 @@
 mod capture;
 mod commands;
+mod single_instance;
 mod storage;
 
 use std::sync::Arc;
@@ -10,6 +11,9 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if !single_instance::acquire() {
+        return;
+    }
     let app = tauri::Builder::default()
         .setup(|app| {
             let (db, init_error) = match app.path().app_data_dir() {
@@ -32,6 +36,31 @@ pub fn run() {
                         }
                     }
                     Err(err) => eprintln!("[handpulse] 读取窗口图标失败: {err}"),
+                }
+                #[cfg(windows)]
+                if let Ok(hwnd) = window.hwnd() {
+                    // decorations:false 会丢掉原生 resize 边框；补回 WS_THICKFRAME，
+                    // 让鼠标边缘缩放和自定义 resize 热区都有命中的窗口样式。
+                    use windows::Win32::UI::WindowsAndMessaging::{
+                        GWL_STYLE, GetWindowLongPtrW, SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE,
+                        SWP_NOZORDER, SetWindowLongPtrW, SetWindowPos, WS_THICKFRAME,
+                    };
+                    unsafe {
+                        let style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+                        let next = style | WS_THICKFRAME.0 as isize;
+                        if next != style {
+                            let _ = SetWindowLongPtrW(hwnd, GWL_STYLE, next);
+                            let _ = SetWindowPos(
+                                hwnd,
+                                None,
+                                0,
+                                0,
+                                0,
+                                0,
+                                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
+                            );
+                        }
+                    }
                 }
             }
             Ok(())
@@ -57,6 +86,7 @@ pub fn run() {
             commands::history::set_settings,
             commands::history::clear_all_data,
             commands::history::get_current_bucket,
+            commands::window::start_resize,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

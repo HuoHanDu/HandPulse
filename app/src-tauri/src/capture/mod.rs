@@ -62,6 +62,14 @@ pub struct CaptureStats {
     pub latency_p95_ms: u64,
     pub latency_p99_ms: u64,
     pub uptime_ms: u64,
+    /// 最近一次采集事件（epoch ms）；0 表示本次启动/重置以来还没有事件。
+    pub last_event_ms: u64,
+    /// 前台窗口是否运行在提升后的权限（约等于“管理员”）。
+    pub foreground_elevated: bool,
+    /// HandPulse 自身是否提升。
+    pub app_elevated: bool,
+    /// 前台提升、自己未提升：Raw Input 很可能被 UIPI 挡住。
+    pub uipi_suspected: bool,
     pub error: Option<String>,
     pub storage_error: Option<String>,
 }

@@ -6,9 +6,11 @@ import { startLive } from './ipc/live';
 import { getDataVersion, isTauri } from './ipc/client';
 import { clearPageDataCache } from './state/usePageData';
 import { Rail } from './shell/Rail';
-import { Transport } from './shell/Transport';import { LiveTape } from './shell/LiveTape';
+import { Transport } from './shell/Transport';
+import { LiveTape } from './shell/LiveTape';
 import { Inspector } from './shell/Inspector';
 import { TitleBar } from './shell/TitleBar';
+import { ResizeHandles } from './shell/ResizeHandles';
 import { KeyboardPage } from './pages/KeyboardPage';
 import { MousePage } from './pages/MousePage';
 import { StatsPage } from './pages/StatsPage';
@@ -135,6 +137,7 @@ export default function App() {
   return (
     <AppContext.Provider value={{ state, dispatch }}>
       <TitleBar />
+      <ResizeHandles />
       <div className="app" id="app">
         <Rail />
         <main className="main">

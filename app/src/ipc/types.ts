@@ -81,6 +81,10 @@ export interface CaptureStats {
   latencyP95Ms: number;
   latencyP99Ms: number;
   uptimeMs: number;
+  lastEventMs: number;
+  foregroundElevated: boolean;
+  appElevated: boolean;
+  uipiSuspected: boolean;
   error: string | null;
   storageError: string | null;
 }

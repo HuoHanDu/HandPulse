@@ -34,6 +34,11 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "msi"],
+    "publisher": "HandPulse",
+    "copyright": "Copyright © 2026 HandPulse",
+    "category": "Utility",
+    "shortDescription": "本地键鼠使用分析",
+    "longDescription": "HandPulse 在本地统计键盘与鼠标的聚合使用情况，不联网、不读取输入内容、不记录按键顺序。",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png", "icons/icon.ico"]
   }
 }
