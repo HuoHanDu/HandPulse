@@ -74,6 +74,10 @@
   filter:brightness(1.15);
   transition:transform .08s ease,background .04s ease,border-color .04s ease,color .04s ease,box-shadow .1s ease;
 }
+/* 系统开启「减少动态效果」时只保留颜色/描边/阴影反馈，不做位移与缩放 */
+@media (prefers-reduced-motion: reduce){
+  .key.flash{transform:none;transition:background .04s ease,border-color .04s ease,color .04s ease,box-shadow .1s ease}
+}
 
 /* 键盘：暗房展品 */
 .kb-panel{flex:0 0 auto;position:relative}
