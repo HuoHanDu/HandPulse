@@ -24,6 +24,8 @@ export function SettingsPage({ active }: Props) {
   }, [settings, state.granularity, state.retention, dispatch]);
 
   const save = (granularity: 10 | 30 | 60, retention: 7 | 30 | 90) => {
+    const prevG = state.granularity;
+    const prevK = state.retention;
     dispatch({ type: 'setGranularity', value: granularity });
     dispatch({ type: 'setRetention', value: retention });
     setSettings(granularity, retention)
@@ -32,6 +34,8 @@ export function SettingsPage({ active }: Props) {
         toast('设置已保存。');
       })
       .catch((err) => {
+        dispatch({ type: 'setGranularity', value: prevG });
+        dispatch({ type: 'setRetention', value: prevK });
         toast('设置保存失败：' + String(err));
       });
   };
