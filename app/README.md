@@ -13,6 +13,16 @@ M3 起 Tauri 下的历史数据来自本机 SQLite；浏览器 dev 仍回退 moc
 | M3 | SQLite 落盘、真实历史查询、四页接真实数据、设置持久化 | 已完成 |
 | M4+ | CSV/JSON 导出、托盘/自启/单实例/打包签名 | 未开始 |
 
+## Demo 状态（本次收尾）
+
+- M3 已完成：真实落盘、历史查询、设置持久化、清空/VACUUM、四页真实数据。
+- Windows 原生标题栏已关闭，改为应用内自绘标题栏（拖动 / 双击最大化 / 最小化 / 最大化还原 / 关闭）。
+- M4 能力仍为占位：导出 CSV/JSON、打开数据目录、开机自启均**禁用并标 M4**，不会假装可用。
+- Windows 11 Snap Layouts 的分屏菜单依赖原生标题栏，自绘标题栏的 demo **暂无 Snap 菜单**；
+  后续可接 `tauri-plugin-frame`。
+- 清空数据后进入明确空态；浏览器 mock 仍可“恢复演示数据”，Tauri 下按钮为“开始记录”。
+- 仓库不包含演示 DB/WAL；新机器首次启动为空库，采集后自动建库。
+
 ## 开发
 
 ```powershell
@@ -38,7 +48,7 @@ app/
 │  ├─ main.tsx                 # React 挂载
 │  ├─ App.tsx                  # 应用外壳、路由、全局弹层
 │  ├─ app/                     # router / store
-│  ├─ shell/                   # Rail / Transport / LiveTape / Inspector
+│  ├─ shell/                   # Rail / Transport / LiveTape / Inspector / TitleBar
 │  ├─ pages/                   # 键盘 / 鼠标 / 数据 / 设置
 │  ├─ keyboard/ mouse/ charts/ # 页面内组件（手写 SVG，不引图表库）
 │  ├─ ui/                      # Modal / Toast / Segmented / Switch
@@ -46,8 +56,8 @@ app/
 │  ├─ state/                   # liveStore（帧去重 + rAF 批量）
 │  ├─ mock/                    # 原型 mock 数据与 104 键位坐标
 │  ├─ assets/fonts/            # Inter / JetBrains Mono（本地 woff2）
-│  └─ styles/                  # tokens / base / shell / 各页面样式
-└─ src-tauri/                  # Tauri 2 壳（窗口 1440×900，最小 1100×720）
+│  └─ styles/                  # tokens / base / shell / titlebar / 各页面样式
+└─ src-tauri/                  # Tauri 2 壳（窗口 1440×900，最小 1100×720，decorations:false）
 ```
 
 ## 数据边界（M3）
@@ -113,4 +123,16 @@ app/
 
 四页截图：`screenshots/m0-web-*.png`（M0 基线）、`screenshots/m1-web-*.png`（M1 对照）、
 `screenshots/m2-keyboard.png` / `m2-tauri.png`（M2 实时层）、`screenshots/m3-stats.png` /
-`m3-settings.png`（M3 真实数据）。设计稿与验收基准在仓库根 `design-demos/`，本工程不修改它们。
+`m3-settings.png`（M3 真实数据）、`screenshots/demo-titlebar-keyboard.png` /
+`demo-stats-calendar.png`（demo 收尾：自绘标题栏 + 周标签/日历读数）。设计稿与验收基准在仓库根
+`design-demos/`，本工程不修改它们。
+
+## 窗口与标题栏
+
+- `tauri.conf.json`：`decorations:false`，标题栏由 `src/shell/TitleBar.tsx` 自绘。
+- 权限：`core:window:default` + close/minimize/toggle-maximize/start-dragging/is-maximized/
+  start-resize-dragging。
+- 标题栏高 38px，`.app` 为 `calc(100vh - var(--titlebar-h))`；拖动空白区移动，双击切换最大化，
+  按钮不触发拖动；关闭走 Tauri `close()`，触发采集层正常 flush 后退出。
+- 无原生 Snap Layouts 菜单（自绘标题栏限制，见上）。
+
