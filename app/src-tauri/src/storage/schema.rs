@@ -69,6 +69,14 @@ CREATE TABLE grid_day (
   PRIMARY KEY (day, x, y)
 );
 
+CREATE TABLE IF NOT EXISTS move_grid_day (
+  day TEXT NOT NULL,
+  x INTEGER NOT NULL,
+  y INTEGER NOT NULL,
+  count INTEGER NOT NULL,
+  PRIMARY KEY (day, x, y)
+);
+
 CREATE TABLE gap_day (
   day TEXT NOT NULL,
   bin INTEGER NOT NULL,
@@ -128,6 +136,10 @@ pub fn migrate(conn: &mut Connection) -> Result<()> {
            side1 INTEGER NOT NULL, side2 INTEGER NOT NULL,
            wheel_up INTEGER NOT NULL, wheel_down INTEGER NOT NULL,
            peak_speed REAL NOT NULL
+         );
+         CREATE TABLE IF NOT EXISTS move_grid_day (
+           day TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL,
+           count INTEGER NOT NULL, PRIMARY KEY(day,x,y)
          );",
     )?;
     Ok(())

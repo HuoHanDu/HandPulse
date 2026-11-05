@@ -43,6 +43,7 @@ fn live_snapshot(shared: &crate::capture::Shared) -> LiveSnapshot {
         move_px: session.move_px,
         peak_speed: session.peak_speed,
         grid: session.grid.clone(),
+        move_grid: session.move_grid.clone(),
         current: shared.live_bucket.lock().clone(),
     }
 }
@@ -159,6 +160,20 @@ pub async fn get_grid(
     blocking(move || {
         let r = parse_range(&range)?;
         query::grid(&db, r, &live).map_err(|e| e.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn get_move_grid(
+    range: String,
+    state: State<'_, CaptureHandle>,
+) -> Result<Vec<GridCell>, String> {
+    let db = get_db(&state)?;
+    let live = live_snapshot(&state.shared);
+    blocking(move || {
+        let r = parse_range(&range)?;
+        query::move_grid(&db, r, &live).map_err(|e| e.to_string())
     })
     .await
 }

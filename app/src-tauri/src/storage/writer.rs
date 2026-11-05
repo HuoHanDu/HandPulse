@@ -103,6 +103,7 @@ pub fn clear_conn(conn: &mut Connection) -> Result<()> {
          DELETE FROM agg_day;
          DELETE FROM key_day;
          DELETE FROM grid_day;
+         DELETE FROM move_grid_day;
          DELETE FROM gap_day;
          DELETE FROM agg_mouse_day;
          DELETE FROM pad_bucket;",
@@ -253,6 +254,19 @@ fn apply_mouse(tx: &Transaction<'_>, ts: i64, p: &MousePayload) -> Result<()> {
         };
         tx.execute(
             "INSERT INTO grid_day(day,x,y,count) VALUES(?1,?2,?3,?4)
+             ON CONFLICT(day,x,y) DO UPDATE SET count=count+excluded.count",
+            rusqlite::params![day, x, y, *count as i64],
+        )?;
+    }
+    for (key, count) in &p.mgrid {
+        let Some((x, y)) = key.split_once(',') else {
+            continue;
+        };
+        let (Ok(x), Ok(y)) = (x.parse::<i64>(), y.parse::<i64>()) else {
+            continue;
+        };
+        tx.execute(
+            "INSERT INTO move_grid_day(day,x,y,count) VALUES(?1,?2,?3,?4)
              ON CONFLICT(day,x,y) DO UPDATE SET count=count+excluded.count",
             rusqlite::params![day, x, y, *count as i64],
         )?;

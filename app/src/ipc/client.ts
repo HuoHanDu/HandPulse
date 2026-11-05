@@ -225,6 +225,13 @@ export function getGrid(range: RangeKey): Promise<GridCell[]> {
   });
 }
 
+export function getMoveGrid(range: RangeKey): Promise<GridCell[]> {
+  return call('get_move_grid', { range }, () => {
+    const f = clickRange(range).factor;
+    return HP.grid.map((g: GridCell) => ({ x: g.x, y: g.y, v: round(g.v * f) }));
+  });
+}
+
 function detailRows(range: RangeKey): DetailRowView[] {
   const rows: DetailRowView[] = [];
   const dayStart = new Date(2026, 10, 4).getTime();
@@ -290,8 +297,8 @@ export async function loadKeyboard(range: RangeKey): Promise<KeyboardData> {
 }
 
 export async function loadMouse(range: RangeKey): Promise<MouseData> {
-  const [summary, extra, grid] = await Promise.all([
-    getSummary(range), getMouseStats(range), getGrid(range)
+  const [summary, extra, grid, moveGrid] = await Promise.all([
+    getSummary(range), getMouseStats(range), getGrid(range), getMoveGrid(range)
   ]);
   const label = range === 'session' ? '本次' : range === 'week' ? '7 天' : '今日';
   const gridMax = grid.reduce((m, g) => Math.max(m, g.v), 0);
@@ -300,8 +307,7 @@ export async function loadMouse(range: RangeKey): Promise<MouseData> {
     rangeLabel: label,
     factor: 1,
     grid,
-    // M3 暂未单独保存移动采样网格；移动图层沿用点击网格（README 中注明）
-    moveGrid: grid,
+    moveGrid,
     gridMax,
     extra
   };

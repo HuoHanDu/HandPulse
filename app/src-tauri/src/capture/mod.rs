@@ -100,6 +100,7 @@ pub struct SessionSnapshot {
     pub peak_speed: f64,
     pub chords: u64,
     pub grid: Vec<(u8, u8, u32)>,
+    pub move_grid: Vec<(u8, u8, u32)>,
 }
 
 #[derive(Clone, Default)]
@@ -114,8 +115,6 @@ pub enum MouseBtn {
     Left,
     Right,
     Middle,
-    Side1,
-    Side2,
 }
 
 /// Raw Input 线程 → Aggregator 线程的事件。体积小、只带 Instant，不带任何字符串。

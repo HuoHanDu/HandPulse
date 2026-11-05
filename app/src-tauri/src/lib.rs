@@ -40,6 +40,7 @@ pub fn run() {
             commands::history::get_histogram,
             commands::history::get_heatmap,
             commands::history::get_grid,
+            commands::history::get_move_grid,
             commands::history::get_detail,
             commands::history::get_data_version,
             commands::history::get_settings,

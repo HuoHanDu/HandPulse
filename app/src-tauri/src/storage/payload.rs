@@ -35,8 +35,11 @@ pub struct MousePayload {
     pub cm: u64,
     pub vmax: f64,
     pub fast: u64,
-    /// "x,y" -> count
+    /// "x,y" -> count（点击）
     pub grid: BTreeMap<String, u32>,
+    /// "x,y" -> count（移动采样，50ms 一次）
+    #[serde(default)]
+    pub mgrid: BTreeMap<String, u32>,
 }
 
 impl Default for MousePayload {
@@ -50,6 +53,7 @@ impl Default for MousePayload {
             vmax: 0.0,
             fast: 0,
             grid: BTreeMap::new(),
+            mgrid: BTreeMap::new(),
         }
     }
 }

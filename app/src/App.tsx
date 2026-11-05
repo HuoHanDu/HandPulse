@@ -91,6 +91,27 @@ export default function App() {
   }, [state.paused]);
 
   useEffect(() => {
+    // 应用内没有右键菜单；同时屏蔽鼠标侧键（浏览器会映射为前进/后退）
+    const blockContext = (e: MouseEvent) => e.preventDefault();
+    const blockSide = (e: MouseEvent) => {
+      if (e.button === 3 || e.button === 4) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener('contextmenu', blockContext);
+    window.addEventListener('mousedown', blockSide, true);
+    window.addEventListener('mouseup', blockSide, true);
+    window.addEventListener('auxclick', blockSide, true);
+    return () => {
+      document.removeEventListener('contextmenu', blockContext);
+      window.removeEventListener('mousedown', blockSide, true);
+      window.removeEventListener('mouseup', blockSide, true);
+      window.removeEventListener('auxclick', blockSide, true);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!state.toast) return;
     const timer = window.setTimeout(() => dispatch({ type: 'hideToast' }), 2600);
     return () => window.clearTimeout(timer);

@@ -48,6 +48,7 @@ pub struct LiveSnapshot {
     pub move_px: f64,
     pub peak_speed: f64,
     pub grid: Vec<(u8, u8, u32)>,
+    pub move_grid: Vec<(u8, u8, u32)>,
     pub current: Option<CurrentBucket>,
 }
 
@@ -461,7 +462,7 @@ fn mouse_from(clicks: [u64; 5], wheel: [u64; 2], px: f64, peak: f64) -> MouseSta
             total,
         },
         wheel,
-        peak_speed: peak,
+        peak_speed: peak * 2.54 / 96.0 / 100.0,
         move_km: px_to_cm(px) as f64 / 100_000.0,
     }
 }
@@ -831,17 +832,32 @@ pub fn heatmap(db: &Db, range: Range, kind: &str, live: &LiveSnapshot) -> Result
 }
 
 pub fn grid(db: &Db, range: Range, live: &LiveSnapshot) -> Result<Vec<GridCell>> {
+    grid_table(db, range, live, "grid_day", &live.grid, false)
+}
+
+pub fn move_grid(db: &Db, range: Range, live: &LiveSnapshot) -> Result<Vec<GridCell>> {
+    grid_table(db, range, live, "move_grid_day", &live.move_grid, true)
+}
+
+fn grid_table(
+    db: &Db,
+    range: Range,
+    live: &LiveSnapshot,
+    table: &str,
+    session_grid: &[(u8, u8, u32)],
+    movement: bool,
+) -> Result<Vec<GridCell>> {
     let mut out: BTreeMap<(i64, i64), u64> = BTreeMap::new();
     if range == Range::Session {
-        for (x, y, v) in &live.grid {
+        for (x, y, v) in session_grid {
             out.insert((*x as i64, *y as i64), *v as u64);
         }
     } else {
         let b = bounds(range)?;
         let conn = db.open_read()?;
-        let mut stmt = conn.prepare(
-            "SELECT x,y,SUM(count) FROM grid_day WHERE day BETWEEN ?1 AND ?2 GROUP BY x,y",
-        )?;
+        let sql =
+            format!("SELECT x,y,SUM(count) FROM {table} WHERE day BETWEEN ?1 AND ?2 GROUP BY x,y");
+        let mut stmt = conn.prepare(&sql)?;
         let rows = stmt.query_map([&b.start_day, &b.end_day], |r| {
             Ok((
                 r.get::<_, i64>(0)?,
@@ -854,7 +870,12 @@ pub fn grid(db: &Db, range: Range, live: &LiveSnapshot) -> Result<Vec<GridCell>>
             out.insert((x, y), v);
         }
         if let Some(cur) = current_bucket(live).filter(|c| in_range_current(c, &b)) {
-            for (k, v) in &cur.mouse.grid {
+            let map = if movement {
+                &cur.mouse.mgrid
+            } else {
+                &cur.mouse.grid
+            };
+            for (k, v) in map {
                 if let Some((x, y)) = k.split_once(',')
                     && let (Ok(x), Ok(y)) = (x.parse::<i64>(), y.parse::<i64>())
                 {

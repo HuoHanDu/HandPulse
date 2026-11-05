@@ -88,6 +88,7 @@ struct BucketAcc {
     wheel: [u64; 2],
     move_px: f64,
     grid: [u32; GRID_W * GRID_H],
+    move_grid: [u32; GRID_W * GRID_H],
     gap: [u32; 5],
     chord: u64,
     peak_speed: f64,
@@ -109,6 +110,7 @@ impl Default for BucketAcc {
             wheel: [0; 2],
             move_px: 0.0,
             grid: [0; GRID_W * GRID_H],
+            move_grid: [0; GRID_W * GRID_H],
             gap: [0; 5],
             chord: 0,
             peak_speed: 0.0,
@@ -156,6 +158,7 @@ impl BucketAcc {
 
     fn mouse_payload(&self) -> MousePayload {
         let mut grid = BTreeMap::new();
+        let mut mgrid = BTreeMap::new();
         for (i, count) in self.grid.iter().enumerate() {
             if *count == 0 {
                 continue;
@@ -163,6 +166,14 @@ impl BucketAcc {
             let x = (i % GRID_W) as u8;
             let y = (i / GRID_W) as u8;
             grid.insert(format!("{x},{y}"), *count);
+        }
+        for (i, count) in self.move_grid.iter().enumerate() {
+            if *count == 0 {
+                continue;
+            }
+            let x = (i % GRID_W) as u8;
+            let y = (i / GRID_W) as u8;
+            mgrid.insert(format!("{x},{y}"), *count);
         }
         MousePayload {
             v: 1,
@@ -173,6 +184,7 @@ impl BucketAcc {
             vmax: self.peak_speed,
             fast: self.fast,
             grid,
+            mgrid,
         }
     }
 
@@ -203,6 +215,7 @@ pub struct Aggregator {
     pub move_px: f64,
     pub peak_speed: f64,
     pub grid: [u32; GRID_W * GRID_H],
+    pub move_grid: [u32; GRID_W * GRID_H],
     pub chords: u64,
     pub events: u64,
     pub key_events: u64,
@@ -221,6 +234,9 @@ pub struct Aggregator {
     bucket: BucketAcc,
     last_key_at: Option<Instant>,
     last_input_at: Option<Instant>,
+    last_move_sample: Option<Instant>,
+    speed_window_start: Instant,
+    speed_window_px: f64,
     streak_start: Option<Instant>,
     longest_streak_ms: u64,
     seq: u64,
@@ -284,6 +300,7 @@ impl Aggregator {
             move_px: 0.0,
             peak_speed: 0.0,
             grid: [0; GRID_W * GRID_H],
+            move_grid: [0; GRID_W * GRID_H],
             chords: 0,
             events: 0,
             key_events: 0,
@@ -302,6 +319,9 @@ impl Aggregator {
             bucket: BucketAcc::new(granularity, now),
             last_key_at: None,
             last_input_at: None,
+            last_move_sample: None,
+            speed_window_start: now,
+            speed_window_px: 0.0,
             streak_start: None,
             longest_streak_ms: 0,
             seq: 0,
@@ -335,6 +355,7 @@ impl Aggregator {
         self.move_px = 0.0;
         self.peak_speed = 0.0;
         self.grid = [0; GRID_W * GRID_H];
+        self.move_grid = [0; GRID_W * GRID_H];
         self.chords = 0;
         self.events = 0;
         self.key_events = 0;
@@ -350,6 +371,9 @@ impl Aggregator {
         self.session_start = now;
         self.last_key_at = None;
         self.last_input_at = None;
+        self.last_move_sample = None;
+        self.speed_window_px = 0.0;
+        self.speed_window_start = now;
         self.streak_start = None;
         self.longest_streak_ms = 0;
         self.bucket.reset(self.granularity, now);
@@ -458,8 +482,6 @@ impl Aggregator {
                     MouseBtn::Left => 0,
                     MouseBtn::Right => 1,
                     MouseBtn::Middle => 2,
-                    MouseBtn::Side1 => 3,
-                    MouseBtn::Side2 => 4,
                 };
                 self.clicks[idx] += 1;
                 self.frame.clicks[idx] += 1;
@@ -489,7 +511,7 @@ impl Aggregator {
                 }
                 self.touch_input(at);
             }
-            RawEvent::Move { dx, dy, .. } => {
+            RawEvent::Move { dx, dy, at } => {
                 self.mouse_events += 1;
                 self.frame.dx += dx;
                 self.frame.dy += dy;
@@ -497,6 +519,16 @@ impl Aggregator {
                 self.move_px += dist;
                 self.bucket.move_px += dist;
                 self.frame.move_px += dist;
+                // 移动热力采样：50ms 一次，避免高频鼠标事件里频繁 GetCursorPos
+                if self.last_move_sample.is_none_or(|last| {
+                    at.saturating_duration_since(last) >= Duration::from_millis(50)
+                }) && let Some((gx, gy)) = cursor_grid()
+                {
+                    let cell = gy as usize * GRID_W + gx as usize;
+                    self.move_grid[cell] += 1;
+                    self.bucket.move_grid[cell] += 1;
+                    self.last_move_sample = Some(at);
+                }
             }
             RawEvent::AbsoluteMove { .. } => {
                 self.mouse_events += 1;
@@ -556,12 +588,18 @@ impl Aggregator {
             return;
         }
 
-        let elapsed = now.duration_since(self.last_flush).as_secs_f64().max(1e-6);
-        let speed = self.frame.move_px / elapsed;
-        self.peak_speed = self.peak_speed.max(speed);
-        self.bucket.peak_speed = self.bucket.peak_speed.max(speed);
-        if speed >= 2000.0 {
-            self.bucket.fast += 1;
+        // 峰值速度按 100ms 窗口计算，避免两次相邻 flush 间隔过小导致 px/s 虚高
+        self.speed_window_px += self.frame.move_px;
+        let win = now.duration_since(self.speed_window_start);
+        if win >= Duration::from_millis(100) {
+            let speed = self.speed_window_px / win.as_secs_f64();
+            self.peak_speed = self.peak_speed.max(speed);
+            self.bucket.peak_speed = self.bucket.peak_speed.max(speed);
+            if speed >= 2000.0 {
+                self.bucket.fast += 1;
+            }
+            self.speed_window_px = 0.0;
+            self.speed_window_start = now;
         }
 
         for at in self.frame.event_ats.drain(..) {
@@ -713,6 +751,13 @@ impl Aggregator {
             .filter(|(_, v)| **v > 0)
             .map(|(i, v)| ((i % GRID_W) as u8, (i / GRID_W) as u8, *v))
             .collect();
+        let move_grid = self
+            .move_grid
+            .iter()
+            .enumerate()
+            .filter(|(_, v)| **v > 0)
+            .map(|(i, v)| ((i % GRID_W) as u8, (i / GRID_W) as u8, *v))
+            .collect();
         let session = SessionSnapshot {
             keys,
             clicks: self.clicks,
@@ -721,6 +766,7 @@ impl Aggregator {
             peak_speed: self.peak_speed,
             chords: self.chords,
             grid,
+            move_grid,
         };
 
         Snapshot {

@@ -145,6 +145,7 @@ pub fn purge_tx(conn: &Connection, retention_days: u32) -> Result<()> {
     conn.execute("DELETE FROM agg_day WHERE day < ?1", [&cutoff_day])?;
     conn.execute("DELETE FROM key_day WHERE day < ?1", [&cutoff_day])?;
     conn.execute("DELETE FROM grid_day WHERE day < ?1", [&cutoff_day])?;
+    conn.execute("DELETE FROM move_grid_day WHERE day < ?1", [&cutoff_day])?;
     conn.execute("DELETE FROM gap_day WHERE day < ?1", [&cutoff_day])?;
     conn.execute("DELETE FROM agg_mouse_day WHERE day < ?1", [&cutoff_day])?;
     Ok(())
