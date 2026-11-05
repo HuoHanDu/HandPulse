@@ -1236,6 +1236,33 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_partial_bucket_merges_instead_of_rolling_back() {
+        let (db, p) = temp_db("duplicate_bucket");
+        let now = Local::now().timestamp();
+        let ts = now - now.rem_euclid(60);
+        let mut conn = db.open_write().unwrap();
+        apply_bucket(&mut conn, &kb_bucket(ts, 3)).unwrap();
+        apply_bucket(&mut conn, &kb_bucket(ts, 2)).unwrap();
+        drop(conn);
+
+        let s = summary(&db, Range::Today, &LiveSnapshot::default()).unwrap();
+        assert_eq!(s.keys, 5);
+        let stats = key_stats(&db, Range::Today, &LiveSnapshot::default()).unwrap();
+        assert_eq!(stats.iter().find(|s| s.label == "A").unwrap().count, 5);
+        let actions: u64 = db
+            .open_read()
+            .unwrap()
+            .query_row(
+                "SELECT actions FROM bucket WHERE ts=?1 AND granularity=60 AND device='kb'",
+                [ts],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(actions, 5);
+        cleanup(&p);
+    }
+
+    #[test]
     fn key_stats_labels_and_holds() {
         let (db, p) = temp_db("keys");
         let now = Local::now().timestamp();

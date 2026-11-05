@@ -9,7 +9,7 @@ use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
 use parking_lot::Mutex;
 use rusqlite::{Connection, OptionalExtension, Transaction};
 
-use super::payload::{Device, KbPayload, MousePayload, PersistBucket, decode};
+use super::payload::{Device, KbPayload, MousePayload, PersistBucket, decode, encode};
 use super::{bump_data_version, purge_tx, read_meta_u64};
 
 pub enum WriteMsg {
@@ -114,18 +114,33 @@ pub fn clear_conn(conn: &mut Connection) -> Result<()> {
     Ok(())
 }
 
-/// 落一个桶：事务内写 bucket + 预聚合。重复 (ts,granularity,device) 只覆盖行，
-/// 不再叠加预聚合，避免重启/重放导致 today 翻倍。
+/// 落一个桶：事务内写 bucket + 预聚合。
+///
+/// 同一分钟内正常关闭→重开→再关闭会产生两个不完整桶；这里把新 payload
+/// 合并到旧 payload，并把**新 payload 的增量**加到预聚合。旧桶行不能被
+/// `INSERT OR REPLACE` 覆盖，否则最近一分钟会“回档”。
 pub fn apply_bucket(conn: &mut Connection, bucket: &PersistBucket) -> Result<()> {
     let tx = conn.transaction()?;
-    let exists: bool = tx
+    let existing: Option<Vec<u8>> = tx
         .query_row(
-            "SELECT 1 FROM bucket WHERE ts=?1 AND granularity=?2 AND device=?3",
+            "SELECT payload FROM bucket WHERE ts=?1 AND granularity=?2 AND device=?3",
             rusqlite::params![bucket.ts, bucket.granularity, bucket.device.as_str()],
-            |_| Ok(()),
+            |r| r.get(0),
         )
-        .optional()?
-        .is_some();
+        .optional()?;
+
+    let (payload, actions) = match existing {
+        Some(old_payload) => {
+            if is_replay(bucket.device, &old_payload, &bucket.payload)? {
+                // 同一个桶被重放（例如退出流程重复投递）：不要合并，也不要再加预聚合。
+                return Ok(());
+            }
+            let merged = merge_payload(bucket.device, &old_payload, &bucket.payload)?;
+            let actions = payload_actions(bucket.device, &merged)?;
+            (merged, actions)
+        }
+        None => (bucket.payload.clone(), bucket.actions),
+    };
 
     tx.execute(
         "INSERT OR REPLACE INTO bucket(ts,granularity,device,actions,payload)
@@ -134,26 +149,65 @@ pub fn apply_bucket(conn: &mut Connection, bucket: &PersistBucket) -> Result<()>
             bucket.ts,
             bucket.granularity,
             bucket.device.as_str(),
-            bucket.actions,
-            bucket.payload
+            actions,
+            payload
         ],
     )?;
 
-    if !exists {
-        match bucket.device {
-            Device::Kb => {
-                let p: KbPayload = decode(&bucket.payload)?;
-                apply_kb(&tx, bucket.ts, &p)?;
-            }
-            Device::Mouse => {
-                let p: MousePayload = decode(&bucket.payload)?;
-                apply_mouse(&tx, bucket.ts, &p)?;
-            }
+    // 预聚合只加新 payload 的增量：旧 payload 的预聚合已经在旧桶落盘时加过。
+    match bucket.device {
+        Device::Kb => {
+            let p: KbPayload = decode(&bucket.payload)?;
+            apply_kb(&tx, bucket.ts, &p)?;
+        }
+        Device::Mouse => {
+            let p: MousePayload = decode(&bucket.payload)?;
+            apply_mouse(&tx, bucket.ts, &p)?;
         }
     }
     bump_data_version(&tx)?;
     tx.commit()?;
     Ok(())
+}
+
+fn merge_payload(device: Device, old: &[u8], new: &[u8]) -> Result<Vec<u8>> {
+    match device {
+        Device::Kb => {
+            let mut old: KbPayload = decode(old)?;
+            let new: KbPayload = decode(new)?;
+            old.merge(&new);
+            encode(&old)
+        }
+        Device::Mouse => {
+            let mut old: MousePayload = decode(old)?;
+            let new: MousePayload = decode(new)?;
+            old.merge(&new);
+            encode(&old)
+        }
+    }
+}
+
+fn payload_session(device: Device, blob: &[u8]) -> Result<u64> {
+    match device {
+        Device::Kb => Ok(decode::<KbPayload>(blob)?.session),
+        Device::Mouse => Ok(decode::<MousePayload>(blob)?.session),
+    }
+}
+
+fn is_replay(device: Device, old: &[u8], new: &[u8]) -> Result<bool> {
+    if old == new {
+        return Ok(true);
+    }
+    let old_session = payload_session(device, old)?;
+    let new_session = payload_session(device, new)?;
+    Ok(old_session != 0 && old_session == new_session)
+}
+
+fn payload_actions(device: Device, blob: &[u8]) -> Result<u64> {
+    match device {
+        Device::Kb => Ok(decode::<KbPayload>(blob)?.actions()),
+        Device::Mouse => Ok(decode::<MousePayload>(blob)?.actions()),
+    }
 }
 
 fn local_hour_start(ts: i64) -> i64 {

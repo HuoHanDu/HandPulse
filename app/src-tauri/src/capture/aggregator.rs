@@ -145,6 +145,7 @@ impl BucketAcc {
     fn kb_payload(&self, streak_ms: u64) -> KbPayload {
         KbPayload {
             v: 1,
+            session: 0,
             k: self.counts.iter().map(|(k, v)| (*k, *v)).collect(),
             hold_sum: self.hold_sum.iter().map(|(k, v)| (*k, *v)).collect(),
             hold_max: self.hold_max.iter().map(|(k, v)| (*k, *v)).collect(),
@@ -177,6 +178,7 @@ impl BucketAcc {
         }
         MousePayload {
             v: 1,
+            session: 0,
             cl: self.clicks,
             wh: self.wheel,
             px: self.move_px,
@@ -241,6 +243,7 @@ pub struct Aggregator {
     streak_start: Option<Instant>,
     longest_streak_ms: u64,
     seq: u64,
+    session_id: u64,
     paused: bool,
 }
 
@@ -264,6 +267,11 @@ fn align_ts(granularity: u32) -> i64 {
 
 fn now_secs() -> i64 {
     Local::now().timestamp()
+}
+
+fn new_session_id() -> u64 {
+    // 进程内唯一；重启后 id 不同，允许同一分钟的不完整桶合并。
+    now_ms() ^ ((std::process::id() as u64) << 32)
 }
 
 fn minute_of_day_now() -> u32 {
@@ -327,6 +335,7 @@ impl Aggregator {
             streak_start: None,
             longest_streak_ms: 0,
             seq: 0,
+            session_id: new_session_id(),
             paused: false,
         }
     }
@@ -547,7 +556,8 @@ impl Aggregator {
     pub fn close_bucket(&mut self, shared: &Shared) {
         let streak = self.longest_streak_ms;
         if self.bucket.has_kb() {
-            let p = self.bucket.kb_payload(streak);
+            let mut p = self.bucket.kb_payload(streak);
+            p.session = self.session_id;
             let actions = p.actions();
             if let Ok(blob) = encode(&p) {
                 let ts = self.bucket.ts;
@@ -561,7 +571,8 @@ impl Aggregator {
             }
         }
         if self.bucket.has_mouse() {
-            let p = self.bucket.mouse_payload();
+            let mut p = self.bucket.mouse_payload();
+            p.session = self.session_id;
             let actions = p.actions();
             if let Ok(blob) = encode(&p) {
                 let ts = self.bucket.ts;

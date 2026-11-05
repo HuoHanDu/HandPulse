@@ -10,6 +10,9 @@ pub const KEY_COUNT: usize = 104;
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct KbPayload {
     pub v: u8,
+    /// 本次启动的会话 id；用于区分“重放同一个桶”和“同一分钟的新不完整桶”。
+    #[serde(default)]
+    pub session: u64,
     /// key_id -> 次数
     pub k: BTreeMap<u16, u32>,
     pub hold_sum: BTreeMap<u16, u64>,
@@ -27,6 +30,8 @@ pub struct KbPayload {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct MousePayload {
     pub v: u8,
+    #[serde(default)]
+    pub session: u64,
     /// left/right/middle/side1/side2
     pub cl: [u64; 5],
     pub wh: [u64; 2],
@@ -46,6 +51,7 @@ impl Default for MousePayload {
     fn default() -> Self {
         Self {
             v: 1,
+            session: 0,
             cl: [0; 5],
             wh: [0; 2],
             px: 0.0,
@@ -66,6 +72,36 @@ impl KbPayload {
     pub fn keys(&self) -> u64 {
         self.k.values().map(|v| *v as u64).sum()
     }
+
+    /// 同一分钟内正常关闭→重开→再关闭会生成两个不完整桶；
+    /// 合并 payload，避免桶行被后者覆盖而“回档”。
+    pub fn merge(&mut self, other: &Self) {
+        self.v = self.v.max(other.v);
+        self.session = other.session;
+        for (id, count) in &other.k {
+            *self.k.entry(*id).or_default() += *count;
+        }
+        for (id, hold) in &other.hold_sum {
+            *self.hold_sum.entry(*id).or_default() += *hold;
+        }
+        for (id, hold) in &other.hold_max {
+            let entry = self.hold_max.entry(*id).or_default();
+            *entry = (*entry).max(*hold);
+        }
+        self.chord += other.chord;
+        for (a, b) in self.gap.iter_mut().zip(other.gap.iter()) {
+            *a = a.saturating_add(*b);
+        }
+        self.streak_ms = self.streak_ms.max(other.streak_ms);
+        for (id, ts) in &other.first {
+            let entry = self.first.entry(*id).or_insert(*ts);
+            *entry = (*entry).min(*ts);
+        }
+        for (id, ts) in &other.last {
+            let entry = self.last.entry(*id).or_insert(*ts);
+            *entry = (*entry).max(*ts);
+        }
+    }
 }
 
 impl MousePayload {
@@ -75,6 +111,28 @@ impl MousePayload {
 
     pub fn clicks(&self) -> u64 {
         self.cl.iter().sum()
+    }
+
+    /// 同 KbPayload::merge：同一分钟的不完整桶合并，而不是覆盖。
+    pub fn merge(&mut self, other: &Self) {
+        self.v = self.v.max(other.v);
+        self.session = other.session;
+        for (a, b) in self.cl.iter_mut().zip(other.cl.iter()) {
+            *a = a.saturating_add(*b);
+        }
+        for (a, b) in self.wh.iter_mut().zip(other.wh.iter()) {
+            *a = a.saturating_add(*b);
+        }
+        self.px += other.px;
+        self.cm = self.cm.saturating_add(other.cm);
+        self.vmax = self.vmax.max(other.vmax);
+        self.fast = self.fast.saturating_add(other.fast);
+        for (cell, count) in &other.grid {
+            *self.grid.entry(cell.clone()).or_default() += *count;
+        }
+        for (cell, count) in &other.mgrid {
+            *self.mgrid.entry(cell.clone()).or_default() += *count;
+        }
     }
 }
 
