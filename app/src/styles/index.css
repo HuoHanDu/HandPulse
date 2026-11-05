@@ -2,6 +2,7 @@
 @import './tokens.css';
 @import './base.css';
 @import './shell.css';
+@import './titlebar.css';
 @import './keyboard.css';
 @import './mouse.css';
 @import './stats.css';

@@ -1,0 +1,27 @@
+/* 自绘 Windows 标题栏（decorations:false） */
+.titlebar{
+  position:relative;z-index:20;height:var(--titlebar-h);
+  display:flex;align-items:center;background:#000;
+  border-bottom:1px solid rgba(255,255,255,.075);
+  user-select:none;-webkit-user-select:none;
+  padding-left:14px;
+}
+.tb-brand{display:flex;align-items:center;gap:9px;min-width:0}
+.tb-mark{display:inline-flex;align-items:flex-end;gap:2px;height:13px;width:15px}
+.tb-mark i{display:block;width:3px;border-radius:1px;background:#2997ff}
+.tb-mark i:nth-child(1){height:7px;opacity:.55}
+.tb-mark i:nth-child(2){height:13px}
+.tb-mark i:nth-child(3){height:9px;opacity:.75}
+.tb-name{font-size:13px;color:#d7d7dc;letter-spacing:.01em;white-space:nowrap}
+.tb-spacer{flex:1 1 auto;height:100%}
+.tb-controls{display:flex;align-items:stretch;height:100%}
+.tb-btn{
+  width:42px;height:100%;display:grid;place-items:center;
+  color:#b9b9c0;background:transparent;border-radius:0;
+  transition:background .12s ease,color .12s ease;
+}
+.tb-btn:hover{background:rgba(255,255,255,.09);color:#fff}
+.tb-btn:active{background:rgba(255,255,255,.14)}
+.tb-btn:disabled{opacity:.35;cursor:not-allowed}
+.tb-close:hover{background:#e5484d;color:#fff}
+.tb-close:active{background:#c93c41}

@@ -1,4 +1,4 @@
-.app{display:grid;grid-template-columns:56px minmax(0,1fr) var(--insp);height:100vh}
+.app{display:grid;grid-template-columns:56px minmax(0,1fr) var(--insp);height:calc(100vh - var(--titlebar-h))}
 /* ---------- rail ---------- */
 .rail{
   background:#06070a;border-right:1px solid var(--line);
