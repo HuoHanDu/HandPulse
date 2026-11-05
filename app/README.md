@@ -60,6 +60,9 @@ app/
   浏览器 dev 仍走 100ms mock ticker。
 - `src/state/usePageData.ts`：缓存 key 带 `dataVersion`；App 每 1s 轮询 `get_data_version` 并递增
   本地 generation，让「今日」查询能把尚未关闭的当前桶也算进去。
+- `src/state/useLiveOverlay.ts`：历史数据返回时记录 `liveStore` 的 seq 作为基线，之后每个实时帧的
+  按键/点击/滚轮/移动/网格增量直接叠加到 UI；下一次历史查询回来时重置基线，避免重复计数。
+  因此键盘/鼠标页的计数是**推模式、按下即变**，1s 轮询只做与 DB 的校准。
 - Rust：`capture/windows_raw.rs` → `capture/aggregator.rs` → `storage::writer`（SQLite），
   `commands/history.rs` 提供查询；`storage/query.rs` 优先读预聚合表。
 

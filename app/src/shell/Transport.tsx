@@ -1,11 +1,13 @@
 import { RANGE_OPTS, TITLES, useApp } from '../app/store';
 import { getSummary } from '../ipc/client';
 import { usePageData } from '../state/usePageData';
+import { useLiveOverlay } from '../state/useLiveOverlay';
 import { Segmented } from '../ui/Segmented';
 
 export function Transport() {
   const { state, dispatch } = useApp();
   const { data: summary } = usePageData('summary:today', () => getSummary('today'));
+  const overlay = useLiveOverlay(summary);
   const number = (v: number | undefined) => (state.empty ? '0' : (v ?? 0).toLocaleString('en-US'));
   const now = new Date();
   const week = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][now.getDay()];
@@ -41,9 +43,9 @@ export function Transport() {
         />
       )}
       <div className="tp-spacer" />
-      <div className="tp-readout"><span>今日动作</span><b className="mono" id="roActions">{number(summary?.actions)}</b></div>
-      <div className="tp-readout"><span>按键</span><b className="mono" id="roKeys">{number(summary?.keys)}</b></div>
-      <div className="tp-readout"><span>点击</span><b className="mono" id="roClicks">{number(summary?.clicks)}</b></div>
+      <div className="tp-readout"><span>今日动作</span><b className="mono" id="roActions">{number((summary?.actions ?? 0) + overlay.keysTotal + overlay.clicksTotal)}</b></div>
+      <div className="tp-readout"><span>按键</span><b className="mono" id="roKeys">{number((summary?.keys ?? 0) + overlay.keysTotal)}</b></div>
+      <div className="tp-readout"><span>点击</span><b className="mono" id="roClicks">{number((summary?.clicks ?? 0) + overlay.clicksTotal)}</b></div>
       <span className="tp-time mono">{timeText}</span>
       <button
         className="icon-btn"

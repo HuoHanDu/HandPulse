@@ -3,6 +3,7 @@ import { useApp } from '../app/store';
 import { useReducedMotion } from '../app/useReducedMotion';
 import { loadKeyboard } from '../ipc/client';
 import { usePageData } from '../state/usePageData';
+import { useLiveOverlay } from '../state/useLiveOverlay';
 import { KeyboardCanvas, type KeyboardHandle } from '../keyboard/KeyboardCanvas';
 import { displayKey } from '../keyboard/layout';
 import { Top10List } from '../keyboard/Top10List';
@@ -20,6 +21,14 @@ export function KeyboardPage({ active }: Props) {
   const { state, dispatch } = useApp();
   const range = state.ranges.keyboard;
   const { data } = usePageData(`keyboard:${range}`, () => loadKeyboard(range));
+  const overlay = useLiveOverlay(data);
+  const keyStats = useMemo(() => {
+    const base = data?.keyStats ?? [];
+    if (!overlay.keysTotal) return base;
+    return base
+      .map(s => ({ ...s, count: s.count + (overlay.keyCount.get(s.keyId) || 0) }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [data, overlay]);
   const kbRef = useRef<KeyboardHandle>(null);
   const [, tick] = useReducer((x: number) => x + 1, 0);
   const reduceMotion = useReducedMotion();
@@ -32,17 +41,17 @@ export function KeyboardPage({ active }: Props) {
 
   const counts = useMemo(() => {
     const map = new Map<string, number>();
-    data?.keyStats.forEach(stat => map.set(stat.label, stat.count));
+    keyStats.forEach(stat => map.set(stat.label, stat.count));
     return map;
-  }, [data]);
+  }, [keyStats]);
 
-  const maxCount = state.empty || state.viewReset ? 0 : (data?.keyStats[0]?.count ?? 0);
-  const total = data?.total ?? 0;
+  const maxCount = state.empty || state.viewReset ? 0 : (keyStats[0]?.count ?? 0);
+  const total = (data?.total ?? 0) + overlay.keysTotal;
   const rangeLabel = data?.rangeLabel ?? '今日';
   const maskShown = state.paused || state.empty;
   const elapsed = state.paused ? Math.floor((Date.now() - state.pausedAt) / 1000) : 0;
   const pauseText = `已暂停 ${Math.floor(elapsed / 60)}:${pad2(elapsed % 60)}，恢复后继续写入。`;
-  const topKey = data?.keyStats[0];
+  const topKey = keyStats[0];
   const rangePrefix = state.ranges.keyboard === 'session' ? '本次（启动/重置以来）' : state.ranges.keyboard === 'week' ? '近 7 天' : '今天';
   const intro = state.empty
     ? '还没有记录到按键 —— 敲几个键试试。'
@@ -145,7 +154,7 @@ export function KeyboardPage({ active }: Props) {
           <span className="ph-meta">占比 = 次数 / 全部按键</span>
         </div>
         <Top10List
-          keyStats={data?.keyStats ?? []}
+          keyStats={keyStats}
           total={total}
           sel={state.sel}
           empty={state.empty}
@@ -156,7 +165,7 @@ export function KeyboardPage({ active }: Props) {
 
       <div className="kbfoot" id="kbFoot">
         <LegendChips
-          keyStats={data?.keyStats ?? []}
+          keyStats={keyStats}
           sel={state.sel}
           empty={state.empty}
           viewReset={state.viewReset}

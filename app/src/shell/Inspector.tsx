@@ -1,10 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useApp } from '../app/store';
 import { HP, LEVELS } from '../mock/mock';
 import { displayKey, keyPos } from '../keyboard/layout';
 import { getSettings, getSummary, isTauri, loadKeyboard, loadMouse, loadStats } from '../ipc/client';
 import { clearPageDataCache, usePageData } from '../state/usePageData';
+import { useLiveOverlay } from '../state/useLiveOverlay';
 import type { CaptureStats, KeyStat } from '../ipc/types';
 
 function nf(n: number) { return n.toLocaleString('en-US'); }
@@ -45,6 +46,15 @@ export function Inspector() {
   const { data: stats } = usePageData(`stats:${state.ranges.stats}`, () => loadStats(state.ranges.stats));
   const { data: today } = usePageData('summary:today', () => getSummary('today'));
   const { data: settings } = usePageData('settings', getSettings);
+  const kbOverlay = useLiveOverlay(kb);
+  const todayOverlay = useLiveOverlay(today);
+  const mergedKeyStats = useMemo(() => {
+    const base = kb?.keyStats ?? [];
+    if (!kbOverlay.keysTotal) return base;
+    return base
+      .map(s => ({ ...s, count: s.count + (kbOverlay.keyCount.get(s.keyId) || 0) }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [kb, kbOverlay]);
 
   const [capture, setCapture] = useState<CaptureStats | null>(null);
 
@@ -89,9 +99,9 @@ export function Inspector() {
     } else {
       const label = state.hover || state.sel;
       const map = new Map<string, KeyStat>();
-      (kb?.keyStats ?? []).forEach(s => map.set(s.label, s));
-      const maxCount = kb?.keyStats[0]?.count ?? 0;
-      const total = kb?.total ?? 0;
+      mergedKeyStats.forEach(s => map.set(s.label, s));
+      const maxCount = mergedKeyStats[0]?.count ?? 0;
+      const total = (kb?.total ?? 0) + kbOverlay.keysTotal;
       if (!label) {
         body = (
           <>
@@ -101,9 +111,9 @@ export function Inspector() {
             <div className="insp-sec">
               <div className="sec-head">今日总览</div>
               <div className="rows">
-                <Kv label="按键次数" value={nf(today?.keys ?? 0)} />
-                <Kv label="点击次数" value={nf(today?.clicks ?? 0)} />
-                <Kv label="动作合计" value={nf(today?.actions ?? 0)} />
+                <Kv label="按键次数" value={nf((today?.keys ?? 0) + todayOverlay.keysTotal)} />
+                <Kv label="点击次数" value={nf((today?.clicks ?? 0) + todayOverlay.clicksTotal)} />
+                <Kv label="动作合计" value={nf((today?.actions ?? 0) + todayOverlay.keysTotal + todayOverlay.clicksTotal)} />
                 <Kv label="键位数量" value="104" />
               </div>
             </div>
@@ -117,7 +127,7 @@ export function Inspector() {
         const L = LEVELS[lv];
         const pos = keyPos(label);
         const times = stat ? [clk(stat.firstTs), clk(stat.lastTs)] : ['00:00', '00:00'];
-        const rank = (kb?.keyStats.findIndex(s => s.label === label) ?? -1) + 1;
+        const rank = (mergedKeyStats.findIndex(s => s.label === label) ?? -1) + 1;
         const name = displayKey(label);
         const rangeKey = state.ranges.keyboard;
         const rt = rangeKey === 'session' ? '本次（启动/重置以来）' : rangeKey === 'week' ? '7 天' : '今日';

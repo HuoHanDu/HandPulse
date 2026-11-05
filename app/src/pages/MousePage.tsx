@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { useApp } from '../app/store';
 import { loadMouse } from '../ipc/client';
 import { usePageData } from '../state/usePageData';
+import { useLiveOverlay } from '../state/useLiveOverlay';
 import { ScreenGrid } from '../mouse/ScreenGrid';
 import { MetricList } from '../mouse/MetricList';
 import { MouseSvg } from '../mouse/MouseSvg';
@@ -22,14 +24,54 @@ export function MousePage({ active }: Props) {
   const { state, dispatch } = useApp();
   const range = state.ranges.mouse;
   const { data } = usePageData(`mouse:${range}`, () => loadMouse(range));
+  const overlay = useLiveOverlay(data);
+  const extra = useMemo(() => {
+    const base = data?.extra ?? {
+      clicks: { left: 0, right: 0, middle: 0, side1: 0, side2: 0, total: 0 },
+      wheel: [0, 0] as [number, number], peakSpeed: 0, moveKm: 0
+    };
+    if (!overlay.clicksTotal && !overlay.wheel[0] && !overlay.wheel[1] && !overlay.movePx) return base;
+    return {
+      ...base,
+      clicks: {
+        left: base.clicks.left + overlay.clicks[0],
+        right: base.clicks.right + overlay.clicks[1],
+        middle: base.clicks.middle + overlay.clicks[2],
+        side1: base.clicks.side1 + overlay.clicks[3],
+        side2: base.clicks.side2 + overlay.clicks[4],
+        total: base.clicks.total + overlay.clicksTotal
+      },
+      wheel: [base.wheel[0] + overlay.wheel[0], base.wheel[1] + overlay.wheel[1]] as [number, number],
+      moveKm: base.moveKm + overlay.movePx * 2.54 / 96 / 100000
+    };
+  }, [data, overlay]);
+  const grid = useMemo(() => {
+    const base = data?.grid ?? [];
+    if (!overlay.grid.size) return base;
+    const map = new Map<string, number>();
+    base.forEach(g => map.set(g.x + ',' + g.y, g.v));
+    overlay.grid.forEach((v, k) => map.set(k, (map.get(k) || 0) + v));
+    return Array.from(map.entries()).map(([k, v]) => {
+      const [x, y] = k.split(',').map(Number);
+      return { x, y, v };
+    });
+  }, [data, overlay]);
+  const summary = data
+    ? {
+      ...data.summary,
+      clicks: data.summary.clicks + overlay.clicksTotal,
+      actions: data.summary.actions + overlay.clicksTotal,
+      moveKm: data.summary.moveKm + overlay.movePx * 2.54 / 96 / 100000
+    }
+    : data;
 
-  const cells = state.layer === 'clicks' ? (data?.grid ?? []) : (data?.moveGrid ?? []);
+  const cells = state.layer === 'clicks' ? grid : (data?.moveGrid ?? grid);
   const factor = state.layer === 'clicks' ? (data?.factor ?? 1) : 1;
 
   let gridFoot = '准星区 —';
   if (data) {
-    const total = data.grid.reduce((a, g) => a + g.v, 0);
-    const cross = data.grid.reduce((a, g) => a + (zoneOf(g.x, g.y) === '准星区' ? g.v : 0), 0);
+    const total = grid.reduce((a, g) => a + g.v, 0);
+    const cross = grid.reduce((a, g) => a + (zoneOf(g.x, g.y) === '准星区' ? g.v : 0), 0);
     gridFoot = state.empty
       ? '无记录'
       : `准星区 ${Math.round(cross).toLocaleString('en-US')} 次，占 ${total ? (cross / total * 100).toFixed(1) : '0.0'}%`;
@@ -45,7 +87,7 @@ export function MousePage({ active }: Props) {
     ? '移动一下鼠标。'
     : !data
       ? '正在读取鼠标数据…'
-      : `${rangePrefix}点了 ${data.summary.clicks.toLocaleString('en-US')} 次，鼠标移动了约 ${data.summary.moveKm.toFixed(1)} 公里。`;
+      : `${rangePrefix}点了 ${(summary?.clicks ?? 0).toLocaleString('en-US')} 次，鼠标移动了约 ${(summary?.moveKm ?? 0).toFixed(1)} 公里。`;
 
   return (
     <section className={'page' + (active ? ' active' : '')} data-page="mouse" aria-label="鼠标查看">
@@ -103,10 +145,7 @@ export function MousePage({ active }: Props) {
             <div className="ph-spacer" />
             <span className="ph-meta" id="metricRange">{data?.rangeLabel ?? '今日'}</span>
           </div>
-          <MetricList extra={data?.extra ?? {
-            clicks: { left: 0, right: 0, middle: 0, side1: 0, side2: 0, total: 0 },
-            wheel: [0, 0], peakSpeed: 0, moveKm: 0
-          }} factor={data?.factor ?? 1} empty={state.empty} />
+          <MetricList extra={extra} factor={data?.factor ?? 1} empty={state.empty} />
         </div>
       </div>
 
@@ -115,10 +154,7 @@ export function MousePage({ active }: Props) {
           <div className="ph"><span className="ph-title">鼠标俯视</span></div>
           <div className="mouseshape">
             <MouseSvg
-              extra={data?.extra ?? {
-                clicks: { left: 0, right: 0, middle: 0, side1: 0, side2: 0, total: 0 },
-                wheel: [0, 0], peakSpeed: 0, moveKm: 0
-              }}
+              extra={extra}
               factor={data?.factor ?? 1}
               empty={state.empty}
             />

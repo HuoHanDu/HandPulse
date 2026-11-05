@@ -76,6 +76,11 @@ class LiveStore {
     return this.published;
   }
 
+  /** 当前已接收的最大 seq（用于在历史查询回来时建立增量基线）。 */
+  getSeq(): number {
+    return this.lastSeq;
+  }
+
   reset(): void {
     this.clearPending();
     this.published = { seq: this.lastSeq, ts: 0, keys: new Map(), clicks: emptyClicks(), wheel: [0, 0], dx: 0, dy: 0, grid: [] };
