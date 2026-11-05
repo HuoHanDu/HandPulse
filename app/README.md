@@ -58,7 +58,7 @@ app/
   Rust 返回的 `total/page/pageSize`，不再用 mock 估算总数。
 - `src/ipc/live.ts`：Tauri 下 `new Channel<LiveFrame>()` + `subscribe_live`，附 2s 心跳看门狗；
   浏览器 dev 仍走 100ms mock ticker。
-- `src/state/usePageData.ts`：缓存 key 带 `dataVersion`；App 每 5s 轮询 `get_data_version` 并递增
+- `src/state/usePageData.ts`：缓存 key 带 `dataVersion`；App 每 1s 轮询 `get_data_version` 并递增
   本地 generation，让「今日」查询能把尚未关闭的当前桶也算进去。
 - Rust：`capture/windows_raw.rs` → `capture/aggregator.rs` → `storage::writer`（SQLite），
   `commands/history.rs` 提供查询；`storage/query.rs` 优先读预聚合表。

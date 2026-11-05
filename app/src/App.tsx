@@ -57,23 +57,23 @@ export default function App() {
     clearPageDataCache();
   }, [state.empty]);
 
-  // 历史数据版本：writer 落桶/清空/设置变更后递增；每 5s 轮询一次并刷新页面缓存。
-  // 同时每 5s 递增本地 cache generation，让“今日”查询能把未关闭的当前桶也算进去。
+  // 历史数据版本：writer 落桶/清空/设置变更后递增；每 1s 轮询并刷新页面缓存。
+  // 同时每轮递增本地 cache generation，让“今日”查询能把未关闭的当前桶也算进去。
   useEffect(() => {
     if (!isTauri) return;
     let alive = true;
-    let local = 0;
+    let gen = 0;
     const poll = () => {
       getDataVersion()
         .then((version) => {
           if (!alive) return;
-          local += 1;
-          dispatch({ type: 'setDataVersion', value: Math.max(version, local) });
+          gen = Math.max(gen, version) + 1;
+          dispatch({ type: 'setDataVersion', value: gen });
         })
         .catch(() => {});
     };
     poll();
-    const timer = window.setInterval(poll, 5000);
+    const timer = window.setInterval(poll, 1000);
     return () => {
       alive = false;
       window.clearInterval(timer);
