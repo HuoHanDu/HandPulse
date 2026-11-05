@@ -134,5 +134,7 @@ app/
   start-resize-dragging。
 - 标题栏高 38px，`.app` 为 `calc(100vh - var(--titlebar-h))`；拖动空白区移动，双击切换最大化，
   按钮不触发拖动；关闭走 Tauri `close()`，触发采集层正常 flush 后退出。
+- 窗口/任务栏图标与标题栏同款三柱标记：`src-tauri/icons/` 已替换全套 PNG/ICO，启动时再用
+  `window.set_icon()` 显式设置窗口图标。
 - 无原生 Snap Layouts 菜单（自绘标题栏限制，见上）。
 

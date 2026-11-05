@@ -24,6 +24,16 @@ pub fn run() {
             };
             app.manage(CaptureHandle::new(db, init_error));
             app.state::<CaptureHandle>().start();
+            if let Some(window) = app.get_webview_window("main") {
+                match tauri::image::Image::from_bytes(include_bytes!("../icons/128x128@2x.png")) {
+                    Ok(icon) => {
+                        if let Err(err) = window.set_icon(icon) {
+                            eprintln!("[handpulse] 设置窗口图标失败: {err}");
+                        }
+                    }
+                    Err(err) => eprintln!("[handpulse] 读取窗口图标失败: {err}"),
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
