@@ -59,8 +59,8 @@ export function Modal() {
                       try {
                         if (isTauri) await clearAllData();
                         clearPageDataCache();
-                        // 浏览器 mock 用 clearData 显示空态；Tauri 下数据库已真空，页面直接显示真实 0
-                        if (!isTauri) dispatch({ type: 'clearData' });
+                        // 清空后进入明确空态；浏览器 mock 下可再恢复演示数据
+                        dispatch({ type: 'clearData' });
                         if (isTauri) {
                           const v = await getDataVersion().catch(() => 0);
                           if (v) dispatch({ type: 'setDataVersion', value: v });

@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useApp } from '../app/store';
 import { HP, LEVELS } from '../mock/mock';
 import { displayKey, keyPos } from '../keyboard/layout';
-import { getSettings, getSummary, isTauri, loadKeyboard, loadMouse, loadStats } from '../ipc/client';
+import { getDetailPage, getSettings, getSummary, isTauri, loadKeyboard, loadMouse, loadStats } from '../ipc/client';
 import { clearPageDataCache, usePageData } from '../state/usePageData';
 import { useLiveOverlay } from '../state/useLiveOverlay';
 import type { CaptureStats, KeyStat } from '../ipc/types';
@@ -44,6 +44,7 @@ export function Inspector() {
   const { data: kb } = usePageData(`keyboard:${state.ranges.keyboard}`, () => loadKeyboard(state.ranges.keyboard));
   const { data: mouse } = usePageData(`mouse:${state.ranges.mouse}`, () => loadMouse(state.ranges.mouse));
   const { data: stats } = usePageData(`stats:${state.ranges.stats}`, () => loadStats(state.ranges.stats));
+  const { data: detail } = usePageData(`inspector-detail:${state.ranges.stats}:0`, () => getDetailPage(state.ranges.stats, 0));
   const { data: today } = usePageData('summary:today', () => getSummary('today'));
   const { data: settings } = usePageData('settings', getSettings);
   const kbOverlay = useLiveOverlay(kb);
@@ -93,7 +94,7 @@ export function Inspector() {
     if (state.empty || state.viewReset) {
       body = (
         <div className="insp-empty">
-          <b>没有可展示的键位证据。</b><br />当前视图已被清空，历史数据未受影响。刷新页面或点「恢复演示数据」可回到示例。
+          <b>没有可展示的键位证据。</b><br />当前视图已被清空，历史数据未受影响。{isTauri ? '点「开始记录」继续采集。' : '刷新页面或点「恢复演示数据」可回到示例。'}
         </div>
       );
     } else {
@@ -212,7 +213,8 @@ export function Inspector() {
   } else if (state.route === 'stats') {
     const r = state.ranges.stats;
     const view = r === 'today' ? '今日 · 分钟桶' : r === 'week' ? '7 天 · 小时桶' : '30 天 · 天桶';
-    const viewRows = stats?.line.values.length ?? 0;
+    const viewRows = detail?.total ?? 0;
+    const covered = stats?.line.values.length ?? 0;
     body = (
       <>
         <div className="insp-sec">
@@ -232,7 +234,8 @@ export function Inspector() {
         <div className="insp-sec">
           <div className="sec-head">当前视图</div>
           <div className="rows">
-            <Kv label="范围" value={view + ' ' + nf(viewRows) + ' 行'} />
+            <Kv label="范围" value={view} />
+            <Kv label="数据行" value={nf(viewRows) + ' 行'} hint={'覆盖 ' + nf(covered) + ' 个时间点'} />
             <Kv label="粒度" value={r === 'today' ? '1 分钟' : r === 'week' ? '1 小时' : '1 天'} />
           </div>
           <div style={{ paddingTop: 10 }}>
@@ -240,8 +243,9 @@ export function Inspector() {
               className="tbtn"
               id="inspExport"
               type="button"
-              onClick={() => dispatch({ type: 'toast', message: 'CSV 导出为原型占位，正式版导出当前范围全部行。' })}
-            >导出当前范围 CSV</button>
+              disabled
+              title="M4 再实现真实导出"
+            >导出当前范围 CSV <span className="m4badge">M4</span></button>
           </div>
         </div>
         <div className="insp-rule">对数轴的分布图在左下角标注；峰值只标一个，避免噪音。</div>
@@ -256,7 +260,7 @@ export function Inspector() {
             <Kv label="HandPulse Core" value={(capture?.paused ?? state.paused) ? '已暂停' : '运行中'} />
             <Kv label="采样间隔" value="100 ms" />
             <Kv label="写入粒度" value={(settings?.bucketSeconds ?? state.granularity) + ' 秒'} />
-            <Kv label="开机自启" value={state.autoStart ? '开' : '关'} />
+            <Kv label="开机自启" value="M4" />
           </div>
         </div>
         <div className="insp-sec">

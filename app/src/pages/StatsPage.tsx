@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../app/store';
-import { getDetailPage, loadStats } from '../ipc/client';
+import { getDetailPage, isTauri, loadStats } from '../ipc/client';
 import { usePageData } from '../state/usePageData';
 import { LineChart } from '../charts/LineChart';
 import { Histogram } from '../charts/Histogram';
@@ -135,8 +135,9 @@ export function StatsPage({ active }: Props) {
             className="tbtn"
             id="exportTable"
             type="button"
-            onClick={() => dispatch({ type: 'toast', message: 'CSV 导出为原型占位，正式版导出当前筛选范围全部行。' })}
-          >导出 CSV</button>
+            disabled
+            title="M4 再实现真实导出"
+          >导出 CSV <span className="m4badge">M4</span></button>
         </div>
         <div className="tablewrap">
           <div className="t-head"><span>时间</span><span>动作数</span><span>键次数</span><span>点击</span><span>移动 (cm)</span></div>
@@ -165,8 +166,8 @@ export function StatsPage({ active }: Props) {
 
       <div className="page-mask" id="statsMask" hidden={!state.empty}>
         <div className="mask-title">还没有数据，先在键盘/鼠标页敲几下</div>
-        <div className="mask-note">示例数据已清空。</div>
-        <button className="mask-btn" type="button" onClick={() => dispatch({ type: 'restore' })}>恢复演示数据</button>
+        <div className="mask-note">{isTauri ? '数据已清空，点「开始记录」后继续统计。' : '示例数据已清空。'}</div>
+        <button className="mask-btn" type="button" onClick={() => dispatch({ type: 'restore' })}>{isTauri ? '开始记录' : '恢复演示数据'}</button>
       </div>
     </section>
   );

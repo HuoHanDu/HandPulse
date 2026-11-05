@@ -1,7 +1,7 @@
 import { useMemo, useReducer, useRef, useEffect } from 'react';
 import { useApp } from '../app/store';
 import { useReducedMotion } from '../app/useReducedMotion';
-import { loadKeyboard } from '../ipc/client';
+import { isTauri, loadKeyboard } from '../ipc/client';
 import { usePageData } from '../state/usePageData';
 import { useLiveOverlay } from '../state/useLiveOverlay';
 import { KeyboardCanvas, type KeyboardHandle } from '../keyboard/KeyboardCanvas';
@@ -115,8 +115,9 @@ export function KeyboardPage({ active }: Props) {
             className="tbtn"
             id="exportKb"
             type="button"
-            onClick={() => dispatch({ type: 'toast', message: 'CSV 导出为原型占位，正式版导出当前范围全部行。' })}
-          >导出 CSV</button>
+            disabled
+            title="M4 再实现真实导出"
+          >导出 CSV <span className="m4badge">M4</span></button>
         </div>
 
         <KeyboardCanvas
@@ -134,7 +135,7 @@ export function KeyboardPage({ active }: Props) {
 
         <div className="page-mask" id="kbMask" hidden={!maskShown}>
           <div className="mask-title" id="kbMaskTitle">{state.paused ? '记录已暂停' : '还没有记录到按键 —— 敲几个键试试'}</div>
-          <div className="mask-note" id="kbMaskNote">{state.paused ? pauseText : '示例数据已清空。'}</div>
+          <div className="mask-note" id="kbMaskNote">{state.paused ? pauseText : isTauri ? '数据已清空，点「开始记录」后继续统计。' : '示例数据已清空。'}</div>
           <button
             className="mask-btn"
             id="kbMaskBtn"
@@ -143,7 +144,7 @@ export function KeyboardPage({ active }: Props) {
               if (state.paused) dispatch({ type: 'togglePause' });
               else dispatch({ type: 'restore' });
             }}
-          >{state.paused ? '恢复采集' : '恢复演示数据'}</button>
+          >{state.paused ? '恢复采集' : isTauri ? '开始记录' : '恢复演示数据'}</button>
         </div>
       </div>
 

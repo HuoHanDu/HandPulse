@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useApp } from '../app/store';
-import { loadMouse } from '../ipc/client';
+import { isTauri, loadMouse } from '../ipc/client';
 import { usePageData } from '../state/usePageData';
 import { useLiveOverlay } from '../state/useLiveOverlay';
 import { ScreenGrid } from '../mouse/ScreenGrid';
@@ -134,8 +134,8 @@ export function MousePage({ active }: Props) {
           </div>
           <div className="page-mask" id="mouseMask" hidden={!state.empty}>
             <div className="mask-title">移动一下鼠标</div>
-            <div className="mask-note">示例数据已清空。</div>
-            <button className="mask-btn" type="button" onClick={() => dispatch({ type: 'restore' })}>恢复演示数据</button>
+            <div className="mask-note">{isTauri ? '数据已清空，点「开始记录」后继续统计。' : '示例数据已清空。'}</div>
+            <button className="mask-btn" type="button" onClick={() => dispatch({ type: 'restore' })}>{isTauri ? '开始记录' : '恢复演示数据'}</button>
           </div>
         </div>
 

@@ -40,6 +40,7 @@ export function WeekHeatmap({ chart, empty, onReadout }: Props) {
   const left = 36, top = 6, bottom = 40;
   const cw = (W - left - 8) / 24, ch = (H - top - bottom) / 7;
   const labels = chart.weekLabels ?? ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  const todayWd = (new Date().getDay() + 6) % 7;
   const max = chart.max || 1;
 
   return (
@@ -49,7 +50,7 @@ export function WeekHeatmap({ chart, empty, onReadout }: Props) {
           const yy = top + wd * ch;
           return (
             <g key={wd}>
-              <text x={left - 8} y={(yy + ch / 2 + 4).toFixed(1)} textAnchor="end" fontSize="12" fill={wd === 2 ? '#9cc0ff' : '#8a94a1'} fontFamily="Noto Sans SC, sans-serif">{labels[wd]}</text>
+              <text x={left - 8} y={(yy + ch / 2 + 4).toFixed(1)} textAnchor="end" fontSize="12" fill={wd === todayWd ? '#9cc0ff' : '#8a94a1'} fontFamily="Noto Sans SC, sans-serif">{labels[wd]}</text>
               {Array.from({ length: 24 }, (_, hour) => {
                 const cell = chart.cells.find(c => c.x === hour && c.y === wd);
                 const v = empty ? 0 : (cell?.v ?? 0);
@@ -67,8 +68,8 @@ export function WeekHeatmap({ chart, empty, onReadout }: Props) {
                     height={Math.max(1, ch - 1).toFixed(1)}
                     rx="1"
                     fill={LEVELS[lv].c}
-                    stroke={wd === 2 ? 'rgba(76,141,255,.45)' : undefined}
-                    strokeWidth={wd === 2 ? '0.5' : undefined}
+                    stroke={wd === todayWd ? 'rgba(76,141,255,.45)' : undefined}
+                    strokeWidth={wd === todayWd ? '0.5' : undefined}
                     onMouseEnter={() => onReadout(labels[wd] + ' ' + pad2(hour) + ' 时，' + v.toFixed(1) + ' 次/分')}
                   />
                 );

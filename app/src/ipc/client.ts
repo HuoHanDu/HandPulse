@@ -387,6 +387,11 @@ async function realLineSeries(range: RangeKey): Promise<LineSeries> {
   };
   if (range === 'week') {
     const start = startOfLocalDay(new Date(now.getTime() - 6 * 86400000));
+    const dayLabels = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      return WEEK_LABELS[(d.getDay() + 6) % 7];
+    });
     const vals = new Array(7 * 24).fill(0);
     raw.forEach(b => {
       const d = new Date(b.ts);
@@ -397,11 +402,11 @@ async function realLineSeries(range: RangeKey): Promise<LineSeries> {
     const wd = Math.floor(pk.idx / 24), hr = pk.idx % 24;
     return {
       values: vals, unit: '次/时', xMode: 'index', xMax: vals.length,
-      xTicks: WEEK_LABELS.map((l, i) => ({ label: l, pos: (i * 24 + 12) / 168 })),
+      xTicks: dayLabels.map((l, i) => ({ label: l, pos: (i * 24 + 12) / 168 })),
       peak: pk,
-      peakText: '峰值 ' + nf(pk.val) + ' 次/时，' + WEEK_LABELS[wd] + ' ' + pad2(hr) + ' 时',
-      tip: (i) => WEEK_LABELS[Math.floor(i / 24)] + ' ' + pad2(i % 24) + ':00，' + nf(vals[i]) + ' 次/时',
-      note: peakNote('week', pk.val, WEEK_LABELS[wd] + ' ' + pad2(hr) + ':00'),
+      peakText: '峰值 ' + nf(pk.val) + ' 次/时，' + dayLabels[wd] + ' ' + pad2(hr) + ' 时',
+      tip: (i) => dayLabels[Math.floor(i / 24)] + ' ' + pad2(i % 24) + ':00，' + nf(vals[i]) + ' 次/时',
+      note: peakNote('week', pk.val, dayLabels[wd] + ' ' + pad2(hr) + ':00'),
       aria: '近 7 天每小时动作数折线图'
     };
   }
@@ -496,6 +501,13 @@ function mockHistogramChart(range: RangeKey, dim: HistDim): Promise<HistogramCha
   });
 }
 
+function localIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  return y + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+}
+
 export async function getHeatmapChart(range: RangeKey, type: HeatType): Promise<HeatmapChart> {
   if (!isTauri) return mockHeatmapChart(range, type);
   const rawType = type === 'week' ? 'week_hour' : 'calendar';
@@ -505,7 +517,7 @@ export async function getHeatmapChart(range: RangeKey, type: HeatType): Promise<
     const start = new Date(startOfLocalDay(today) - 370 * 86400000);
     const cells = raw.cells.map(c => {
       const d = new Date(start.getTime() + ((c.x * 7 + c.y - mondayIndex(start)) * 86400000));
-      return { ...c, iso: d.toISOString().slice(0, 10) };
+      return { ...c, iso: localIsoDate(d) };
     });
     const months: Array<{ label: string; col: number }> = [];
     const seen = new Set<number>();
@@ -517,17 +529,17 @@ export async function getHeatmapChart(range: RangeKey, type: HeatType): Promise<
         months.push({ label: MONTH_SHORT[d.getMonth()], col });
       }
     }
-    const todayKey = today.toLocaleDateString('en-US');
-    const todayCell = cells.find(c => c.iso === new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10));
+    const todayKey = localIsoDate(today);
+    const todayCell = cells.find(c => c.iso === todayKey);
     return {
       type: 'cal', cells, max: raw.max,
-      readout: (todayCell?.iso ?? '') + '，' + nf(todayCell?.v ?? 0) + ' 次',
+      readout: todayCell ? todayKey + '，' + nf(todayCell.v) + ' 次' : '今天，0 次',
       aria: '日历热力，今日描边高亮',
       months,
       footnote: '近 371 天，最高 ' + nf(raw.max) + ' 次/天；蓝框为今日。',
       legendMin: '少',
       legendMax: nf(raw.max) + ' 次/天',
-      todayLabel: (today.getMonth() + 1) + '/' + today.getDate() + ' ' + todayKey
+      todayLabel: (today.getMonth() + 1) + '/' + today.getDate() + ' ' + today.toLocaleDateString('en-US')
     };
   }
   const peak = raw.cells.reduce((a, b) => b.v > a.v ? b : a, raw.cells[0] ?? { x: 0, y: 0, v: 0 });

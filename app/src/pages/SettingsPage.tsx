@@ -81,20 +81,11 @@ export function SettingsPage({ active }: Props) {
             </div>
             <div className="pref-row">
               <div className="pref-label">
-                <div className="pref-name">开机自启</div>
-                <div className="pref-hint">登录 Windows 后自动开始采集。</div>
+                <div className="pref-name">开机自启 <span className="m4badge">M4</span></div>
+                <div className="pref-hint">M4 再接入系统登录项；当前不生效。</div>
               </div>
               <div className="pref-ctl">
-                <Switch
-                  id="swAuto"
-                  label="开机自启"
-                  checked={state.autoStart}
-                  onChange={() => {
-                    const next = !state.autoStart;
-                    dispatch({ type: 'setAutoStart', value: next });
-                    toast(next ? '开机自启已开启。' : '开机自启已关闭。');
-                  }}
-                />
+                <Switch id="swAuto" label="开机自启（M4）" checked={false} disabled onChange={() => {}} />
               </div>
             </div>
           </div>
@@ -127,17 +118,17 @@ export function SettingsPage({ active }: Props) {
               </div>
               <div className="pref-ctl">
                 <span className="path mono">{settings?.dbPath ?? '%APPDATA%\\HandPulse\\data.db'}</span>
-                <button className="tbtn" id="openDir" type="button" onClick={() => toast('打开目录为原型占位。')}>打开目录</button>
+                <button className="tbtn" id="openDir" type="button" disabled title="M4 再实现">打开目录 <span className="m4badge">M4</span></button>
               </div>
             </div>
             <div className="pref-row">
               <div className="pref-label">
-                <div className="pref-name">导出全部数据</div>
-                <div className="pref-hint">导出当前保留期内的全部聚合桶。</div>
+                <div className="pref-name">导出全部数据 <span className="m4badge">M4</span></div>
+                <div className="pref-hint">M4 再实现真实导出；当前不可用。</div>
               </div>
               <div className="pref-ctl">
-                <button className="tbtn" id="expCsv" type="button" onClick={() => toast('导出 CSV 为原型占位。')}>导出 CSV</button>
-                <button className="tbtn" id="expJson" type="button" onClick={() => toast('导出 JSON 为原型占位。')}>导出 JSON</button>
+                <button className="tbtn" id="expCsv" type="button" disabled title="M4 再实现">导出 CSV</button>
+                <button className="tbtn" id="expJson" type="button" disabled title="M4 再实现">导出 JSON</button>
               </div>
             </div>
             <div className="pref-row">
