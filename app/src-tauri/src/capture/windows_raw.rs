@@ -35,6 +35,10 @@ const RI_MOUSE_RIGHT_BUTTON_DOWN: u16 = 0x0004;
 const RI_MOUSE_RIGHT_BUTTON_UP: u16 = 0x0008;
 const RI_MOUSE_MIDDLE_BUTTON_DOWN: u16 = 0x0010;
 const RI_MOUSE_MIDDLE_BUTTON_UP: u16 = 0x0020;
+const RI_MOUSE_BUTTON_4_DOWN: u16 = 0x0040;
+const RI_MOUSE_BUTTON_4_UP: u16 = 0x0080;
+const RI_MOUSE_BUTTON_5_DOWN: u16 = 0x0100;
+const RI_MOUSE_BUTTON_5_UP: u16 = 0x0200;
 const RI_MOUSE_WHEEL: u16 = 0x0400;
 
 pub fn run(shared: Arc<Shared>, keymap: Arc<Keymap>, tx: crossbeam_channel::Sender<RawEvent>) {
@@ -189,6 +193,8 @@ unsafe fn read_raw_input(
                 (RI_MOUSE_LEFT_BUTTON_DOWN, MouseBtn::Left),
                 (RI_MOUSE_RIGHT_BUTTON_DOWN, MouseBtn::Right),
                 (RI_MOUSE_MIDDLE_BUTTON_DOWN, MouseBtn::Middle),
+                (RI_MOUSE_BUTTON_4_DOWN, MouseBtn::Side1),
+                (RI_MOUSE_BUTTON_5_DOWN, MouseBtn::Side2),
             ] {
                 if flags & flag != 0 {
                     send(
@@ -206,6 +212,8 @@ unsafe fn read_raw_input(
                 (RI_MOUSE_LEFT_BUTTON_UP, MouseBtn::Left),
                 (RI_MOUSE_RIGHT_BUTTON_UP, MouseBtn::Right),
                 (RI_MOUSE_MIDDLE_BUTTON_UP, MouseBtn::Middle),
+                (RI_MOUSE_BUTTON_4_UP, MouseBtn::Side1),
+                (RI_MOUSE_BUTTON_5_UP, MouseBtn::Side2),
             ] {
                 if flags & flag != 0 {
                     send(

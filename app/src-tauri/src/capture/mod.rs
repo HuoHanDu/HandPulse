@@ -115,6 +115,8 @@ pub enum MouseBtn {
     Left,
     Right,
     Middle,
+    Side1,
+    Side2,
 }
 
 /// Raw Input 线程 → Aggregator 线程的事件。体积小、只带 Instant，不带任何字符串。

@@ -482,6 +482,8 @@ impl Aggregator {
                     MouseBtn::Left => 0,
                     MouseBtn::Right => 1,
                     MouseBtn::Middle => 2,
+                    MouseBtn::Side1 => 3,
+                    MouseBtn::Side2 => 4,
                 };
                 self.clicks[idx] += 1;
                 self.frame.clicks[idx] += 1;
