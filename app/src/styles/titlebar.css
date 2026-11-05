@@ -37,3 +37,17 @@
 .rh-ne{right:0;top:0;width:9px;height:9px;cursor:ne-resize}
 .rh-sw{left:0;bottom:0;width:9px;height:9px;cursor:sw-resize}
 .rh-se{right:0;bottom:0;width:9px;height:9px;cursor:se-resize}
+
+/* 关闭询问弹窗（复用 .modal 外观） */
+.close-modal{z-index:140}
+.close-modal .modal-head .modal-x{
+  width:28px;height:28px;display:grid;place-items:center;border-radius:6px;
+  color:var(--text-3);font-size:18px;line-height:1;
+}
+.close-modal .modal-head .modal-x:hover{background:rgba(255,255,255,.08);color:#fff}
+.close-remember{
+  display:flex;align-items:center;gap:8px;margin:14px 0 4px;
+  color:var(--text-2);font-size:13px;user-select:none;
+}
+.close-remember input{width:14px;height:14px;accent-color:var(--accent)}
+.close-actions{justify-content:flex-end;flex-wrap:wrap}

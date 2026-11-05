@@ -1297,6 +1297,17 @@ mod tests {
     fn detail_pagination_total() {
         let (db, p) = temp_db("detail");
         let now = Local::now().timestamp();
+        let midnight = Local::now()
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .and_then(|d| d.and_local_timezone(Local).single())
+            .map(|d| d.timestamp())
+            .unwrap_or(now);
+        // 刚过午夜时 60 个分钟桶会跨到前一天；这个测试依赖“今天”范围，跳过。
+        if now - midnight < 59 * 60 {
+            cleanup(&p);
+            return;
+        }
         let end = now - now.rem_euclid(60);
         let mut conn = db.open_write().unwrap();
         for i in 0..60i64 {

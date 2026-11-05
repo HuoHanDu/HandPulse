@@ -8,6 +8,8 @@ use std::sync::Arc;
 use capture::CaptureHandle;
 use storage::Db;
 use tauri::Manager;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -17,13 +19,16 @@ pub fn run() {
     let app = tauri::Builder::default()
         .setup(|app| {
             let (db, init_error) = match app.path().app_data_dir() {
-                Ok(dir) => match Db::open(dir.join("data.db")) {
-                    Ok(db) => (Some(Arc::new(db)), None),
-                    Err(err) => {
-                        eprintln!("[handpulse] 初始化数据库失败: {err:#}");
-                        (None, Some(format!("初始化数据库失败：{err}")))
+                Ok(dir) => {
+                    commands::window::apply_staged_import(&dir);
+                    match Db::open(dir.join("data.db")) {
+                        Ok(db) => (Some(Arc::new(db)), None),
+                        Err(err) => {
+                            eprintln!("[handpulse] 初始化数据库失败: {err:#}");
+                            (None, Some(format!("初始化数据库失败：{err}")))
+                        }
                     }
-                },
+                }
                 Err(err) => (None, Some(format!("无法获取数据目录：{err}"))),
             };
             app.manage(CaptureHandle::new(db, init_error));
@@ -63,6 +68,9 @@ pub fn run() {
                     }
                 }
             }
+            if let Err(err) = build_tray(app) {
+                eprintln!("[handpulse] 创建托盘失败: {err}");
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -87,6 +95,10 @@ pub fn run() {
             commands::history::clear_all_data,
             commands::history::get_current_bucket,
             commands::window::start_resize,
+            commands::window::quit_app,
+            commands::window::open_data_dir,
+            commands::window::set_main_hidden,
+            commands::window::stage_database_import,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
@@ -96,4 +108,55 @@ pub fn run() {
             app_handle.state::<CaptureHandle>().shutdown();
         }
     });
+}
+
+fn show_main(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        #[cfg(windows)]
+        if let Ok(hwnd) = window.hwnd() {
+            use windows::Win32::UI::WindowsAndMessaging::{
+                GA_ROOT, GetAncestor, SW_SHOW, SetForegroundWindow, ShowWindow,
+            };
+            let root = unsafe { GetAncestor(hwnd, GA_ROOT) };
+            let target = if root.0.is_null() { hwnd } else { root };
+            unsafe {
+                let _ = ShowWindow(target, SW_SHOW);
+                let _ = SetForegroundWindow(target);
+            }
+        }
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
+fn build_tray(app: &tauri::App) -> tauri::Result<()> {
+    let show = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "退出 HandPulse", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&show, &quit])?;
+
+    TrayIconBuilder::with_id("main-tray")
+        .icon(tauri::image::Image::from_bytes(include_bytes!(
+            "../icons/32x32.png"
+        ))?)
+        .menu(&menu)
+        .tooltip("手脉 HandPulse · 本地键鼠使用分析")
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "show" => show_main(app),
+            "quit" => commands::window::quit_app(app.clone()),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                show_main(tray.app_handle());
+            }
+        })
+        .build(app)?;
+    Ok(())
 }

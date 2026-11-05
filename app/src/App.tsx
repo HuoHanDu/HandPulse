@@ -11,6 +11,7 @@ import { LiveTape } from './shell/LiveTape';
 import { Inspector } from './shell/Inspector';
 import { TitleBar } from './shell/TitleBar';
 import { ResizeHandles } from './shell/ResizeHandles';
+import { CloseGuard } from './shell/CloseGuard';
 import { KeyboardPage } from './pages/KeyboardPage';
 import { MousePage } from './pages/MousePage';
 import { StatsPage } from './pages/StatsPage';
@@ -138,6 +139,7 @@ export default function App() {
     <AppContext.Provider value={{ state, dispatch }}>
       <TitleBar />
       <ResizeHandles />
+      <CloseGuard />
       <div className="app" id="app">
         <Rail />
         <main className="main">

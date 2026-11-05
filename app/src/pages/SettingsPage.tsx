@@ -1,8 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useApp } from '../app/store';
-import { getSettings, isTauri, setSettings } from '../ipc/client';
+import { getSettings, isTauri, openDataDir, setSettings } from '../ipc/client';
 import { clearPageDataCache, usePageData } from '../state/usePageData';
 import { Switch } from '../ui/Switch';
+import {
+  CLOSE_BEHAVIOR_EVENT,
+  readCloseBehavior,
+  writeCloseBehavior,
+  type CloseBehavior
+} from '../shell/CloseGuard';
 
 interface Props {
   active: boolean;
@@ -12,6 +19,42 @@ export function SettingsPage({ active }: Props) {
   const { state, dispatch } = useApp();
   const toast = (message: string) => dispatch({ type: 'toast', message });
   const { data: settings } = usePageData('settings', getSettings);
+  const [closeBehavior, setCloseBehavior] = useState<CloseBehavior>(readCloseBehavior);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const importDatabase = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 200 * 1024 * 1024) {
+      toast('数据库文件超过 200 MB，拒绝导入。');
+      return;
+    }
+    try {
+      const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
+      await invoke('stage_database_import', { bytes });
+      toast('已准备导入：请退出并重新打开手脉，导入时当前数据库会自动备份。');
+    } catch (err) {
+      toast('导入失败：' + String(err));
+    }
+  };
+
+  useEffect(() => {
+    const sync = () => setCloseBehavior(readCloseBehavior());
+    window.addEventListener(CLOSE_BEHAVIOR_EVENT, sync);
+    return () => window.removeEventListener(CLOSE_BEHAVIOR_EVENT, sync);
+  }, []);
+
+  const chooseCloseBehavior = (behavior: CloseBehavior) => {
+    writeCloseBehavior(behavior);
+    setCloseBehavior(behavior);
+    toast(behavior === 'tray'
+      ? '已启用后台运行：关闭窗口后会留在系统托盘继续采集。'
+      : behavior === 'quit'
+        ? '关闭窗口将直接退出应用。'
+        : '关闭窗口时会询问你。'
+    );
+  };
 
   useEffect(() => {
     if (!settings) return;
@@ -81,6 +124,31 @@ export function SettingsPage({ active }: Props) {
             </div>
             <div className="pref-row">
               <div className="pref-label">
+                <div className="pref-name">后台运行</div>
+                <div className="pref-hint">关闭窗口后继续采集；从系统托盘可重新打开或退出。首次关闭也可单独询问。</div>
+              </div>
+              <div className="pref-ctl">
+                <div className="seg" id="closeBehaviorSeg" role="group" aria-label="关闭窗口时">
+                  <button
+                    type="button"
+                    aria-pressed={closeBehavior === 'ask'}
+                    onClick={() => chooseCloseBehavior('ask')}
+                  >每次询问</button>
+                  <button
+                    type="button"
+                    aria-pressed={closeBehavior === 'tray'}
+                    onClick={() => chooseCloseBehavior('tray')}
+                  >最小化到托盘</button>
+                  <button
+                    type="button"
+                    aria-pressed={closeBehavior === 'quit'}
+                    onClick={() => chooseCloseBehavior('quit')}
+                  >直接退出</button>
+                </div>
+              </div>
+            </div>
+            <div className="pref-row">
+              <div className="pref-label">
                 <div className="pref-name">开机自启 <span className="m4badge">M4</span></div>
                 <div className="pref-hint">M4 再接入系统登录项；当前不生效。</div>
               </div>
@@ -114,11 +182,20 @@ export function SettingsPage({ active }: Props) {
             <div className="pref-row">
               <div className="pref-label">
                 <div className="pref-name">数据库路径</div>
-                <div className="pref-hint">只读展示。本地单文件，不联网。</div>
+                <div className="pref-hint">本地单文件，不联网。迁移时关闭应用，复制整个目录或 data.db 到新机器同一路径。</div>
               </div>
               <div className="pref-ctl">
-                <span className="path mono">{settings?.dbPath ?? '%APPDATA%\\HandPulse\\data.db'}</span>
-                <button className="tbtn" id="openDir" type="button" disabled title="M4 再实现">打开目录 <span className="m4badge">M4</span></button>
+                <span className="path mono">{settings?.dbPath ?? '%APPDATA%\\com.handpulse.desktop\\data.db'}</span>
+                <button
+                  className="tbtn"
+                  id="openDir"
+                  type="button"
+                  disabled={!isTauri}
+                  title="在资源管理器中打开数据目录"
+                  onClick={() => {
+                    void openDataDir().catch((err) => toast('打开数据目录失败：' + String(err)));
+                  }}
+                >打开目录</button>
               </div>
             </div>
             <div className="pref-row">
@@ -129,6 +206,29 @@ export function SettingsPage({ active }: Props) {
               <div className="pref-ctl">
                 <button className="tbtn" id="expCsv" type="button" disabled title="M4 再实现">导出 CSV</button>
                 <button className="tbtn" id="expJson" type="button" disabled title="M4 再实现">导出 JSON</button>
+              </div>
+            </div>
+            <div className="pref-row">
+              <div className="pref-label">
+                <div className="pref-name">迁移数据库</div>
+                <div className="pref-hint">选择旧版 data.db；退出并重新打开后替换，当前库会自动备份。</div>
+              </div>
+              <div className="pref-ctl">
+                <input
+                  ref={fileInput}
+                  type="file"
+                  accept=".db,application/x-sqlite3"
+                  hidden
+                  onChange={(e) => void importDatabase(e)}
+                />
+                <button
+                  className="tbtn"
+                  id="importDb"
+                  type="button"
+                  disabled={!isTauri}
+                  title="选择旧版 data.db 并排队导入"
+                  onClick={() => fileInput.current?.click()}
+                >导入旧数据库</button>
               </div>
             </div>
             <div className="pref-row">
@@ -154,7 +254,7 @@ export function SettingsPage({ active }: Props) {
           <div className="about-rows">
             <div className="pref-row">
               <div className="pref-label"><div className="pref-name">版本</div></div>
-              <div className="pref-ctl"><span className="ver mono">0.9.0<span>原型</span></span></div>
+              <div className="pref-ctl"><span className="ver mono">0.9.2<span>原型</span></span></div>
             </div>
             <div className="pref-row">
               <div className="pref-label"><div className="pref-name">数据库 schema</div></div>

@@ -638,17 +638,21 @@ export function getSettings(): Promise<Settings> {
   return call('get_settings', undefined, () => ({
     bucketSeconds: 60,
     retentionDays: 30,
-    dbPath: '%APPDATA%\\HandPulse\\data.db',
+    dbPath: '%APPDATA%\\com.handpulse.desktop\\data.db',
     schemaVersion: 1,
     dataVersion: 1
   }));
+}
+
+export function openDataDir(): Promise<void> {
+  return call('open_data_dir', undefined, () => undefined);
 }
 
 export function setSettings(bucketSeconds: number, retentionDays: number): Promise<Settings> {
   return call('set_settings', { bucketSeconds, retentionDays }, () => ({
     bucketSeconds,
     retentionDays,
-    dbPath: '%APPDATA%\\HandPulse\\data.db',
+    dbPath: '%APPDATA%\\com.handpulse.desktop\\data.db',
     schemaVersion: 1,
     dataVersion: 1
   }));
