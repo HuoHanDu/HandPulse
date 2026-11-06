@@ -9,14 +9,64 @@
 .pad-status-meta{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:11px;color:var(--text-3)}
 .pad-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:14px;flex:1 1 auto;min-height:0}
 .pad-stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(390px,.92fr);gap:14px;flex:1 1 auto;min-height:0}
-.pad-visual{display:flex;flex-direction:column;min-height:0;overflow:hidden;background:radial-gradient(ellipse at 50% 38%, #fbf9f5 0%, #ebe7e0 100%);border-color:rgba(0,0,0,.16)}
-.pad-visual .ph-title{color:#25262a}
-.pad-visual .ph-meta{color:#8d887f}
-.pad-visual .pad-svg{display:block;width:100%;height:100%;min-height:0;padding:8px 18px 14px}
-.pad-layout-tabs{display:flex;align-items:center;gap:2px;border:1px solid rgba(0,0,0,.08);border-radius:7px;padding:2px;background:#e8e3da}
-.pad-layout-tabs button{height:20px;padding:0 7px;border-radius:5px;font-size:10px;color:#8d887f}
-.pad-layout-tabs button:hover{color:#55524c}
-.pad-layout-tabs button.is-active{color:#242529;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.pad-visual{display:flex;flex-direction:column;min-height:0;overflow:hidden;background:radial-gradient(ellipse at 50% 42%, #14171c 0%, #090a0c 72%)}
+.pad-visual .ph-title{color:var(--text)}
+.pad-visual .ph-meta{color:var(--text-3)}
+.pad-art{position:relative;flex:1 1 auto;min-height:0}
+.pad-art-base,.pad-overlay{position:absolute;inset:8px 18px 14px}
+.pad-art-base svg,.pad-overlay{display:block;width:100%;height:100%}
+.pad-art-base svg{overflow:visible;filter:drop-shadow(0 18px 26px rgba(0,0,0,.45))}
+.pad-overlay{overflow:visible;pointer-events:none}
+.pad-hit-halo{fill:rgba(41,151,255,.2);filter:blur(3px)}
+.pad-hit-ring{fill:none;stroke:#2997ff;stroke-width:2;filter:drop-shadow(0 0 5px rgba(41,151,255,.65))}
+.pad-stick-dot{fill:#2997ff;filter:drop-shadow(0 0 6px rgba(41,151,255,.9))}
+.pad-trigger-fill{fill:#2997ff}
+
+/* 把网站 SVG 的浅色/Tailwind 色映射到 HandPulse 的深色界面 */
+.pad-art svg [class~="fill-stone-50"],
+.pad-art svg [class~="dark:fill-stone-900"]{fill:#111419}
+.pad-art svg [class~="fill-stone-100"],
+.pad-art svg [class~="dark:fill-stone-800"]{fill:#252a32}
+.pad-art svg [class~="fill-stone-200"],
+.pad-art svg [class~="dark:fill-stone-700"]{fill:#303640}
+.pad-art svg [class~="fill-stone-300"],
+.pad-art svg [class~="dark:fill-stone-600"]{fill:#3c434e}
+.pad-art svg [class~="fill-stone-400"],
+.pad-art svg [class~="fill-stone-400/50"]{fill:#8b949f}
+.pad-art svg [class~="fill-stone-500"],
+.pad-art svg [class~="fill-stone-600"]{fill:#59616d}
+.pad-art svg [class~="fill-stone-700"]{fill:#4a515c}
+.pad-art svg [class~="fill-stone-800"]{fill:#1a1e24}
+.pad-art svg [class~="fill-stone-900"]{fill:#0d0f13}
+.pad-art svg [class~="fill-white"]{fill:#d7dde6}
+.pad-art svg [class~="fill-[#00C3E3]"]{fill:#0b6574}
+.pad-art svg [class~="fill-[#FF3C28]"]{fill:#8d3933}
+.pad-art svg [class~="opacity-20"]{opacity:.2}
+
+.pad-art svg [class~="stroke-stone-200"],
+.pad-art svg [class~="dark:stroke-stone-700"]{stroke:#343b45}
+.pad-art svg [class~="stroke-stone-300"],
+.pad-art svg [class~="dark:stroke-stone-600"]{stroke:#414954}
+.pad-art svg [class~="stroke-stone-400"],
+.pad-art svg [class~="dark:stroke-stone-500"]{stroke:#727b87}
+.pad-art svg [class~="stroke-stone-500"]{stroke:#59616d}
+.pad-art svg [class~="stroke-stone-600"]{stroke:#414954}
+.pad-art svg [class~="stroke-white"],
+.pad-art svg [class~="dark:stroke-stone-800"]{stroke:#161a20}
+.pad-art svg [class~="stroke-black/5"],
+.pad-art svg [class~="dark:stroke-white/5"]{stroke:rgba(255,255,255,.06)}
+.pad-art svg [class~="stroke-yellow-500/50"]{stroke:#b89a45}
+.pad-art svg [class~="stroke-blue-500/50"]{stroke:#4b8dd8}
+.pad-art svg [class~="stroke-red-500/50"]{stroke:#c76464}
+.pad-art svg [class~="stroke-green-600/50"]{stroke:#4aa77e}
+.pad-art svg [class~="text-stone-400"]{color:#8b949f}
+.pad-art svg #XboxController > path:first-child,
+.pad-art svg #XboxController > path:nth-child(2){stroke-width:3}
+.pad-art svg{font-family:var(--sans)}
+.pad-layout-tabs{display:flex;align-items:center;gap:2px;border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:2px;background:#0b0c0f}
+.pad-layout-tabs button{height:20px;padding:0 7px;border-radius:5px;font-size:10px;color:var(--text-3)}
+.pad-layout-tabs button:hover{color:var(--text-2)}
+.pad-layout-tabs button.is-active{color:var(--text);background:#1a1d23}
 .pad-side{display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .pad-panel{min-height:0}
 .pad-buttons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:10px 12px;overflow:auto;max-height:238px}

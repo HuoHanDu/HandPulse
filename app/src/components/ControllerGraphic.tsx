@@ -1,3 +1,8 @@
+// 控制器底图取自 GamepadTester.cn（用户指定参考），在本项目中仅用于本地手柄适配展示。
+import xboxSvg from './controller/xbox.svg?raw';
+import psSvg from './controller/ps.svg?raw';
+import switchSvg from './controller/switch.svg?raw';
+
 export type ControllerLayout = 'xbox' | 'playstation' | 'switch';
 
 interface Props {
@@ -5,229 +10,169 @@ interface Props {
   buttons: boolean[];
   axes: number[];
   triggers: number[];
+  connected?: boolean;
 }
 
-const BODY = '#e4dfd6';
-const BODY_2 = '#d4cec3';
-const STROKE = '#a9a399';
-const LIT = '#2997ff';
+interface Point {
+  x: number;
+  y: number;
+  r: number;
+}
 
-function Shadow() {
+interface Stick {
+  x: number;
+  y: number;
+  scale: number;
+}
+
+interface Art {
+  svg: string;
+  viewBox: string;
+  points: Record<number, Point>;
+  sticks: [Stick, Stick];
+}
+
+const XBOX: Art = {
+  svg: xboxSvg,
+  viewBox: '0 0 441 383',
+  points: {
+    0: { x: 330, y: 181, r: 14 },
+    1: { x: 348, y: 161, r: 14 },
+    2: { x: 310, y: 162, r: 14 },
+    3: { x: 329, y: 140, r: 14 },
+    4: { x: 138.5, y: 75, r: 19 },
+    5: { x: 302.5, y: 75, r: 19 },
+    6: { x: 138.5, y: 75, r: 19 },
+    7: { x: 302.5, y: 75, r: 19 },
+    8: { x: 188, y: 162, r: 13 },
+    9: { x: 253, y: 162, r: 13 },
+    10: { x: 113, y: 160, r: 30 },
+    11: { x: 278, y: 238, r: 30 },
+    12: { x: 166, y: 220, r: 11 },
+    13: { x: 166, y: 256, r: 11 },
+    14: { x: 150, y: 238, r: 11 },
+    15: { x: 182, y: 238, r: 11 },
+    16: { x: 220.5, y: 125, r: 17 }
+  },
+  sticks: [
+    { x: 113, y: 160, scale: 17 },
+    { x: 278, y: 238, scale: 17 }
+  ]
+};
+
+const PS: Art = {
+  svg: psSvg,
+  viewBox: '0 0 128 128',
+  points: {
+    0: { x: 99, y: 56, r: 7 },
+    1: { x: 107, y: 48, r: 7 },
+    2: { x: 91, y: 48, r: 7 },
+    3: { x: 99, y: 40, r: 7 },
+    4: { x: 32, y: 30, r: 7 },
+    5: { x: 96, y: 30, r: 7 },
+    8: { x: 31, y: 33, r: 5 },
+    9: { x: 96, y: 33, r: 5 },
+    10: { x: 45.5, y: 64.5, r: 10 },
+    11: { x: 82.5, y: 64.5, r: 10 },
+    12: { x: 29, y: 42, r: 4 },
+    13: { x: 29, y: 56, r: 4 },
+    14: { x: 23, y: 49, r: 4 },
+    15: { x: 35, y: 49, r: 4 },
+    16: { x: 65, y: 61, r: 5 }
+  },
+  sticks: [
+    { x: 45.5, y: 64.5, scale: 7 },
+    { x: 82.5, y: 64.5, scale: 7 }
+  ]
+};
+
+const SWITCH: Art = {
+  svg: switchSvg,
+  viewBox: '0 0 400 250',
+  points: {
+    0: { x: 275, y: 102, r: 9 },
+    1: { x: 258, y: 85, r: 9 },
+    2: { x: 292, y: 85, r: 9 },
+    3: { x: 275, y: 68, r: 9 },
+    4: { x: 75, y: 25, r: 8 },
+    5: { x: 325, y: 25, r: 8 },
+    8: { x: 65, y: 190, r: 5 },
+    9: { x: 315, y: 190, r: 5 },
+    10: { x: 95, y: 85, r: 17 },
+    11: { x: 275, y: 155, r: 17 },
+    12: { x: 95, y: 137, r: 7 },
+    13: { x: 95, y: 173, r: 7 },
+    14: { x: 77, y: 155, r: 7 },
+    15: { x: 113, y: 155, r: 7 },
+    16: { x: 200, y: 27, r: 5 }
+  },
+  sticks: [
+    { x: 95, y: 85, scale: 9 },
+    { x: 275, y: 155, scale: 9 }
+  ]
+};
+
+const ART: Record<ControllerLayout, Art> = {
+  xbox: XBOX,
+  playstation: PS,
+  switch: SWITCH
+};
+
+export function ControllerGraphic({ type, buttons, axes, triggers, connected = false }: Props) {
+  const art = ART[type];
+  const [left, right] = art.sticks;
+  const press = (i: number) => buttons[i] === true;
+  const lx = (axes[0] ?? 0) * left.scale;
+  const ly = (axes[1] ?? 0) * left.scale;
+  const rx = (axes[2] ?? 0) * right.scale;
+  const ry = (axes[3] ?? 0) * right.scale;
+
   return (
-    <defs>
-      <linearGradient id="controllerBody" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="#f2eee7" />
-        <stop offset="0.55" stopColor={BODY} />
-        <stop offset="1" stopColor="#cec8bc" />
-      </linearGradient>
-      <radialGradient id="stickWell" cx="0.5" cy="0.45" r="0.6">
-        <stop offset="0" stopColor="#f1eee8" />
-        <stop offset="1" stopColor="#cbc6bd" />
-      </radialGradient>
-      <filter id="controlShadow" x="-20%" y="-20%" width="140%" height="150%">
-        <feDropShadow dx="0" dy="7" stdDeviation="7" floodColor="#000" floodOpacity="0.28" />
-      </filter>
-    </defs>
+    <div className="pad-art">
+      <div className="pad-art-base" dangerouslySetInnerHTML={{ __html: art.svg }} />
+      <svg className="pad-overlay" viewBox={art.viewBox} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        {/* 按键点亮：把原图当作底图，叠一层发光环，避免破坏原图比例 */}
+        {Object.entries(art.points).map(([index, p]) => {
+          const i = Number(index);
+          if (!press(i)) return null;
+          return (
+            <g key={index} className="pad-hit">
+              <circle cx={p.x} cy={p.y} r={p.r + 5} className="pad-hit-halo" />
+              <circle cx={p.x} cy={p.y} r={p.r} className="pad-hit-ring" />
+            </g>
+          );
+        })}
+
+        {/* 摇杆中心点跟随轴偏移；原图里的杆帽位置不动，用高亮点表示方向 */}
+        {connected && <circle cx={left.x + lx} cy={left.y - ly} r="4.5" className="pad-stick-dot" />}
+        {connected && <circle cx={right.x + rx} cy={right.y - ry} r="4.5" className="pad-stick-dot" />}
+        {press(10) && <circle cx={left.x} cy={left.y} r={left.scale + 5} className="pad-hit-ring" />}
+        {press(11) && <circle cx={right.x} cy={right.y} r={right.scale + 5} className="pad-hit-ring" />}
+
+        {/* 扳机不进原图时，用两侧肩键位置做一个细条提示 */}
+        {triggers[0] > 0.02 && (
+          <rect
+            x={type === 'xbox' ? 116 : type === 'playstation' ? 22 : 60}
+            y={type === 'xbox' ? 57 : type === 'playstation' ? 22 : 25}
+            width={type === 'xbox' ? 46 : type === 'playstation' ? 20 : 30}
+            height="3"
+            rx="1.5"
+            className="pad-trigger-fill"
+            opacity={0.35 + Math.min(0.65, triggers[0])}
+          />
+        )}
+        {triggers[1] > 0.02 && (
+          <rect
+            x={type === 'xbox' ? 280 : type === 'playstation' ? 88 : 310}
+            y={type === 'xbox' ? 57 : type === 'playstation' ? 22 : 25}
+            width={type === 'xbox' ? 46 : type === 'playstation' ? 20 : 30}
+            height="3"
+            rx="1.5"
+            className="pad-trigger-fill"
+            opacity={0.35 + Math.min(0.65, triggers[1])}
+          />
+        )}
+      </svg>
+    </div>
   );
-}
-
-function XboxGraphic({ buttons, axes, triggers }: Omit<Props, 'type'>) {
-  const lx = (axes[0] ?? 0) * 17;
-  const ly = (axes[1] ?? 0) * 17;
-  const rx = (axes[2] ?? 0) * 17;
-  const ry = (axes[3] ?? 0) * 17;
-  const on = (i: number) => buttons[i] === true;
-  const face = (cx: number, cy: number, label: string, i: number) => (
-    <g>
-      <circle cx={cx} cy={cy} r="12.5" fill={on(i) ? LIT : BODY_2} stroke={STROKE} strokeWidth="1" />
-      <text x={cx} y={cy + 4} textAnchor="middle" fontSize="10" fontWeight="700" fill={on(i) ? '#fff' : '#77736c'}>{label}</text>
-    </g>
-  );
-
-  return (
-    <svg className="pad-svg" viewBox="0 0 441 383" role="img" aria-label="Xbox 手柄示意图">
-      <Shadow />
-      {/* shoulder / trigger */}
-      <path d="M124 78c0-11 6-18 15-18h28c8 0 14 7 14 18v18c0 7-4 11-9 11h-39c-5 0-9-4-9-11Z" fill={on(4) ? LIT : BODY_2} stroke={STROKE} strokeWidth="2" />
-      <text x="152" y="92" textAnchor="middle" fontSize="10" fill={on(4) ? '#fff' : '#8b877f'}>LB</text>
-      <path d="M260 78c0-11 6-18 15-18h28c8 0 14 7 14 18v18c0 7-4 11-9 11h-39c-5 0-9-4-9-11Z" fill={on(5) ? LIT : BODY_2} stroke={STROKE} strokeWidth="2" />
-      <text x="288" y="92" textAnchor="middle" fontSize="10" fill={on(5) ? '#fff' : '#8b877f'}>RB</text>
-      <rect x="119" y="100" width="72" height="9" rx="4.5" fill="#d7d3ca" stroke={STROKE} />
-      <rect x="121" y="102" width={(68 * Math.min(1, triggers[0] ?? 0)).toFixed(1)} height="5" rx="2.5" fill={LIT} opacity="0.75" />
-      <rect x="250" y="100" width="72" height="9" rx="4.5" fill="#d7d3ca" stroke={STROKE} />
-      <rect x="252" y="102" width={(68 * Math.min(1, triggers[1] ?? 0)).toFixed(1)} height="5" rx="2.5" fill={LIT} opacity="0.75" />
-
-      {/* main body */}
-      <g filter="url(#controlShadow)">
-        <path
-          d="M185 100h73c24 0 45 12 57 32l50 94c17 32 12 65-10 88-22 23-52 19-74-5l-28-30c-11-12-25-18-43-18h-40c-18 0-32 6-43 18l-28 30c-22 24-52 28-74 5-22-23-27-56-10-88l50-94c12-20 33-32 57-32Z"
-          fill="url(#controllerBody)" stroke={STROKE} strokeWidth="2.4"
-        />
-        <path d="M128 142c15-20 38-30 68-30h65c30 0 53 10 68 30" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="2" />
-      </g>
-
-      {/* home */}
-      <circle cx="220" cy="160" r="18" fill={on(16) ? LIT : '#dedad2'} stroke={STROKE} />
-      <path d="M211 163a13 13 0 0 1 18 0M215 168a7 7 0 0 1 10 0" fill="none" stroke={on(16) ? '#fff' : '#8d8981'} strokeWidth="2" strokeLinecap="round" />
-      <text x="220" y="190" textAnchor="middle" fontSize="8" fill="#8b877f">XBOX</text>
-
-      {/* sticks */}
-      <g transform={`translate(${lx},${ly})`}>
-        {on(10) && <circle cx="143" cy="190" r="35" fill="none" stroke={LIT} strokeWidth="2" opacity=".7" />}
-        <circle cx="143" cy="190" r="30" fill="url(#stickWell)" stroke={STROKE} strokeWidth="2" />
-        <circle cx="143" cy="190" r="22" fill="#d5d1c8" stroke="#bbb6ad" />
-        <circle cx="143" cy="190" r="8" fill="#c5c0b7" />
-      </g>
-      <text x="143" y="231" textAnchor="middle" fontSize="9" fill="#8b877f">左摇杆</text>
-      <g transform={`translate(${rx},${ry})`}>
-        {on(11) && <circle cx="292" cy="232" r="35" fill="none" stroke={LIT} strokeWidth="2" opacity=".7" />}
-        <circle cx="292" cy="232" r="30" fill="url(#stickWell)" stroke={STROKE} strokeWidth="2" />
-        <circle cx="292" cy="232" r="22" fill="#d5d1c8" stroke="#bbb6ad" />
-        <circle cx="292" cy="232" r="8" fill="#c5c0b7" />
-      </g>
-      <text x="292" y="273" textAnchor="middle" fontSize="9" fill="#8b877f">右摇杆</text>
-
-      {/* dpad */}
-      <g>
-        <rect x="169" y="228" width="13" height="34" rx="3" fill={on(12) || on(13) ? LIT : BODY_2} stroke={STROKE} />
-        <rect x="158" y="239" width="35" height="13" rx="3" fill={on(14) || on(15) ? LIT : BODY_2} stroke={STROKE} />
-      </g>
-
-      {/* face buttons */}
-      {face(336, 166, 'Y', 3)}
-      {face(320, 184, 'X', 2)}
-      {face(352, 184, 'B', 1)}
-      {face(336, 202, 'A', 0)}
-
-      {/* back/start */}
-      <circle cx="191" cy="190" r="9" fill={on(8) ? LIT : '#dedad2'} stroke={STROKE} />
-      <circle cx="249" cy="190" r="9" fill={on(9) ? LIT : '#dedad2'} stroke={STROKE} />
-    </svg>
-  );
-}
-
-function PSGraphic({ buttons, axes, triggers }: Omit<Props, 'type'>) {
-  const lx = (axes[0] ?? 0) * 17;
-  const ly = (axes[1] ?? 0) * 17;
-  const rx = (axes[2] ?? 0) * 17;
-  const ry = (axes[3] ?? 0) * 17;
-  const on = (i: number) => buttons[i] === true;
-  const face = (cx: number, cy: number, shape: 'triangle' | 'circle' | 'cross' | 'square', i: number) => {
-    const fill = on(i) ? LIT : '#e3dfd7';
-    const stroke = on(i) ? '#fff' : '#8b877f';
-    return (
-      <g>
-        <circle cx={cx} cy={cy} r="13" fill={fill} stroke={STROKE} />
-        {shape === 'triangle' && <path d={`M${cx} ${cy - 6}l6 11h-12Z`} fill="none" stroke={stroke} strokeWidth="1.6" />}
-        {shape === 'circle' && <circle cx={cx} cy={cy} r="5" fill="none" stroke={stroke} strokeWidth="1.6" />}
-        {shape === 'cross' && <path d={`M${cx - 5} ${cy - 5}l10 10M${cx + 5} ${cy - 5}l-10 10`} stroke={stroke} strokeWidth="1.6" />}
-        {shape === 'square' && <rect x={cx - 5} y={cy - 5} width="10" height="10" fill="none" stroke={stroke} strokeWidth="1.6" />}
-      </g>
-    );
-  };
-  return (
-    <svg className="pad-svg" viewBox="0 0 460 383" role="img" aria-label="PlayStation 手柄示意图">
-      <Shadow />
-      {/* body */}
-      <g filter="url(#controlShadow)">
-        <path d="M95 130c10-32 38-46 75-46h120c37 0 65 14 75 46l30 122c8 34-25 61-57 45-17-8-30-25-47-42l-25-30c-10-12-22-16-41-16h-43c-19 0-31 4-41 16l-25 30c-17 17-30 34-47 42-32 16-65-11-57-45Z" fill="url(#controllerBody)" stroke={STROKE} strokeWidth="2.4" />
-        <path d="M142 176c30-16 146-16 176 0l16 90c5 31-16 52-48 52h-112c-32 0-53-21-48-52Z" fill="url(#controllerBody)" />
-      </g>
-      {/* touchpad */}
-      <rect x="171" y="108" width="118" height="57" rx="10" fill="#f4f1eb" stroke="#aaa59b" strokeWidth="2" />
-      <path d="M186 121h88" stroke="rgba(255,255,255,.8)" strokeWidth="2" />
-      <text x="230" y="177" textAnchor="middle" fontSize="9" fill="#9a958b">TOUCHPAD</text>
-
-      {/* shoulder / trigger */}
-      <path d="M99 95c4-19 16-28 32-28h24c9 0 15 7 15 16v20c0 8-4 12-11 12h-43c-12 0-19-8-17-20Z" fill={on(4) ? LIT : BODY_2} stroke={STROKE} strokeWidth="2" />
-      <text x="134" y="111" textAnchor="middle" fontSize="10" fill={on(4) ? '#fff' : '#8b877f'}>L1</text>
-      <path d="M361 95c-4-19-16-28-32-28h-24c-9 0-15 7-15 16v20c0 8 4 12 11 12h43c12 0 19-8 17-20Z" fill={on(5) ? LIT : BODY_2} stroke={STROKE} strokeWidth="2" />
-      <text x="326" y="111" textAnchor="middle" fontSize="10" fill={on(5) ? '#fff' : '#8b877f'}>R1</text>
-      <rect x="82" y="120" width="70" height="9" rx="4.5" fill="#d7d3ca" stroke={STROKE} />
-      <rect x="84" y="122" width={(66 * Math.min(1, triggers[0] ?? 0)).toFixed(1)} height="5" rx="2.5" fill={LIT} opacity=".75" />
-      <rect x="308" y="120" width="70" height="9" rx="4.5" fill="#d7d3ca" stroke={STROKE} />
-      <rect x="310" y="122" width={(66 * Math.min(1, triggers[1] ?? 0)).toFixed(1)} height="5" rx="2.5" fill={LIT} opacity=".75" />
-
-      {/* d-pad */}
-      <g>
-        <rect x="135" y="203" width="12" height="34" rx="3" fill={on(12) || on(13) ? LIT : BODY_2} stroke={STROKE} />
-        <rect x="124" y="214" width="34" height="12" rx="3" fill={on(14) || on(15) ? LIT : BODY_2} stroke={STROKE} />
-      </g>
-
-      {/* face buttons */}
-      {face(330, 190, 'triangle', 3)}
-      {face(316, 207, 'square', 2)}
-      {face(344, 207, 'circle', 1)}
-      {face(330, 224, 'cross', 0)}
-
-      {/* sticks */}
-      <g transform={`translate(${lx},${ly})`}>
-        <circle cx="190" cy="286" r="30" fill="url(#stickWell)" stroke={STROKE} strokeWidth="2" />
-        <circle cx="190" cy="286" r="22" fill="#d5d1c8" stroke="#bbb6ad" />
-        <circle cx="190" cy="286" r="8" fill="#c5c0b7" />
-      </g>
-      <g transform={`translate(${rx},${ry})`}>
-        <circle cx="270" cy="286" r="30" fill="url(#stickWell)" stroke={STROKE} strokeWidth="2" />
-        <circle cx="270" cy="286" r="22" fill="#d5d1c8" stroke="#bbb6ad" />
-        <circle cx="270" cy="286" r="8" fill="#c5c0b7" />
-      </g>
-
-      {/* PS / create / options */}
-      <circle cx="230" cy="230" r="8" fill={on(16) ? LIT : '#dedad2'} stroke={STROKE} />
-      <rect x="184" y="218" width="12" height="5" rx="2.5" fill={on(8) ? LIT : '#dedad2'} stroke={STROKE} />
-      <rect x="264" y="218" width="12" height="5" rx="2.5" fill={on(9) ? LIT : '#dedad2'} stroke={STROKE} />
-    </svg>
-  );
-}
-
-function SwitchGraphic({ buttons }: Omit<Props, 'type'>) {
-  const on = (i: number) => buttons[i] === true;
-  return (
-    <svg className="pad-svg" viewBox="0 0 400 330" role="img" aria-label="Switch Joy-Con 示意图">
-      <Shadow />
-      <g filter="url(#controlShadow)">
-        <rect x="62" y="28" width="86" height="250" rx="38" fill="#00c3e3" stroke="rgba(0,0,0,.18)" />
-        <rect x="252" y="28" width="86" height="250" rx="38" fill="#ff4b48" stroke="rgba(0,0,0,.18)" />
-        <rect x="144" y="42" width="112" height="222" rx="12" fill="#14161a" stroke="#2a2d34" />
-      </g>
-      <text x="105" y="48" textAnchor="middle" fontSize="10" fill="rgba(0,0,0,.55)">−</text>
-      <text x="295" y="48" textAnchor="middle" fontSize="13" fill="rgba(255,255,255,.9)">+</text>
-
-      {/* left stick + dpad */}
-      <circle cx="105" cy="118" r="23" fill="#1a1c1f" />
-      <circle cx="105" cy="118" r="16" fill="#2a2d31" stroke="#555" />
-      <g>
-        <rect x="90" y="174" width="12" height="34" rx="3" fill={on(12) || on(13) ? LIT : '#d8d5ce'} />
-        <rect x="79" y="185" width="34" height="12" rx="3" fill={on(14) || on(15) ? LIT : '#d8d5ce'} />
-      </g>
-      <circle cx="105" cy="247" r="7" fill="#101114" />
-
-      {/* right stick + face buttons */}
-      <circle cx="295" cy="214" r="23" fill="#1a1c1f" />
-      <circle cx="295" cy="214" r="16" fill="#2a2d31" stroke="#555" />
-      <g>
-        <circle cx="295" cy="108" r="11" fill={on(3) ? LIT : '#e8e5df'} />
-        <text x="295" y="112" textAnchor="middle" fontSize="10" fill="#77736c">X</text>
-        <circle cx="317" cy="130" r="11" fill={on(0) ? LIT : '#e8e5df'} />
-        <text x="317" y="134" textAnchor="middle" fontSize="10" fill="#77736c">A</text>
-        <circle cx="273" cy="130" r="11" fill={on(1) ? LIT : '#e8e5df'} />
-        <text x="273" y="134" textAnchor="middle" fontSize="10" fill="#77736c">B</text>
-        <circle cx="295" cy="152" r="11" fill={on(2) ? LIT : '#e8e5df'} />
-        <text x="295" y="156" textAnchor="middle" fontSize="10" fill="#77736c">Y</text>
-      </g>
-      <rect x="108" y="28" width="20" height="7" rx="3" fill="rgba(255,255,255,.55)" />
-      <rect x="272" y="28" width="20" height="7" rx="3" fill="rgba(255,255,255,.55)" />
-      <text x="200" y="306" textAnchor="middle" fontSize="10" fill="#8b877f">Joy-Con 双手</text>
-    </svg>
-  );
-}
-
-export function ControllerGraphic({ type, buttons, axes, triggers }: Props) {
-  if (type === 'playstation') {
-    return <PSGraphic buttons={buttons} axes={axes} triggers={triggers} />;
-  }
-  if (type === 'switch') {
-    return <SwitchGraphic buttons={buttons} axes={axes} triggers={triggers} />;
-  }
-  return <XboxGraphic buttons={buttons} axes={axes} triggers={triggers} />;
 }

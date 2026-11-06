@@ -28,7 +28,7 @@ function emptyPad(): BackendPad {
 function fromBrowser(pad: Gamepad): BackendPad {
   const buttons = new Array(17).fill(false);
   pad.buttons.forEach((b, i) => { if (i < 17) buttons[i] = b.pressed; });
-  const axes = [pad.axes[0] ?? 0, pad.axes[1] ?? 0, pad.axes[2] ?? 0, pad.axes[3] ?? 0];
+  const axes = [pad.axes[0] ?? 0, -(pad.axes[1] ?? 0), pad.axes[2] ?? 0, -(pad.axes[3] ?? 0)];
   const triggers = [pad.buttons[6]?.value ?? 0, pad.buttons[7]?.value ?? 0];
   return { connected: true, index: 0, buttons, axes, triggers };
 }
@@ -156,7 +156,7 @@ export function GamepadPage({ active }: Props) {
               ))}
             </div>
           </div>
-          <ControllerGraphic type={view} buttons={pad.buttons} axes={pad.axes} triggers={pad.triggers} />
+          <ControllerGraphic type={view} buttons={pad.buttons} axes={pad.axes} triggers={pad.triggers} connected={pad.connected} />
         </div>
 
         <div className="panel pad-side">
