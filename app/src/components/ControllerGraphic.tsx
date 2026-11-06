@@ -157,7 +157,7 @@ export function ControllerGraphic({ type, buttons, axes, triggers, connected = f
             width={type === 'xbox' ? 46 : type === 'playstation' ? 20 : 30}
             height="3"
             rx="1.5"
-            className="pad-trigger-fill"
+            className="pad-trigger-mark"
             opacity={0.35 + Math.min(0.65, triggers[0])}
           />
         )}
@@ -168,7 +168,7 @@ export function ControllerGraphic({ type, buttons, axes, triggers, connected = f
             width={type === 'xbox' ? 46 : type === 'playstation' ? 20 : 30}
             height="3"
             rx="1.5"
-            className="pad-trigger-fill"
+            className="pad-trigger-mark"
             opacity={0.35 + Math.min(0.65, triggers[1])}
           />
         )}

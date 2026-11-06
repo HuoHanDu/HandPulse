@@ -159,32 +159,56 @@ export function GamepadPage({ active }: Props) {
           <ControllerGraphic type={view} buttons={pad.buttons} axes={pad.axes} triggers={pad.triggers} connected={pad.connected} />
         </div>
 
-        <div className="panel pad-side">
-          <div className="ph"><span className="ph-title">按键</span><span className="ph-meta">按下计数</span></div>
-          <div className="pad-buttons">
-            {BUTTONS.map(([i, label]) => (
-              <div key={i} className={'pad-btn' + (pad.buttons[i] ? ' is-down' : '')}>
-                <span className="pad-btn-label">{label}</span>
-                <span className="pad-btn-idx mono">{i}</span>
-                <span className="pad-btn-count mono">{String(counts[i] ?? 0).padStart(2, '0')}</span>
-              </div>
-            ))}
+        <div className="pad-side">
+          <div className="panel pad-trigger-panel">
+            <div className="ph"><span className="ph-title">扳机键</span><span className="ph-meta">线性压感 (0–1)</span></div>
+            <div className="pad-trigger-grid">
+              {[0, 1].map((i) => {
+                const value = Math.max(0, Math.min(1, pad.triggers[i] ?? 0));
+                return (
+                  <div className="pad-trigger-item" key={i}>
+                    <div className={'pad-trigger-column' + (value > 0.02 ? ' is-live' : '')}>
+                      <span className="pad-trigger-fill" style={{ height: (value * 100).toFixed(1) + '%' }} />
+                      <b className="pad-trigger-value mono">{value.toFixed(2)}</b>
+                    </div>
+                    <span className="pad-trigger-label">{i === 0 ? 'LT / L2' : 'RT / R2'}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <div className="pad-axes">
-            {pad.axes.map((v, i) => (
-              <div className="pad-axis" key={i}>
-                <div className="pad-axis-top"><span>{axisLabel(i)}</span><span className="mono">{v >= 0 ? '+' : ''}{v.toFixed(2)}</span></div>
-                <div className="pad-axis-track">
-                  <span className="pad-axis-zero" />
-                  <span
-                    className="pad-axis-fill"
-                    style={v >= 0
-                      ? { left: '50%', width: (Math.min(1, v) * 50).toFixed(1) + '%' }
-                      : { right: '50%', width: (Math.min(1, -v) * 50).toFixed(1) + '%' }}
-                  />
+
+          <div className="panel pad-buttons-panel">
+            <div className="ph"><span className="ph-title">按键</span><span className="ph-meta">按下计数</span></div>
+            <div className="pad-buttons">
+              {BUTTONS.map(([i, label]) => (
+                <div key={i} className={'pad-btn' + (pad.buttons[i] ? ' is-down' : '')}>
+                  <span className="pad-btn-label">{label}</span>
+                  <span className="pad-btn-idx mono">{i}</span>
+                  <span className="pad-btn-count mono">{String(counts[i] ?? 0).padStart(2, '0')}</span>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          </div>
+
+          <div className="panel pad-axes-panel">
+            <div className="ph"><span className="ph-title">摇杆</span><span className="ph-meta">轴数值</span></div>
+            <div className="pad-axes">
+              {pad.axes.map((v, i) => (
+                <div className="pad-axis" key={i}>
+                  <div className="pad-axis-top"><span>{axisLabel(i)}</span><span className="mono">{v >= 0 ? '+' : ''}{v.toFixed(2)}</span></div>
+                  <div className="pad-axis-track">
+                    <span className="pad-axis-zero" />
+                    <span
+                      className="pad-axis-fill"
+                      style={v >= 0
+                        ? { left: '50%', width: (Math.min(1, v) * 50).toFixed(1) + '%' }
+                        : { right: '50%', width: (Math.min(1, -v) * 50).toFixed(1) + '%' }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

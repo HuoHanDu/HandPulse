@@ -13,14 +13,14 @@
 .pad-visual .ph-title{color:var(--text)}
 .pad-visual .ph-meta{color:var(--text-3)}
 .pad-art{position:relative;flex:1 1 auto;min-height:0}
-.pad-art-base,.pad-overlay{position:absolute;inset:8px 18px 14px}
+.pad-art-base,.pad-overlay{position:absolute;inset:0}
 .pad-art-base svg,.pad-overlay{display:block;width:100%;height:100%}
 .pad-art-base svg{overflow:visible;filter:drop-shadow(0 18px 26px rgba(0,0,0,.45))}
 .pad-overlay{overflow:visible;pointer-events:none}
 .pad-hit-halo{fill:rgba(41,151,255,.2);filter:blur(3px)}
 .pad-hit-ring{fill:none;stroke:#2997ff;stroke-width:2;filter:drop-shadow(0 0 5px rgba(41,151,255,.65))}
 .pad-stick-dot{fill:#2997ff;filter:drop-shadow(0 0 6px rgba(41,151,255,.9))}
-.pad-trigger-fill{fill:#2997ff}
+.pad-trigger-mark{fill:#2997ff}
 
 /* 把网站 SVG 的浅色/Tailwind 色映射到 HandPulse 的深色界面 */
 .pad-art svg [class~="fill-stone-50"],
@@ -67,21 +67,34 @@
 .pad-layout-tabs button{height:20px;padding:0 7px;border-radius:5px;font-size:10px;color:var(--text-3)}
 .pad-layout-tabs button:hover{color:var(--text-2)}
 .pad-layout-tabs button.is-active{color:var(--text);background:#1a1d23}
-.pad-side{display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.pad-panel{min-height:0}
-.pad-buttons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:10px 12px;overflow:auto;max-height:238px}
+.pad-side{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);grid-template-rows:auto minmax(0,1fr);gap:10px;min-height:0;overflow:hidden;background:transparent;border:0;padding:0}
+.pad-side > .panel{min-height:0}
+.pad-trigger-panel{grid-column:1/-1;display:flex;flex-direction:column}
+.pad-trigger-grid{display:flex;justify-content:center;gap:24px;padding:0 14px 10px}
+.pad-trigger-item{display:flex;flex-direction:column;align-items:center;gap:5px}
+.pad-trigger-column{
+  width:58px;height:82px;border:1px solid rgba(255,255,255,.08);border-radius:8px;
+  background:#0c0d10;position:relative;overflow:hidden;
+  display:flex;align-items:flex-end;justify-content:center;
+}
+.pad-trigger-column.is-live{border-color:rgba(41,151,255,.55)}
+.pad-trigger-fill{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(180deg,#4da8ff,#2168c8);transition:height .05s linear}
+.pad-trigger-value{position:relative;z-index:1;font-size:12px;color:#d7dde6;margin-bottom:7px}
+.pad-trigger-label{font-size:10px;color:var(--text-3)}
+.pad-buttons-panel,.pad-axes-panel{display:flex;flex-direction:column;overflow:hidden}
+.pad-buttons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:8px 10px;overflow:auto;flex:1 1 auto;min-height:0;max-height:none}
 .pad-btn{
-  min-height:54px;border:1px solid rgba(255,255,255,.08);border-radius:9px;background:#0c0d10;
+  min-height:38px;border:1px solid rgba(255,255,255,.08);border-radius:8px;background:#0c0d10;
   display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;align-items:center;
-  padding:7px 9px;transition:background .08s ease,border-color .08s ease,transform .08s ease;
+  padding:4px 6px;transition:background .08s ease,border-color .08s ease,transform .08s ease;
 }
 .pad-btn.is-down{background:rgba(41,151,255,.18);border-color:#2997ff;transform:translateY(-1px)}
-.pad-btn-label{font-size:13px;color:var(--text);font-weight:500}
-.pad-btn-idx{font-size:10px;color:var(--text-3)}
-.pad-btn-count{grid-column:2;grid-row:2;font-size:11px;color:var(--text-3);text-align:right}
-.pad-axes{padding:10px 16px 4px;display:flex;flex-direction:column;gap:11px;overflow:auto}
-.pad-axis-top{display:flex;justify-content:space-between;font-size:12px;color:var(--text-2);margin-bottom:6px}
-.pad-axis-track{height:8px;border-radius:4px;background:#17191e;position:relative;overflow:hidden}
+.pad-btn-label{font-size:12px;color:var(--text);font-weight:500}
+.pad-btn-idx{font-size:9px;color:var(--text-3)}
+.pad-btn-count{grid-column:2;grid-row:2;font-size:10px;color:var(--text-3);text-align:right}
+.pad-axes{padding:4px 12px 4px;display:flex;flex-direction:column;gap:9px;overflow:auto;flex:1 1 auto;min-height:0}
+.pad-axis-top{display:flex;justify-content:space-between;font-size:11px;color:var(--text-2);margin-bottom:5px}
+.pad-axis-track{height:7px;border-radius:4px;background:#17191e;position:relative;overflow:hidden}
 .pad-axis-zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.18)}
 .pad-axis-fill{position:absolute;top:0;bottom:0;background:var(--accent);border-radius:4px;transition:width .05s linear}
 .pad-hint{font-size:12px;line-height:1.6;color:var(--text-3);padding:0 16px 14px;margin-top:auto}
