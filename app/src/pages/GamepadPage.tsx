@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { ControllerGraphic } from '../components/ControllerGraphic';
+import { ControllerGraphic, type ControllerLayout } from '../components/ControllerGraphic';
 
 interface Props {
   active: boolean;
@@ -36,6 +36,8 @@ function fromBrowser(pad: Gamepad): BackendPad {
 export function GamepadPage({ active }: Props) {
   const [pad, setPad] = useState<BackendPad>(emptyPad);
   const [source, setSource] = useState<'xinput' | 'browser' | ''>('');
+  const [layout, setLayout] = useState<'auto' | ControllerLayout>('auto');
+  const [detected, setDetected] = useState<ControllerLayout>('xbox');
   const [counts, setCounts] = useState<number[]>(new Array(17).fill(0));
   const [last, setLast] = useState('等待输入…');
   const previous = useRef<boolean[]>(new Array(17).fill(false));
@@ -54,6 +56,7 @@ export function GamepadPage({ active }: Props) {
         if (raw?.connected) {
           next = raw;
           src = 'xinput';
+          setDetected('xbox');
         }
       } catch {
         // 非 Windows 构建或命令不存在时，退回浏览器 Gamepad API。
@@ -64,6 +67,14 @@ export function GamepadPage({ active }: Props) {
         if (browserPad) {
           next = fromBrowser(browserPad);
           src = 'browser';
+          const id = browserPad.id || '';
+          setDetected(
+            /dualsense|dualshock|playstation|\bps[45]\b/i.test(id)
+              ? 'playstation'
+              : /joy-?con|switch|pro controller/i.test(id)
+                ? 'switch'
+                : 'xbox'
+          );
         }
       }
       setPad(next);
@@ -96,6 +107,7 @@ export function GamepadPage({ active }: Props) {
   }, [active]);
 
   const axisLabel = (i: number) => ['左摇杆 X', '左摇杆 Y', '右摇杆 X', '右摇杆 Y'][i] ?? '轴 ' + i;
+  const view = layout === 'auto' ? detected : layout;
 
   return (
     <section className={'page' + (active ? ' active' : '')} data-page="gamepad" aria-label="手柄适配">
@@ -123,8 +135,28 @@ export function GamepadPage({ active }: Props) {
 
       <div className="pad-stage">
         <div className="panel pad-visual">
-          <div className="ph"><span className="ph-title">手柄示意</span><span className="ph-meta">按键 / 摇杆 / 扳机实时状态</span></div>
-          <ControllerGraphic buttons={pad.buttons} axes={pad.axes} triggers={pad.triggers} />
+          <div className="ph">
+            <span className="ph-title">手柄示意</span>
+            <span className="ph-meta">按键 / 摇杆 / 扳机实时状态</span>
+            <div className="ph-spacer" />
+            <div className="pad-layout-tabs" role="group" aria-label="手柄布局">
+              {([
+                ['auto', '自动'],
+                ['xbox', 'Xbox'],
+                ['playstation', 'PS'],
+                ['switch', 'Switch']
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={layout === value ? 'is-active' : ''}
+                  aria-pressed={layout === value}
+                  onClick={() => setLayout(value)}
+                >{label}</button>
+              ))}
+            </div>
+          </div>
+          <ControllerGraphic type={view} buttons={pad.buttons} axes={pad.axes} triggers={pad.triggers} />
         </div>
 
         <div className="panel pad-side">
