@@ -8,7 +8,7 @@ use rusqlite::Connection;
 use serde::Serialize;
 
 use super::Db;
-use super::payload::{CurrentBucket, MousePayload, decode, px_to_cm};
+use super::payload::{CurrentBucket, KbPayload, MousePayload, PadPayload, decode, px_to_cm};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Range {
@@ -1175,6 +1175,134 @@ pub fn custom_detail(
     })
 }
 
+#[derive(Clone, Debug, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PadButtonStat {
+    pub index: u8,
+    pub label: String,
+    pub count: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PadStats {
+    pub total: u64,
+    pub buttons: Vec<PadButtonStat>,
+}
+
+const PAD_LABELS: [&str; 17] = [
+    "A", "B", "X", "Y", "LB", "RB", "LT", "RT", "Back", "Start", "LS", "RS", "↑", "↓", "←", "→",
+    "Home",
+];
+
+/// 自定义范围键盘键位统计：直接解码 bucket payload，支持任意起止时间。
+pub fn custom_key_stats(db: &Db, start_ts: i64, end_ts: i64) -> Result<Vec<KeyStat>> {
+    let conn = db.open_read()?;
+    let labels = key_labels(&conn)?;
+    let mut agg: BTreeMap<u16, (u64, u64, u64, i64, i64)> = BTreeMap::new();
+    if start_ts < end_ts {
+        let mut stmt =
+            conn.prepare("SELECT payload FROM bucket WHERE device='kb' AND ts>=?1 AND ts<?2")?;
+        let rows = stmt.query_map([start_ts, end_ts], |r| r.get::<_, Vec<u8>>(0))?;
+        for row in rows {
+            let p: KbPayload = decode(&row?)?;
+            for (id, count) in &p.k {
+                let e = agg.entry(*id).or_insert((0, 0, 0, i64::MAX, i64::MIN));
+                e.0 += *count as u64;
+                e.1 += p.hold_sum.get(id).copied().unwrap_or(0);
+                e.2 = e.2.max(p.hold_max.get(id).copied().unwrap_or(0));
+                e.3 = e.3.min(*p.first.get(id).unwrap_or(&start_ts));
+                e.4 = e.4.max(*p.last.get(id).unwrap_or(&start_ts));
+            }
+        }
+    }
+    let total: u64 = agg.values().map(|v| v.0).sum();
+    let mut out = Vec::new();
+    for id in 0..super::payload::KEY_COUNT as u16 {
+        let label = labels.get(&id).cloned().unwrap_or_default();
+        if label.is_empty() {
+            continue;
+        }
+        let (count, hold_sum, hold_max, first, last) =
+            agg.get(&id).copied().unwrap_or((0, 0, 0, 0, 0));
+        out.push(KeyStat {
+            key_id: id,
+            label,
+            count,
+            ratio: 0.0,
+            hold_avg_ms: hold_sum.checked_div(count).unwrap_or(0),
+            hold_max_ms: hold_max,
+            first_ts: if first > 0 { minute_of_day(first) } else { 0 },
+            last_ts: if last > 0 { minute_of_day(last) } else { 0 },
+        });
+    }
+    // ratio 需要 total，单独回填，避免上面初始化分支写错。
+    for row in &mut out {
+        row.ratio = if total > 0 {
+            row.count as f64 / total as f64
+        } else {
+            0.0
+        };
+    }
+    out.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.label.cmp(&b.label)));
+    Ok(out)
+}
+
+/// 自定义范围鼠标统计。
+pub fn custom_mouse_stats(db: &Db, start_ts: i64, end_ts: i64) -> Result<MouseStats> {
+    let conn = db.open_read()?;
+    let mut clicks = [0u64; 5];
+    let mut wheel = [0u64; 2];
+    let mut px = 0.0;
+    let mut peak: f64 = 0.0;
+    if start_ts < end_ts {
+        let mut stmt =
+            conn.prepare("SELECT payload FROM bucket WHERE device='mouse' AND ts>=?1 AND ts<?2")?;
+        let rows = stmt.query_map([start_ts, end_ts], |r| r.get::<_, Vec<u8>>(0))?;
+        for row in rows {
+            let p: MousePayload = decode(&row?)?;
+            for (a, b) in clicks.iter_mut().zip(p.cl.iter()) {
+                *a += *b;
+            }
+            for (a, b) in wheel.iter_mut().zip(p.wh.iter()) {
+                *a += *b;
+            }
+            px += p.px;
+            peak = peak.max(p.vmax);
+        }
+    }
+    Ok(mouse_from(clicks, wheel, px, peak))
+}
+
+/// 自定义范围手柄统计；读取 pad_bucket 的按下计数。
+pub fn custom_pad_stats(db: &Db, start_ts: i64, end_ts: i64) -> Result<PadStats> {
+    let conn = db.open_read()?;
+    let mut counts = [0u64; 17];
+    if start_ts < end_ts {
+        let mut stmt = conn.prepare("SELECT payload FROM pad_bucket WHERE ts>=?1 AND ts<?2")?;
+        let rows = stmt.query_map([start_ts, end_ts], |r| r.get::<_, Vec<u8>>(0))?;
+        for row in rows {
+            let p: PadPayload = decode(&row?)?;
+            for (index, count) in &p.buttons {
+                if let Some(slot) = counts.get_mut(*index as usize) {
+                    *slot += *count as u64;
+                }
+            }
+        }
+    }
+    let total = counts.iter().sum();
+    let buttons = PAD_LABELS
+        .iter()
+        .enumerate()
+        .map(|(index, label)| PadButtonStat {
+            index: index as u8,
+            label: (*label).to_string(),
+            count: counts[index],
+        })
+        .collect();
+    Ok(PadStats { total, buttons })
+}
+
 fn merge_row(rows: &mut Vec<DetailRow>, ts: i64, keys: u64, clicks: u64, px: f64, label: &str) {
     if let Some(row) = rows.iter_mut().find(|r| r.ts == ts * 1000) {
         row.keys += keys;
@@ -1203,7 +1331,9 @@ fn parse_day(day: &str) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::payload::{Device, KbPayload, MousePayload, PersistBucket, encode};
+    use crate::storage::payload::{
+        Device, KbPayload, MousePayload, PadPayload, PersistBucket, encode,
+    };
     use crate::storage::writer::apply_bucket;
     use std::path::PathBuf;
 
@@ -1340,6 +1470,29 @@ mod tests {
             )
             .unwrap();
         assert_eq!(actions, 5);
+        cleanup(&p);
+    }
+
+    #[test]
+    fn custom_pad_stats_sums_buttons() {
+        let (db, p) = temp_db("custom_pad");
+        let now = Local::now().timestamp();
+        let ts = now - now.rem_euclid(60);
+        let mut pad = PadPayload::default();
+        pad.buttons.insert(0, 3);
+        pad.buttons.insert(12, 2);
+        let b = PersistBucket::new(ts, 60, Device::Pad, pad.actions(), encode(&pad).unwrap());
+        apply_bucket(&mut db.open_write().unwrap(), &b).unwrap();
+        let stats = custom_pad_stats(&db, ts, ts + 60).unwrap();
+        assert_eq!(stats.total, 5);
+        assert_eq!(
+            stats.buttons.iter().find(|b| b.label == "A").unwrap().count,
+            3
+        );
+        assert_eq!(
+            stats.buttons.iter().find(|b| b.label == "↑").unwrap().count,
+            2
+        );
         cleanup(&p);
     }
 

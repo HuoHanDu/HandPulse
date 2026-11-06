@@ -14,5 +14,23 @@
 .data-meta{display:flex;align-items:center;gap:16px;margin-top:12px;font-size:12px;color:var(--text-3)}
 .data-meta .tbtn{margin-left:auto;cursor:default}
 .data-error{margin-top:10px;padding:8px 10px;border:1px solid #5b2b2e;border-radius:6px;background:#1b0e10;color:#ff8f95;font-size:12px}
+.data-tabs{display:flex;align-items:center;gap:4px;margin-top:12px;border-top:1px solid rgba(255,255,255,.06);padding-top:10px}
+.data-tabs button{
+  height:28px;padding:0 12px;border-radius:6px;border:1px solid transparent;
+  color:var(--text-3);font-size:13px;
+}
+.data-tabs button:hover{color:var(--text-2);background:rgba(255,255,255,.04)}
+.data-tabs button.is-active{color:var(--text);background:#17191e;border-color:rgba(255,255,255,.09)}
+.data-tabs-meta{margin-left:auto;font-size:12px;color:var(--text-3)}
+.data-key-head,.data-key-row{grid-template-columns:1.05fr .65fr .55fr .75fr .75fr}
+.data-pad-head,.data-pad-row{grid-template-columns:1fr .65fr .55fr .4fr .2fr}
+.data-metrics{flex:1 1 auto;min-height:0;overflow:auto;padding:16px}
+.data-metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.data-metric{border:1px solid rgba(255,255,255,.07);border-radius:10px;background:#0c0d10;padding:13px 14px;display:flex;flex-direction:column;gap:7px}
+.data-metric span{font-size:12px;color:var(--text-3)}
+.data-metric b{font-size:22px;font-weight:500;color:var(--text);letter-spacing:-.02em}
+@media (max-width:1200px){
+  .data-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 .data-table{flex:1 1 auto;min-height:0}
 .data-empty{padding:26px 12px;text-align:center;font-size:13px;color:var(--text-3)}

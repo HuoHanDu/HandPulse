@@ -218,3 +218,14 @@ export interface DetailPage {
   pageSize: number;
   granLabel: string;
 }
+
+export interface PadButtonStat {
+  index: number;
+  label: string;
+  count: number;
+}
+
+export interface PadStats {
+  total: number;
+  buttons: PadButtonStat[];
+}

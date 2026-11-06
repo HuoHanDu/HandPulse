@@ -3,7 +3,7 @@ import { HP } from '../mock/mock';
 import type {
   Bucket, DetailPage, DetailRowView, GridCell, Heatmap, HeatmapChart, HeatType,
   Histogram, HistogramChart, HistDim, KeyStat, KeyboardData, LineSeries, MouseData,
-  MouseStats, RangeKey, Settings, StatsData, Summary
+  MouseStats, PadStats, RangeKey, Settings, StatsData, Summary
 } from './types';
 
 /**
@@ -668,6 +668,21 @@ export async function getCustomDetail(startTs: number, endTs: number, page: numb
   }
   // 浏览器 mock 没有自定义 SQL，退回今日明细以便继续看视觉。
   return getDetailPage('today', page);
+}
+
+export async function getCustomKeyStats(startTs: number, endTs: number): Promise<KeyStat[]> {
+  if (isTauri) return invoke<KeyStat[]>('get_custom_key_stats', { startTs, endTs });
+  return [];
+}
+
+export async function getCustomMouseStats(startTs: number, endTs: number): Promise<MouseStats> {
+  if (isTauri) return invoke<MouseStats>('get_custom_mouse_stats', { startTs, endTs });
+  return { clicks: { left: 0, right: 0, middle: 0, side1: 0, side2: 0, total: 0 }, wheel: [0, 0], peakSpeed: 0, moveKm: 0 };
+}
+
+export async function getCustomPadStats(startTs: number, endTs: number): Promise<PadStats> {
+  if (isTauri) return invoke<PadStats>('get_custom_pad_stats', { startTs, endTs });
+  return { total: 0, buttons: [] };
 }
 
 /* ---------------- 设置 / 维护 ---------------- */

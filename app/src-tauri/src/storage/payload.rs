@@ -140,11 +140,35 @@ pub fn px_to_cm(px: f64) -> u64 {
     (px * 2.54 / 96.0).round() as u64
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+pub struct PadPayload {
+    pub v: u8,
+    #[serde(default)]
+    pub session: u64,
+    /// 标准 17 键的按下次数：A/B/X/Y/LB/RB/LT/RT/Back/Start/LS/RS/Up/Down/Left/Right/Home
+    pub buttons: BTreeMap<u8, u32>,
+}
+
+impl PadPayload {
+    pub fn actions(&self) -> u64 {
+        self.buttons.values().map(|v| *v as u64).sum()
+    }
+
+    pub fn merge(&mut self, other: &Self) {
+        self.v = self.v.max(other.v);
+        self.session = other.session;
+        for (id, count) in &other.buttons {
+            *self.buttons.entry(*id).or_default() += *count;
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Device {
     Kb,
     Mouse,
+    Pad,
 }
 
 impl Device {
@@ -152,6 +176,7 @@ impl Device {
         match self {
             Self::Kb => "kb",
             Self::Mouse => "mouse",
+            Self::Pad => "pad",
         }
     }
 }

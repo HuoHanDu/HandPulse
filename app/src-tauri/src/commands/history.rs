@@ -10,7 +10,7 @@ use crate::capture::{CaptureHandle, SessionKey};
 use crate::storage::payload::CurrentBucket;
 use crate::storage::query::{
     self, BucketPoint, DetailPage, GridCell, Heatmap, Histogram, KeyStat, LiveSnapshot, MouseStats,
-    Range, Summary,
+    PadStats, Range, Summary,
 };
 use crate::storage::{Db, Settings};
 
@@ -266,6 +266,39 @@ pub async fn get_custom_detail(
         query::custom_detail(&db, start_ts, end_ts, page, &live).map_err(|e| e.to_string())
     })
     .await
+}
+
+#[tauri::command]
+pub async fn get_custom_key_stats(
+    start_ts: i64,
+    end_ts: i64,
+    state: State<'_, CaptureHandle>,
+) -> Result<Vec<KeyStat>, String> {
+    let db = get_db(&state)?;
+    blocking(move || query::custom_key_stats(&db, start_ts, end_ts).map_err(|e| e.to_string()))
+        .await
+}
+
+#[tauri::command]
+pub async fn get_custom_mouse_stats(
+    start_ts: i64,
+    end_ts: i64,
+    state: State<'_, CaptureHandle>,
+) -> Result<MouseStats, String> {
+    let db = get_db(&state)?;
+    blocking(move || query::custom_mouse_stats(&db, start_ts, end_ts).map_err(|e| e.to_string()))
+        .await
+}
+
+#[tauri::command]
+pub async fn get_custom_pad_stats(
+    start_ts: i64,
+    end_ts: i64,
+    state: State<'_, CaptureHandle>,
+) -> Result<PadStats, String> {
+    let db = get_db(&state)?;
+    blocking(move || query::custom_pad_stats(&db, start_ts, end_ts).map_err(|e| e.to_string()))
+        .await
 }
 
 #[tauri::command]

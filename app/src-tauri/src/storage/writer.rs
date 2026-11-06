@@ -9,7 +9,7 @@ use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
 use parking_lot::Mutex;
 use rusqlite::{Connection, OptionalExtension, Transaction};
 
-use super::payload::{Device, KbPayload, MousePayload, PersistBucket, decode, encode};
+use super::payload::{Device, KbPayload, MousePayload, PadPayload, PersistBucket, decode, encode};
 use super::{bump_data_version, purge_tx, read_meta_u64};
 
 pub enum WriteMsg {
@@ -120,6 +120,9 @@ pub fn clear_conn(conn: &mut Connection) -> Result<()> {
 /// 合并到旧 payload，并把**新 payload 的增量**加到预聚合。旧桶行不能被
 /// `INSERT OR REPLACE` 覆盖，否则最近一分钟会“回档”。
 pub fn apply_bucket(conn: &mut Connection, bucket: &PersistBucket) -> Result<()> {
+    if bucket.device == Device::Pad {
+        return apply_pad(conn, bucket);
+    }
     let tx = conn.transaction()?;
     let existing: Option<Vec<u8>> = tx
         .query_row(
@@ -164,6 +167,7 @@ pub fn apply_bucket(conn: &mut Connection, bucket: &PersistBucket) -> Result<()>
             let p: MousePayload = decode(&bucket.payload)?;
             apply_mouse(&tx, bucket.ts, &p)?;
         }
+        Device::Pad => {}
     }
     bump_data_version(&tx)?;
     tx.commit()?;
@@ -184,6 +188,12 @@ fn merge_payload(device: Device, old: &[u8], new: &[u8]) -> Result<Vec<u8>> {
             old.merge(&new);
             encode(&old)
         }
+        Device::Pad => {
+            let mut old: PadPayload = decode(old)?;
+            let new: PadPayload = decode(new)?;
+            old.merge(&new);
+            encode(&old)
+        }
     }
 }
 
@@ -191,6 +201,7 @@ fn payload_session(device: Device, blob: &[u8]) -> Result<u64> {
     match device {
         Device::Kb => Ok(decode::<KbPayload>(blob)?.session),
         Device::Mouse => Ok(decode::<MousePayload>(blob)?.session),
+        Device::Pad => Ok(decode::<PadPayload>(blob)?.session),
     }
 }
 
@@ -207,7 +218,36 @@ fn payload_actions(device: Device, blob: &[u8]) -> Result<u64> {
     match device {
         Device::Kb => Ok(decode::<KbPayload>(blob)?.actions()),
         Device::Mouse => Ok(decode::<MousePayload>(blob)?.actions()),
+        Device::Pad => Ok(decode::<PadPayload>(blob)?.actions()),
     }
+}
+
+/// 手柄桶没有预聚合，直接合并进 pad_bucket；Data 页按自定义范围再聚合。
+fn apply_pad(conn: &mut Connection, bucket: &PersistBucket) -> Result<()> {
+    let tx = conn.transaction()?;
+    let old: Option<Vec<u8>> = tx
+        .query_row(
+            "SELECT payload FROM pad_bucket WHERE ts=?1 AND granularity=?2 AND device='pad'",
+            rusqlite::params![bucket.ts, bucket.granularity],
+            |r| r.get(0),
+        )
+        .optional()?;
+    let payload = match old {
+        Some(old) => {
+            if is_replay(Device::Pad, &old, &bucket.payload)? {
+                return Ok(());
+            }
+            merge_payload(Device::Pad, &old, &bucket.payload)?
+        }
+        None => bucket.payload.clone(),
+    };
+    tx.execute(
+        "INSERT OR REPLACE INTO pad_bucket(ts,granularity,device,payload) VALUES(?1,?2,'pad',?3)",
+        rusqlite::params![bucket.ts, bucket.granularity, payload],
+    )?;
+    bump_data_version(&tx)?;
+    tx.commit()?;
+    Ok(())
 }
 
 fn local_hour_start(ts: i64) -> i64 {

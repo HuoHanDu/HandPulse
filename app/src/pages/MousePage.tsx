@@ -80,7 +80,7 @@ export function MousePage({ active }: Props) {
   const hotspotNote = state.empty
     ? '示例数据已清空。'
     : state.layer === 'clicks'
-      ? '准星区格值最高。网格仅覆盖主屏，按 32 × 18 归一化。'
+      ? '按点击次数排序。'
       : '移动图层：每 50ms 采样一次光标位置，反映鼠标移动落点分布。';
   const rangePrefix = state.ranges.mouse === 'session' ? '本次（启动/重置以来）' : state.ranges.mouse === 'week' ? '近 7 天' : '今天';
   const intro = state.empty

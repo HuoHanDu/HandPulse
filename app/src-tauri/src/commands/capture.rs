@@ -53,6 +53,12 @@ pub fn get_session_summary(state: State<'_, CaptureHandle>) -> SessionSummary {
     state.shared.snapshot.lock().summary.clone()
 }
 
+#[cfg(windows)]
+#[tauri::command]
+pub fn get_gamepad_state() -> crate::capture::gamepad::GamepadState {
+    crate::capture::gamepad::poll()
+}
+
 #[tauri::command]
 pub fn reset_session(state: State<'_, CaptureHandle>) -> Result<(), String> {
     state.shared.reset_request.store(true, Ordering::Relaxed);

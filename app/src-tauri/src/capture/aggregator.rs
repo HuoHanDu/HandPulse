@@ -18,7 +18,7 @@ use super::{
     Shared, Snapshot, TopKey, now_ms,
 };
 use crate::storage::payload::{
-    CurrentBucket, Device, KbPayload, MousePayload, PersistBucket, encode, px_to_cm,
+    CurrentBucket, Device, KbPayload, MousePayload, PadPayload, PersistBucket, encode, px_to_cm,
 };
 use crate::storage::writer::WriteMsg;
 
@@ -93,6 +93,7 @@ struct BucketAcc {
     chord: u64,
     peak_speed: f64,
     fast: u64,
+    pad: [u32; 17],
 }
 
 impl Default for BucketAcc {
@@ -115,6 +116,7 @@ impl Default for BucketAcc {
             chord: 0,
             peak_speed: 0.0,
             fast: 0,
+            pad: [0; 17],
         }
     }
 }
@@ -140,6 +142,24 @@ impl BucketAcc {
         self.clicks.iter().any(|v| *v > 0)
             || self.wheel.iter().any(|v| *v > 0)
             || self.move_px > 0.0
+    }
+
+    fn has_pad(&self) -> bool {
+        self.pad.iter().any(|v| *v > 0)
+    }
+
+    fn pad_payload(&self, session: u64) -> PadPayload {
+        PadPayload {
+            v: 1,
+            session,
+            buttons: self
+                .pad
+                .iter()
+                .enumerate()
+                .filter(|(_, count)| **count > 0)
+                .map(|(i, count)| (i as u8, *count))
+                .collect(),
+        }
     }
 
     fn kb_payload(&self, streak_ms: u64) -> KbPayload {
@@ -420,6 +440,7 @@ impl Aggregator {
                 RawEvent::Wheel { at, .. } => at,
                 RawEvent::Move { at, .. } => at,
                 RawEvent::AbsoluteMove { at } => at,
+                RawEvent::PadButton { at, .. } => at,
             };
             self.frame.event_ats.push(at);
         }
@@ -549,6 +570,12 @@ impl Aggregator {
                 self.mouse_events += 1;
                 self.absolute_skipped += 1;
             }
+            RawEvent::PadButton { index, at } => {
+                if let Some(slot) = self.bucket.pad.get_mut(index as usize) {
+                    *slot = slot.saturating_add(1);
+                    self.touch_input(at);
+                }
+            }
         }
     }
 
@@ -579,6 +606,20 @@ impl Aggregator {
                 let gran = self.bucket.granularity;
                 if let Some(tx) = &self.writer {
                     let b = PersistBucket::new(ts, gran, Device::Mouse, actions, blob);
+                    if tx.try_send(WriteMsg::Bucket(Box::new(b))).is_err() {
+                        shared.dropped.fetch_add(1, Ordering::Relaxed);
+                    }
+                }
+            }
+        }
+        if self.bucket.has_pad() {
+            let p = self.bucket.pad_payload(self.session_id);
+            let actions = p.actions();
+            if let Ok(blob) = encode(&p) {
+                let ts = self.bucket.ts;
+                let gran = self.bucket.granularity;
+                if let Some(tx) = &self.writer {
+                    let b = PersistBucket::new(ts, gran, Device::Pad, actions, blob);
                     if tx.try_send(WriteMsg::Bucket(Box::new(b))).is_err() {
                         shared.dropped.fetch_add(1, Ordering::Relaxed);
                     }

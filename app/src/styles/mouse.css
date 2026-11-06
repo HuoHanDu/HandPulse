@@ -64,9 +64,9 @@
 .hotspot-note{flex:0 0 auto;padding:8px 10px 10px;font-size:12px;color:var(--text-3);line-height:1.55}
 
 /* 鼠标 */
-.mouse-top{flex:0 0 auto;grid-template-columns:minmax(0,1fr) 320px;gap:36px;min-height:0}
+.mouse-top{flex:0 0 348px;height:348px;grid-template-columns:minmax(0,1fr) 320px;gap:36px;min-height:0}
 .grid-panel{overflow:visible;position:relative}
-.screenwrap{padding:0;height:349px;aspect-ratio:auto}
+.screenwrap{padding:0;height:300px;aspect-ratio:auto}
 .screen{max-width:620px;margin:0 auto;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.16);border-radius:6px;gap:1px}
 .cell{background:#0a0a0b;color:#8e8e93;font-size:11px}
 .cell.has{color:var(--ink)}
@@ -79,7 +79,7 @@
 .metric-v{font-size:19px;font-weight:500;letter-spacing:-.02em;text-align:right}
 .metric-v small{font-size:12px;color:#8e8e93;margin-left:2px}
 .rhythm,.dist{display:none}
-.mouse-bottom{flex:1 1 auto;grid-template-columns:300px minmax(0,1fr);gap:36px;margin-top:0;min-height:242px}
+.mouse-bottom{flex:1 1 auto;grid-template-columns:300px minmax(0,1fr);gap:36px;margin-top:0;min-height:260px}
 .mouseshape{padding:0}
 #mouseSvg{width:100%;height:auto;max-height:none}
 .m-case{fill:#141416;stroke:#2a2a2d;stroke-width:1}

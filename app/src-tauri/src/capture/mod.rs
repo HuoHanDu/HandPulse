@@ -7,6 +7,8 @@
 //! - 暂停时丢弃事件并清空 pressed，恢复后不会出现“卡住的键”。
 
 pub mod aggregator;
+#[cfg(windows)]
+pub mod gamepad;
 pub mod keymap;
 #[cfg(windows)]
 pub mod windows_raw;
@@ -154,6 +156,11 @@ pub enum RawEvent {
     AbsoluteMove {
         at: Instant,
     },
+    /// XInput 手柄按键按下沿；标准 17 键索引。
+    PadButton {
+        index: u8,
+        at: Instant,
+    },
 }
 
 /// 采集线程与命令共享的控制面。
@@ -247,6 +254,8 @@ impl CaptureHandle {
         }
 
         #[cfg(windows)]
+        let gamepad_tx = tx.clone();
+        #[cfg(windows)]
         {
             let raw_shared = shared.clone();
             let raw_keymap = keymap.clone();
@@ -255,6 +264,13 @@ impl CaptureHandle {
                 .spawn(move || windows_raw::run(raw_shared, raw_keymap, tx))
             {
                 mark_error(&shared, format!("Raw Input 线程启动失败：{err}"));
+            }
+            let gp_shared = shared.clone();
+            if let Err(err) = std::thread::Builder::new()
+                .name("hp-gamepad".into())
+                .spawn(move || gamepad::run(gp_shared, gamepad_tx))
+            {
+                eprintln!("[handpulse] 手柄线程启动失败: {err}");
             }
         }
 

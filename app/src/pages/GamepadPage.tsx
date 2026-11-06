@@ -1,7 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { ControllerGraphic } from '../components/ControllerGraphic';
 
 interface Props {
   active: boolean;
+}
+
+interface BackendPad {
+  connected: boolean;
+  index: number;
+  buttons: boolean[];
+  axes: number[];
+  triggers: number[];
 }
 
 const BUTTONS: Array<[number, string]> = [
@@ -11,58 +21,74 @@ const BUTTONS: Array<[number, string]> = [
   [12, '↑'], [13, '↓'], [14, '←'], [15, '→'], [16, 'Home']
 ];
 
-function pad2(n: number): string {
-  return n < 10 ? '0' + n : String(n);
+function emptyPad(): BackendPad {
+  return { connected: false, index: 0, buttons: new Array(17).fill(false), axes: [0, 0, 0, 0], triggers: [0, 0] };
+}
+
+function fromBrowser(pad: Gamepad): BackendPad {
+  const buttons = new Array(17).fill(false);
+  pad.buttons.forEach((b, i) => { if (i < 17) buttons[i] = b.pressed; });
+  const axes = [pad.axes[0] ?? 0, pad.axes[1] ?? 0, pad.axes[2] ?? 0, pad.axes[3] ?? 0];
+  const triggers = [pad.buttons[6]?.value ?? 0, pad.buttons[7]?.value ?? 0];
+  return { connected: true, index: 0, buttons, axes, triggers };
 }
 
 export function GamepadPage({ active }: Props) {
-  const [connected, setConnected] = useState(false);
-  const [name, setName] = useState('');
-  const [mapping, setMapping] = useState('');
-  const [pressed, setPressed] = useState<boolean[]>([]);
-  const [counts, setCounts] = useState<number[]>([]);
-  const [axes, setAxes] = useState<number[]>([]);
+  const [pad, setPad] = useState<BackendPad>(emptyPad);
+  const [source, setSource] = useState<'xinput' | 'browser' | ''>('');
+  const [counts, setCounts] = useState<number[]>(new Array(17).fill(0));
   const [last, setLast] = useState('等待输入…');
-  const previous = useRef<boolean[]>([]);
+  const previous = useRef<boolean[]>(new Array(17).fill(false));
 
   useEffect(() => {
     if (!active) return;
     let alive = true;
     let timer = 0;
-    const tick = () => {
+
+    const tick = async () => {
       if (!alive) return;
-      const pads = typeof navigator.getGamepads === 'function' ? navigator.getGamepads() : [];
-      const pad = pads ? Array.from(pads).find((p): p is Gamepad => !!p && p.connected) : undefined;
-      if (!pad) {
-        setConnected(false);
-        setName('');
-        setMapping('');
-        setPressed([]);
-        setAxes([]);
-        timer = window.setTimeout(tick, 250);
-        return;
+      let next = emptyPad();
+      let src: 'xinput' | 'browser' | '' = '';
+      try {
+        const raw = await invoke<BackendPad>('get_gamepad_state');
+        if (raw?.connected) {
+          next = raw;
+          src = 'xinput';
+        }
+      } catch {
+        // 非 Windows 构建或命令不存在时，退回浏览器 Gamepad API。
       }
-      setConnected(true);
-      setName(pad.id);
-      setMapping(pad.mapping || '非标准');
-      setPressed(pad.buttons.map((b) => b.pressed));
-      setAxes(pad.axes.map((v) => Math.abs(v) < 0.04 ? 0 : v));
-      setCounts((prev) => {
-        const next = prev.length === pad.buttons.length ? prev.slice() : new Array(pad.buttons.length).fill(0);
-        pad.buttons.forEach((b, i) => {
-          if (b.pressed && !previous.current[i]) next[i] = (next[i] ?? 0) + 1;
+      if (!next.connected && typeof navigator.getGamepads === 'function') {
+        const pads = navigator.getGamepads();
+        const browserPad = pads ? Array.from(pads).find((p): p is Gamepad => !!p && p.connected) : undefined;
+        if (browserPad) {
+          next = fromBrowser(browserPad);
+          src = 'browser';
+        }
+      }
+      setPad(next);
+      setSource(src);
+      if (next.connected) {
+        setCounts((prev) => {
+          const copy = prev.length === next.buttons.length ? prev.slice() : new Array(next.buttons.length).fill(0);
+          next.buttons.forEach((down, i) => {
+            if (down && !previous.current[i]) copy[i] = (copy[i] ?? 0) + 1;
+          });
+          return copy;
         });
-        return next;
-      });
-      previous.current = pad.buttons.map((b) => b.pressed);
-      const down = pad.buttons.findIndex((b) => b.pressed);
-      if (down >= 0) {
-        const label = BUTTONS.find(([i]) => i === down)?.[1] ?? 'B' + down;
-        setLast('按下 ' + label + ' · ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }));
+        previous.current = next.buttons.slice();
+        const down = next.buttons.findIndex(Boolean);
+        if (down >= 0) {
+          const label = BUTTONS.find(([i]) => i === down)?.[1] ?? 'B' + down;
+          setLast('按下 ' + label + ' · ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }));
+        }
+      } else {
+        previous.current = new Array(17).fill(false);
       }
-      timer = window.setTimeout(tick, 60);
+      timer = window.setTimeout(tick, 50);
     };
-    tick();
+
+    void tick();
     return () => {
       alive = false;
       window.clearTimeout(timer);
@@ -75,42 +101,45 @@ export function GamepadPage({ active }: Props) {
     <section className={'page' + (active ? ' active' : '')} data-page="gamepad" aria-label="手柄适配">
       <header className="g-head">
         <h1>手柄适配</h1>
-        <p>连接手柄后按任意键或推动摇杆，检查按键、摇杆和扳机是否被正确识别。</p>
+        <p>接上手柄后按任意键或推动摇杆；XInput 手柄由本机直接读取，不依赖窗口焦点。</p>
       </header>
 
       <div className="panel pad-status">
-        <div className={'pad-dot' + (connected ? ' on' : '')} />
+        <div className={'pad-dot' + (pad.connected ? ' on' : '')} />
         <div>
-          <div className="pad-status-title">{connected ? '已连接' : '未检测到手柄'}</div>
-          <div className="pad-status-sub">{connected ? name : '插上 USB / 蓝牙手柄，然后按一下任意键'}</div>
+          <div className="pad-status-title">{pad.connected ? '已连接' : '未检测到手柄'}</div>
+          <div className="pad-status-sub">
+            {pad.connected
+              ? (source === 'xinput' ? `XInput 手柄 #${pad.index}` : '浏览器 Gamepad API')
+              : '插上 USB / 蓝牙手柄，然后按一下任意键；Xbox 手柄优先走 XInput'}
+          </div>
         </div>
         <div className="pad-status-meta">
-          <span>{connected ? 'Mapping: ' + mapping : '前台适配页'}</span>
+          <span>{pad.connected ? (source === 'xinput' ? 'XInput' : 'Gamepad API') : '前台适配页'}</span>
           <span>{last}</span>
         </div>
-        <button className="tbtn" type="button" disabled={!connected} onClick={() => setCounts([])}>清零计数</button>
+        <button className="tbtn" type="button" disabled={!pad.connected} onClick={() => setCounts(new Array(17).fill(0))}>清零计数</button>
       </div>
 
-      <div className="pad-grid">
-        <div className="panel pad-panel">
-          <div className="ph"><span className="ph-title">按键</span><span className="ph-meta">按下计数 / 实时状态</span></div>
+      <div className="pad-stage">
+        <div className="panel pad-visual">
+          <div className="ph"><span className="ph-title">手柄示意</span><span className="ph-meta">按键 / 摇杆 / 扳机实时状态</span></div>
+          <ControllerGraphic buttons={pad.buttons} axes={pad.axes} triggers={pad.triggers} />
+        </div>
+
+        <div className="panel pad-side">
+          <div className="ph"><span className="ph-title">按键</span><span className="ph-meta">按下计数</span></div>
           <div className="pad-buttons">
             {BUTTONS.map(([i, label]) => (
-              <div key={i} className={'pad-btn' + (pressed[i] ? ' is-down' : '')}>
+              <div key={i} className={'pad-btn' + (pad.buttons[i] ? ' is-down' : '')}>
                 <span className="pad-btn-label">{label}</span>
                 <span className="pad-btn-idx mono">{i}</span>
-                <span className="pad-btn-count mono">{pad2(counts[i] ?? 0)}</span>
+                <span className="pad-btn-count mono">{String(counts[i] ?? 0).padStart(2, '0')}</span>
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="panel pad-panel">
-          <div className="ph"><span className="ph-title">摇杆 / 扳机</span><span className="ph-meta">归一化到 -1…1</span></div>
           <div className="pad-axes">
-            {axes.length === 0 ? (
-              <div className="pad-empty">连接手柄后显示轴数据。</div>
-            ) : axes.map((v, i) => (
+            {pad.axes.map((v, i) => (
               <div className="pad-axis" key={i}>
                 <div className="pad-axis-top"><span>{axisLabel(i)}</span><span className="mono">{v >= 0 ? '+' : ''}{v.toFixed(2)}</span></div>
                 <div className="pad-axis-track">
@@ -125,15 +154,12 @@ export function GamepadPage({ active }: Props) {
               </div>
             ))}
           </div>
-          <div className="pad-hint">
-            标准映射：A/B/X/Y、肩键、扳机、十字键、双摇杆。不同手柄的轴顺序可能不同，可在这里确认实际编号。
-          </div>
         </div>
       </div>
 
       <div className="panel pad-note">
         <span className="pad-note-title">说明</span>
-        <span>当前页面通过浏览器 Gamepad API 做前台适配，不上传、不写入数据库；后台手柄持久采集需要单独的 HID/轴映射方案，暂未包含。</span>
+        <span>当前页面用 XInput / Gamepad API 做前台适配；XInput 的按键按下会同时写入分钟桶，可在“数据浏览 → 手柄”查看历史。摇杆/扳机目前只做实时显示。</span>
       </div>
     </section>
   );
