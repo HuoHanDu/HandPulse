@@ -508,8 +508,38 @@ function localIsoDate(d: Date): string {
   return y + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
 }
 
+function monthChartFromCalendar(cal: HeatmapChart): HeatmapChart {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const prefix = year + '-' + (month < 10 ? '0' : '') + month + '-';
+  const first = new Date(year, month - 1, 1);
+  const offset = (first.getDay() + 6) % 7;
+  const cells = cal.cells
+    .filter((c) => c.iso?.startsWith(prefix))
+    .map((c) => {
+      const day = Number(c.iso!.slice(8, 10));
+      return { ...c, x: Math.floor((day - 1 + offset) / 7), y: (offset + day - 1) % 7 };
+    });
+  const max = cells.reduce((m, c) => Math.max(m, c.v), 0);
+  const peak = cells.reduce((a, b) => (b.v > a.v ? b : a), cells[0] ?? { x: 0, y: 0, v: 0, iso: '' });
+  return {
+    type: 'month',
+    cells,
+    max,
+    readout: peak.iso ? peak.iso + '，' + nf(peak.v) + ' 次' : '本月暂无记录',
+    aria: year + ' 年 ' + month + ' 月日历热力图',
+    footnote: year + ' 年 ' + month + ' 月，最高 ' + nf(max) + ' 次/天',
+    legendMin: '少',
+    legendMax: nf(max) + ' 次/天'
+  };
+}
+
 export async function getHeatmapChart(range: RangeKey, type: HeatType): Promise<HeatmapChart> {
   if (!isTauri) return mockHeatmapChart(range, type);
+  if (type === 'month') {
+    return monthChartFromCalendar(await getHeatmapChart(range, 'cal'));
+  }
   const rawType = type === 'week' ? 'week_hour' : 'calendar';
   const raw = await getHeatmap(range, rawType);
   if (type === 'cal') {
@@ -554,6 +584,9 @@ export async function getHeatmapChart(range: RangeKey, type: HeatType): Promise<
 }
 
 function mockHeatmapChart(range: RangeKey, type: HeatType): Promise<HeatmapChart> {
+  if (type === 'month') {
+    return mockHeatmapChart(range, 'cal').then(monthChartFromCalendar);
+  }
   return call('get_heatmap', { range, type }, () => {
     if (type === 'cal') {
       const firstWd = ((2 - 370) % 7 + 7) % 7;
@@ -597,19 +630,20 @@ function mockHeatmapChart(range: RangeKey, type: HeatType): Promise<HeatmapChart
 }
 
 export async function loadStats(range: RangeKey): Promise<StatsData> {
-  const [summary, line, top20, hours, gaps, week, cal] = await Promise.all([
+  const [summary, line, top20, hours, gaps, week, cal, month] = await Promise.all([
     getSummary(range),
     getLineSeries(range),
     getHistogramChart(range, 'top20'),
     getHistogramChart(range, 'hours'),
     getHistogramChart(range, 'gaps'),
     getHeatmapChart(range, 'week'),
-    getHeatmapChart(range, 'cal')
+    getHeatmapChart(range, 'cal'),
+    getHeatmapChart(range, 'month')
   ]);
   return {
     summary, line,
     histograms: { top20, hours, gaps },
-    heatmaps: { week, cal }
+    heatmaps: { week, cal, month }
   };
 }
 
@@ -626,6 +660,14 @@ export async function getDetailPage(range: RangeKey, page: number): Promise<Deta
     pageSize: 50,
     granLabel: range === 'week' ? '每桶 1 小时' : range === 'month' ? '每桶 1 天' : '每桶 60 秒'
   };
+}
+
+export async function getCustomDetail(startTs: number, endTs: number, page: number): Promise<DetailPage> {
+  if (isTauri) {
+    return invoke<DetailPage>('get_custom_detail', { startTs, endTs, page });
+  }
+  // 浏览器 mock 没有自定义 SQL，退回今日明细以便继续看视觉。
+  return getDetailPage('today', page);
 }
 
 /* ---------------- 设置 / 维护 ---------------- */

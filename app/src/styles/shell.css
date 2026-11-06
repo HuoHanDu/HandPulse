@@ -32,7 +32,7 @@
 @keyframes breathe{0%,100%{opacity:.2;transform:scale(.85)}50%{opacity:.85;transform:scale(1.2)}}
 
 /* ---------- main / transport ---------- */
-.main{display:flex;flex-direction:column;min-width:0;background:var(--bg)}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;background:var(--bg)}
 .transport{
   flex:0 0 44px;height:44px;display:flex;align-items:center;gap:8px;
   padding:0 12px;background:#0b0c0e;border-bottom:1px solid var(--line);
@@ -115,8 +115,8 @@
   background:#1b3a66;border:1px solid #2f6bc4;color:#dce9ff;
 }
 .mask-btn:hover{background:#22477b}
-.app{grid-template-columns:64px minmax(0,1fr) var(--insp)}
-.view{padding:28px 40px 34px;overflow-y:auto;overflow-x:hidden}
+.app{grid-template-columns:64px minmax(0,1fr) var(--insp);grid-template-rows:minmax(0,1fr);min-height:0;overflow:hidden}
+.view{padding:28px 40px 34px;overflow-y:auto;overflow-x:hidden;min-height:0}
 .view::-webkit-scrollbar{width:10px}
 .view::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:5px}
 .page.active{gap:14px;height:auto;min-height:100%}

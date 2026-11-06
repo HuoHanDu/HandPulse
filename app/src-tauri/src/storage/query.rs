@@ -1094,6 +1094,87 @@ pub fn detail(db: &Db, range: Range, page: u32, live: &LiveSnapshot) -> Result<D
     })
 }
 
+/// 自定义时间范围（秒，end 开区间）的分钟明细；供“数据浏览”页使用。
+pub fn custom_detail(
+    db: &Db,
+    start_ts: i64,
+    end_ts: i64,
+    page: u32,
+    live: &LiveSnapshot,
+) -> Result<DetailPage> {
+    const PAGE_SIZE: u32 = 50;
+    let mut map: BTreeMap<i64, (u64, u64, f64)> = BTreeMap::new();
+    if start_ts < end_ts {
+        let conn = db.open_read()?;
+        let mut stmt = conn.prepare(
+            "SELECT ts,device,actions,payload FROM bucket WHERE ts>=?1 AND ts<?2 ORDER BY ts",
+        )?;
+        let rows = stmt.query_map([start_ts, end_ts], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, u64>(2)?,
+                r.get::<_, Vec<u8>>(3)?,
+            ))
+        })?;
+        for row in rows {
+            let (ts, device, actions, payload) = row?;
+            let e = map.entry((ts / 60) * 60).or_insert((0, 0, 0.0));
+            if device == "mouse" {
+                e.1 += actions;
+                if let Ok(p) = decode::<MousePayload>(&payload) {
+                    e.2 += p.px;
+                }
+            } else {
+                e.0 += actions;
+            }
+        }
+        if let Some(cur) = current_bucket(live).filter(|c| c.ts >= start_ts && c.ts < end_ts) {
+            let e = map.entry((cur.ts / 60) * 60).or_insert((0, 0, 0.0));
+            e.0 += cur.kb.keys();
+            e.1 += cur.mouse.clicks();
+            e.2 += cur.mouse.px;
+        }
+    }
+
+    let multi_day = end_ts - start_ts > 86_400;
+    let mut rows: Vec<DetailRow> = map
+        .into_iter()
+        .filter(|(_, (keys, clicks, px))| *keys + *clicks > 0 || *px > 0.0)
+        .map(|(ts, (keys, clicks, px))| {
+            let label = Local
+                .timestamp_opt(ts, 0)
+                .single()
+                .unwrap_or_else(now_local)
+                .format(if multi_day { "%m/%d %H:%M" } else { "%H:%M" })
+                .to_string();
+            DetailRow {
+                ts: ts * 1000,
+                label,
+                actions: keys + clicks,
+                keys,
+                clicks,
+                move_cm: px_to_cm(px),
+            }
+        })
+        .collect();
+    rows.sort_by_key(|b| std::cmp::Reverse(b.ts));
+    let total = rows.len() as u64;
+    let start = page as usize * PAGE_SIZE as usize;
+    let page_rows = rows
+        .into_iter()
+        .skip(start)
+        .take(PAGE_SIZE as usize)
+        .collect();
+    Ok(DetailPage {
+        rows: page_rows,
+        total,
+        page,
+        page_size: PAGE_SIZE,
+        gran_label: "自定义范围 · 每桶 60 秒".into(),
+    })
+}
+
 fn merge_row(rows: &mut Vec<DetailRow>, ts: i64, keys: u64, clicks: u64, px: f64, label: &str) {
     if let Some(row) = rows.iter_mut().find(|r| r.ts == ts * 1000) {
         row.keys += keys;
@@ -1259,6 +1340,23 @@ mod tests {
             )
             .unwrap();
         assert_eq!(actions, 5);
+        cleanup(&p);
+    }
+
+    #[test]
+    fn custom_detail_merges_kb_and_mouse_in_range() {
+        let (db, p) = temp_db("custom_detail");
+        let now = Local::now().timestamp();
+        let ts = now - now.rem_euclid(60);
+        let mut conn = db.open_write().unwrap();
+        apply_bucket(&mut conn, &kb_bucket(ts, 3)).unwrap();
+        apply_bucket(&mut conn, &mouse_bucket(ts, 2)).unwrap();
+        drop(conn);
+        let page = custom_detail(&db, ts, ts + 60, 0, &LiveSnapshot::default()).unwrap();
+        assert_eq!(page.total, 1);
+        assert_eq!(page.rows[0].keys, 3);
+        assert_eq!(page.rows[0].clicks, 2);
+        assert_eq!(page.rows[0].actions, 5);
         cleanup(&p);
     }
 

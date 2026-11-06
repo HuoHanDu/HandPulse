@@ -14,7 +14,9 @@ import { ResizeHandles } from './shell/ResizeHandles';
 import { CloseGuard } from './shell/CloseGuard';
 import { KeyboardPage } from './pages/KeyboardPage';
 import { MousePage } from './pages/MousePage';
+import { GamepadPage } from './pages/GamepadPage';
 import { StatsPage } from './pages/StatsPage';
+import { DataPage } from './pages/DataPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { Modal } from './ui/Modal';
 import { Toast } from './ui/Toast';
@@ -148,7 +150,9 @@ export default function App() {
           <div className="view" id="view">
             <KeyboardPage active={state.route === 'keyboard'} />
             <MousePage active={state.route === 'mouse'} />
+            <GamepadPage active={state.route === 'gamepad'} />
             <StatsPage active={state.route === 'stats'} />
+            <DataPage active={state.route === 'data'} />
             <SettingsPage active={state.route === 'settings'} />
           </div>
         </main>

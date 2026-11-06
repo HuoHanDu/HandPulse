@@ -28,6 +28,26 @@ const ITEMS: Array<{ route: Route; label: string; path: ReactNode }> = [
     path: <path d="M4 19V11M9.3 19V5M14.7 19v-6M20 19V9" />
   },
   {
+    route: 'gamepad',
+    label: '手柄适配',
+    path: (
+      <>
+        <path d="M7.5 8.5h9a5 5 0 0 1 4.8 6.4l-.9 3a3 3 0 0 1-5.2 1.1L13.8 17h-3.6l-1.4 2a3 3 0 0 1-5.2-1.1l-.9-3A5 5 0 0 1 7.5 8.5Z" />
+        <path d="M7 12v3M5.5 13.5h3M16 12.5h.01M18 14h.01" />
+      </>
+    )
+  },
+  {
+    route: 'data',
+    label: '数据浏览',
+    path: (
+      <>
+        <rect x="3.5" y="4" width="17" height="16" rx="2" />
+        <path d="M3.5 9h17M8 4v16M13 9v11" />
+      </>
+    )
+  },
+  {
     route: 'settings',
     label: '设置',
     path: (

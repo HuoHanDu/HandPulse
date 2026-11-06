@@ -184,7 +184,7 @@ export interface HistogramChart {
   aria: string;
 }
 
-export type HeatType = 'week' | 'cal';
+export type HeatType = 'week' | 'cal' | 'month';
 
 export interface HeatmapChart {
   type: HeatType;

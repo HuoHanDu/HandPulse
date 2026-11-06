@@ -1,12 +1,12 @@
 import { createContext, useContext, type Dispatch } from 'react';
 import type { RangeKey } from '../ipc/types';
 
-export type Route = 'keyboard' | 'mouse' | 'stats' | 'settings';
+export type Route = 'keyboard' | 'mouse' | 'gamepad' | 'stats' | 'data' | 'settings';
 export type Disp = 'all' | 'heat' | 'real';
 export type Layout = 104 | 87;
 export type Layer = 'clicks' | 'move';
 export type HistTab = 'top20' | 'hours' | 'gaps';
-export type HeatTab = 'week' | 'cal';
+export type HeatTab = 'week' | 'cal' | 'month';
 export type ModalKind = 'clear' | 'reset' | null;
 
 export interface Cell {
@@ -65,7 +65,7 @@ export type Action =
 
 export const initialState: AppState = {
   route: 'keyboard',
-  ranges: { keyboard: 'today', mouse: 'today', stats: 'today', settings: 'today' },
+  ranges: { keyboard: 'today', mouse: 'today', gamepad: 'today', stats: 'today', data: 'today', settings: 'today' },
   disp: 'all',
   layout: 104,
   sel: 'A',
@@ -146,18 +146,29 @@ export function useApp() {
   return ctx;
 }
 
-export const TITLES: Record<Route, string> = { keyboard: '键盘', mouse: '鼠标', stats: '数据', settings: '设置' };
+export const TITLES: Record<Route, string> = {
+  keyboard: '键盘',
+  mouse: '鼠标',
+  gamepad: '手柄',
+  stats: '数据',
+  data: '数据浏览',
+  settings: '设置'
+};
 
 export const SUBS: Record<Route, string> = {
   keyboard: '键位 · A',
   mouse: '点击分布',
+  gamepad: '适配与测试',
   stats: '图表摘要',
+  data: '自定义范围',
   settings: '采集与存储'
 };
 
 export const RANGE_OPTS: Record<Route, Array<[RangeKey, string]>> = {
   keyboard: [['session', '本次'], ['today', '今日'], ['week', '7 天']],
   mouse: [['session', '本次'], ['today', '今日'], ['week', '7 天']],
+  gamepad: [['session', '本次'], ['today', '今日'], ['week', '7 天']],
   stats: [['today', '今日'], ['week', '7 天'], ['month', '30 天']],
+  data: [['today', '今日'], ['week', '7 天'], ['month', '30 天']],
   settings: [['session', '本次'], ['today', '今日'], ['week', '7 天']]
 };

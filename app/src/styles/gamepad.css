@@ -1,0 +1,34 @@
+/* 手柄适配页 */
+.pad-status{
+  flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:14px 16px;
+}
+.pad-dot{width:10px;height:10px;border-radius:50%;background:#4a4d54;flex:0 0 auto;box-shadow:0 0 0 4px rgba(255,255,255,.035)}
+.pad-dot.on{background:#35d0a5;box-shadow:0 0 0 4px rgba(53,208,165,.12)}
+.pad-status-title{font-size:15px;color:var(--text)}
+.pad-status-sub{font-size:12px;color:var(--text-3);margin-top:3px;max-width:620px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.pad-status-meta{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:11px;color:var(--text-3)}
+.pad-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:14px;flex:1 1 auto;min-height:0}
+.pad-panel{min-height:0}
+.pad-buttons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:12px;overflow:auto}
+.pad-btn{
+  min-height:54px;border:1px solid rgba(255,255,255,.08);border-radius:9px;background:#0c0d10;
+  display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;align-items:center;
+  padding:7px 9px;transition:background .08s ease,border-color .08s ease,transform .08s ease;
+}
+.pad-btn.is-down{background:rgba(41,151,255,.18);border-color:#2997ff;transform:translateY(-1px)}
+.pad-btn-label{font-size:13px;color:var(--text);font-weight:500}
+.pad-btn-idx{font-size:10px;color:var(--text-3)}
+.pad-btn-count{grid-column:2;grid-row:2;font-size:11px;color:var(--text-3);text-align:right}
+.pad-axes{padding:14px 16px;display:flex;flex-direction:column;gap:16px}
+.pad-axis-top{display:flex;justify-content:space-between;font-size:12px;color:var(--text-2);margin-bottom:6px}
+.pad-axis-track{height:8px;border-radius:4px;background:#17191e;position:relative;overflow:hidden}
+.pad-axis-zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.18)}
+.pad-axis-fill{position:absolute;top:0;bottom:0;background:var(--accent);border-radius:4px;transition:width .05s linear}
+.pad-hint{font-size:12px;line-height:1.6;color:var(--text-3);padding:0 16px 14px;margin-top:auto}
+.pad-empty{font-size:13px;color:var(--text-3);padding:18px 0}
+.pad-note{flex:0 0 auto;display:flex;gap:10px;align-items:flex-start;padding:11px 14px;font-size:12px;line-height:1.55;color:var(--text-3)}
+.pad-note-title{color:var(--text-2);font-weight:500;flex:0 0 auto}
+@media (max-width:1100px){
+  .pad-grid{grid-template-columns:1fr}
+  .pad-status-meta{display:none}
+}

@@ -7,6 +7,8 @@
 @import './mouse.css';
 @import './stats.css';
 @import './settings.css';
+@import './data.css';
+@import './gamepad.css';
 @import './inspector.css';
 @import './overlay.css';
 @import './responsive.css';

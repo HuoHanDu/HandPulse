@@ -6,11 +6,12 @@ import { LineChart } from '../charts/LineChart';
 import { Histogram } from '../charts/Histogram';
 import { WeekHeatmap } from '../charts/WeekHeatmap';
 import { CalendarHeatmap } from '../charts/CalendarHeatmap';
+import { MonthHeatmap } from '../charts/MonthHeatmap';
 import { DetailTable } from '../charts/DetailTable';
 import type { DetailPage, HistDim, HeatType } from '../ipc/types';
 
 const HIST_OPTS: Array<[HistDim, string]> = [['top20', 'Top 20'], ['hours', '时段'], ['gaps', '间隔']];
-const HEAT_OPTS: Array<[HeatType, string]> = [['week', '7×24'], ['cal', '日历']];
+const HEAT_OPTS: Array<[HeatType, string]> = [['week', '7×24'], ['cal', '日历'], ['month', '月历']];
 
 interface Props {
   active: boolean;
@@ -121,6 +122,7 @@ export function StatsPage({ active }: Props) {
           <div className="chart" id="heatChart">
             {heat && state.heat === 'week' && <WeekHeatmap chart={heat} empty={state.empty} onReadout={setHeatReadout} />}
             {heat && state.heat === 'cal' && <CalendarHeatmap chart={heat} empty={state.empty} onReadout={setHeatReadout} />}
+            {heat && state.heat === 'month' && <MonthHeatmap chart={heat} empty={state.empty} onReadout={setHeatReadout} />}
           </div>
         </div>
       </div>

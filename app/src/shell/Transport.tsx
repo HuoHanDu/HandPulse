@@ -29,9 +29,11 @@ export function Transport() {
         <span id="statusText">{state.paused ? '已暂停' : '运行中'}</span>
       </button>
       <span className="tp-date mono">{dateText}</span>
-      {state.route === 'settings' ? (
+      {state.route === 'settings' || state.route === 'data' || state.route === 'gamepad' ? (
         <div className="seg" id="rangeSeg" role="group" aria-label="时间范围">
-          <span className="tp-static">全部时间</span>
+          <span className="tp-static">
+            {state.route === 'settings' ? '全部时间' : state.route === 'data' ? '自定义范围' : '实时检测'}
+          </span>
         </div>
       ) : (
         <Segmented

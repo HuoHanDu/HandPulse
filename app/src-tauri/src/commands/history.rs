@@ -254,6 +254,21 @@ pub fn clear_all_data(state: State<'_, CaptureHandle>) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn get_custom_detail(
+    start_ts: i64,
+    end_ts: i64,
+    page: u32,
+    state: State<'_, CaptureHandle>,
+) -> Result<DetailPage, String> {
+    let db = get_db(&state)?;
+    let live = live_snapshot(&state.shared);
+    blocking(move || {
+        query::custom_detail(&db, start_ts, end_ts, page, &live).map_err(|e| e.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
 pub fn get_current_bucket(
     state: State<'_, CaptureHandle>,
 ) -> Result<Option<CurrentBucket>, String> {
