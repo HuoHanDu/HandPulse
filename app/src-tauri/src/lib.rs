@@ -80,6 +80,7 @@ pub fn run() {
             commands::capture::get_capture_stats,
             commands::capture::get_session_summary,
             commands::capture::get_gamepad_state,
+            commands::capture::reset_gamepad_counts,
             commands::capture::reset_session,
             commands::history::get_summary,
             commands::history::get_key_stats,

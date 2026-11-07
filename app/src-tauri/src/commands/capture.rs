@@ -59,6 +59,12 @@ pub fn get_gamepad_state() -> crate::capture::gamepad::GamepadState {
     crate::capture::gamepad::poll()
 }
 
+#[cfg(windows)]
+#[tauri::command]
+pub fn reset_gamepad_counts() {
+    crate::capture::gamepad::reset_counts();
+}
+
 #[tauri::command]
 pub fn reset_session(state: State<'_, CaptureHandle>) -> Result<(), String> {
     state.shared.reset_request.store(true, Ordering::Relaxed);

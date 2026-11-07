@@ -6,7 +6,7 @@
 #![cfg(windows)]
 
 use serde::Serialize;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use windows::Win32::UI::Input::XboxController::{
     XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_BACK, XINPUT_GAMEPAD_DPAD_DOWN,
@@ -30,6 +30,20 @@ pub struct GamepadState {
     pub axes: Vec<f32>,
     /// 左扳机、右扳机，0..1
     pub triggers: Vec<f32>,
+    /// 本次会话的按下次数，标准 17 键索引
+    pub counts: Vec<u64>,
+}
+
+/// 后台线程维护的会话计数；前端只读，避免页面刷新/切换导致计数丢失。
+fn session_counts() -> &'static Mutex<[u64; 17]> {
+    static COUNTS: OnceLock<Mutex<[u64; 17]>> = OnceLock::new();
+    COUNTS.get_or_init(|| Mutex::new([0; 17]))
+}
+
+pub fn reset_counts() {
+    if let Ok(mut counts) = session_counts().lock() {
+        *counts = [0; 17];
+    }
 }
 
 fn axis(v: i16) -> f32 {
@@ -83,6 +97,10 @@ pub fn poll() -> GamepadState {
                 g.bLeftTrigger as f32 / 255.0,
                 g.bRightTrigger as f32 / 255.0,
             ],
+            counts: session_counts()
+                .lock()
+                .map(|counts| counts.to_vec())
+                .unwrap_or_default(),
         };
     }
     GamepadState::default()
@@ -101,6 +119,9 @@ pub fn run(shared: Arc<Shared>, tx: crossbeam_channel::Sender<RawEvent>) {
         let state = poll();
         for (i, down) in state.buttons.iter().enumerate().take(17) {
             if *down && !previous[i] {
+                if let Ok(mut counts) = session_counts().lock() {
+                    counts[i] = counts[i].saturating_add(1);
+                }
                 let _ = tx.try_send(RawEvent::PadButton {
                     index: i as u8,
                     at: Instant::now(),

@@ -12,6 +12,7 @@ interface BackendPad {
   buttons: boolean[];
   axes: number[];
   triggers: number[];
+  counts?: number[];
 }
 
 const BUTTONS: Array<[number, string]> = [
@@ -39,6 +40,7 @@ export function GamepadPage({ active }: Props) {
   const [layout, setLayout] = useState<'auto' | ControllerLayout>('auto');
   const [detected, setDetected] = useState<ControllerLayout>('xbox');
   const [counts, setCounts] = useState<number[]>(new Array(17).fill(0));
+  const countsRef = useRef<number[]>(new Array(17).fill(0));
   const [last, setLast] = useState('等待输入…');
   const previous = useRef<boolean[]>(new Array(17).fill(false));
 
@@ -80,13 +82,17 @@ export function GamepadPage({ active }: Props) {
       setPad(next);
       setSource(src);
       if (next.connected) {
-        setCounts((prev) => {
-          const copy = prev.length === next.buttons.length ? prev.slice() : new Array(next.buttons.length).fill(0);
-          next.buttons.forEach((down, i) => {
-            if (down && !previous.current[i]) copy[i] = (copy[i] ?? 0) + 1;
-          });
-          return copy;
+        const prev = previous.current;
+        const local = countsRef.current.slice();
+        next.buttons.forEach((down, i) => {
+          if (down && !prev[i]) local[i] = (local[i] ?? 0) + 1;
         });
+        const backend = next.counts?.length === 17 ? next.counts : null;
+        const merged = backend
+          ? local.map((value, i) => Math.max(value, backend[i] ?? 0))
+          : local;
+        countsRef.current = merged;
+        setCounts(merged);
         previous.current = next.buttons.slice();
         const down = next.buttons.findIndex(Boolean);
         if (down >= 0) {
@@ -109,6 +115,17 @@ export function GamepadPage({ active }: Props) {
   const axisLabel = (i: number) => ['左摇杆 X', '左摇杆 Y', '右摇杆 X', '右摇杆 Y'][i] ?? '轴 ' + i;
   const view = layout === 'auto' ? detected : layout;
 
+  const clearCounts = async () => {
+    try {
+      await invoke('reset_gamepad_counts');
+    } catch {
+      // 浏览器预览或非 Windows 构建没有该命令，清空前端即可。
+    }
+    countsRef.current = new Array(17).fill(0);
+    previous.current = new Array(17).fill(false);
+    setCounts(new Array(17).fill(0));
+  };
+
   return (
     <section className={'page' + (active ? ' active' : '')} data-page="gamepad" aria-label="手柄适配">
       <header className="g-head">
@@ -130,7 +147,7 @@ export function GamepadPage({ active }: Props) {
           <span>{pad.connected ? (source === 'xinput' ? 'XInput' : 'Gamepad API') : '前台适配页'}</span>
           <span>{last}</span>
         </div>
-        <button className="tbtn" type="button" disabled={!pad.connected} onClick={() => setCounts(new Array(17).fill(0))}>清零计数</button>
+        <button className="tbtn" type="button" disabled={!pad.connected} onClick={clearCounts}>清零计数</button>
       </div>
 
       <div className="pad-stage">
