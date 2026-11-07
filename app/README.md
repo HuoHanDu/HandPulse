@@ -1,7 +1,7 @@
 # 手脉 HandPulse · app
 
 Windows 桌面常驻应用「手脉」的 Tauri 2 工程。界面沿用已定稿原型（`../design-demos/HandPulse-Prototype.html`）。
-M3 起 Tauri 下的历史数据来自本机 SQLite；浏览器 dev 仍回退 mock。不联网、不读取输入内容。
+当前版本 **0.9.8**；Tauri 下的历史数据来自本机 SQLite；浏览器 dev 仍回退 mock。不联网、不读取输入内容。
 
 ## 状态
 
@@ -46,8 +46,8 @@ M3 起 Tauri 下的历史数据来自本机 SQLite；浏览器 dev 仍回退 moc
 cd 'D:\Code\壳隐\HandPulse\app'
 npm run tauri build
 # 产物：
-# src-tauri/target/release/bundle/nsis/HandPulse_0.9.0_x64-setup.exe
-# src-tauri/target/release/bundle/msi/HandPulse_0.9.0_x64_en-US.msi
+# src-tauri/target/release/bundle/nsis/HandPulse_<version>_x64-setup.exe
+# src-tauri/target/release/bundle/msi/HandPulse_<version>_x64_en-US.msi
 ```
 
 ## 开发

@@ -1,0 +1,64 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        working-directory: app
+        run: npm ci
+
+      # 先把版本号改成 tag 里的版本（例如 v0.9.9 -> 0.9.9）。
+      # 这样 tag、安装包、latest.json 三者不会对不上。
+      - name: Sync version from tag
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+\.\d+') {
+            throw "Tag must look like v1.2.3, got ${{ github.ref_name }}"
+          }
+          node -e "const fs=require('fs');const v=process.env.VERSION;let p=JSON.parse(fs.readFileSync('app/package.json'));p.version=v;fs.writeFileSync('app/package.json',JSON.stringify(p,null,2)+'\n');let c=fs.readFileSync('app/src-tauri/Cargo.toml','utf8');c=c.replace(/^version = \".*?\"$/m,'version = \"'+v+'\"');fs.writeFileSync('app/src-tauri/Cargo.toml',c);let t=JSON.parse(fs.readFileSync('app/src-tauri/tauri.conf.json'));t.version=v;fs.writeFileSync('app/src-tauri/tauri.conf.json',JSON.stringify(t,null,2)+'\n');"
+        env:
+          VERSION: ${{ github.ref_name }}
+
+      - name: Build and publish draft release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 接入自动更新后，在仓库 Secrets 里加这两个；没有更新签名时先留空。
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: app
+          tagName: v__VERSION__
+          releaseName: 'HandPulse v__VERSION__'
+          releaseBody: |
+            手脉 HandPulse Windows 安装包。
+
+            - NSIS 安装版：HandPulse_*_x64-setup.exe
+            - MSI 安装版：HandPulse_*_x64_en-US.msi
+
+            安装包尚未做 Windows 代码签名，首次运行可能触发 SmartScreen 提示。
+          releaseDraft: true
+          prerelease: false
+          # 接入 updater 并生成 .sig 后改成 true。
+          uploadUpdaterJson: false
+          updaterJsonPreferNsis: true

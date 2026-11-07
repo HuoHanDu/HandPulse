@@ -1,48 +1,118 @@
-# 手脉 HandPulse · 原型网页
+# 手脉 HandPulse
 
-> 需求依据：`docs/02-原型需求报告.md`；上游：`docs/01-需求分析报告.md`。
-> 风格依据：`D:\Download\DESIGN-apple(1).md`（apple.com 五页设计分析，用户提供）。
-> 当前交付：**方向 2 的工作台骨架 + 方向 1 的暗厅视觉**（用户 2026-11-04 选定混搭）。
+Windows 本地键盘 / 鼠标 / 手柄使用分析工具。所有统计都在本机完成：不联网、不读取输入内容、不记录按键顺序，只保存聚合后的次数、时长、点击与移动距离。
 
-## 最终版
+> 当前版本：**0.9.8**，Windows 10/11 x64，Tauri 2 + React 19 + Rust。
+> 安装包尚未做 Windows 代码签名，首次运行会出现 SmartScreen 提示。
 
-```
-design-demos/HandPulse-Prototype.html
-```
+## 功能
 
-单文件：Mock 数据、字体（Inter / JetBrains Mono）都已内嵌，无 CDN、无网络请求，双击即可打开。
-四页路由：`#/keyboard`、`#/mouse`、`#/stats`、`#/settings`。
-
-- **结构**：64px 图标轨道 + transport（运行状态 / 日期 / 范围 / 今日动作 / 按键 / 点击 / 时间 / 暂停）+ 输入时间轴 + 主工作区 + 300px inspector。
-- **视觉**：纯黑 #000、46px display 负字距标题、单一 Action 蓝 #2997ff、胶囊控件、无卡片边框、键盘作为被顶光打亮的实物（只在它下面有一处阴影感）、596 处留白由黑场承担。
-- **简化**：键盘页去掉重复的 60 分钟带宽（transport 的时间轴承担实时），Top10 改成两列十行；鼠标页删掉重复的“每小时点击 / 点击构成”（inspector 里保留构成）；非键盘页隐藏 live tape；所有面板去边框、去卡片感。
-- **交互**：导航、范围、显示模式（全部 / 仅热力 / 仅实时）、104/87 布局、Top10 选中、键 hover/点击详情与 ESC、暂停 / 恢复、鼠标图层、直方三 tab、热力两 tab、分页、设置开关、输入 DELETE 清空二次确认。
+- **键盘**：104 键热力、Top 键、按住时长、今日 / 7 天 / 本月 / 本次会话。
+- **鼠标**：32×18 主屏网格、点击热点、按键构成、移动距离、滚轮、峰值速度。
+- **手柄**：Xbox / PlayStation / Switch 三套示意图；XInput 实时读取按键、摇杆、扳机；按键计入分钟桶。
+- **数据浏览**：自定义开始/结束时间，查看总览 / 键盘 / 鼠标 / 手柄详情。
+- **数据展示**：7×24、日历、月历热力图，趋势与分布图。
+- **常驻**：系统托盘、后台采集、单实例、关闭行为记忆。
+- **数据管理**：SQLite 本地库、保留期清理、备份 / 导入 / 清空。
 
 ## 截图
 
-| 页面 | 文件 |
+| 键盘 | 鼠标 |
 |---|---|
-| 键盘 | `design-demos/shots/final-keyboard.png` |
-| 鼠标 | `design-demos/shots/final-mouse.png` |
-| 数据 | `design-demos/shots/final-stats.png` |
-| 设置 | `design-demos/shots/final-settings.png` |
-| 1100 宽 | `design-demos/shots/final-1100.png` |
+| ![键盘](app/screenshots/m2-keyboard.png) | ![鼠标](app/screenshots/mouse-noscroll.png) |
 
-## 三个方向初稿（保留）
+| 数据浏览 | 手柄 |
+|---|---|
+| ![数据](app/screenshots/data-page.png) | ![手柄](app/screenshots/gamepad-page.png) |
 
-`design-demos/dir-1.html`（暗厅）、`dir-2.html`（工作台）、`dir-3.html`（流体玻璃）；
-六格缩略图：`design-demos/shots/thumbs.png`；方向卡：`directions.md`；选择记录：`direction-approved.md`。
+## 下载与安装
 
-## 验证
+从 GitHub Releases 下载：
 
-- `design_lint check`：0 红灯（黄灯：等宽读数 24 处、标题用 Inter 代替 SF Pro、外观家族提示）。
-- 四个路由控制台 0 error；1440 / 1100 宽均无横向滚动。
-- 交互回归：导航 / 布局 104↔87 / 显示模式 / 键详情 / 暂停 / 图层 / 直方与热力 tab / 设置开关与清空确认，均通过。
+- `HandPulse_<version>_x64-setup.exe`（NSIS，推荐）
+- `HandPulse_<version>_x64_en-US.msi`
 
-## 已知取舍（诚实）
+直接覆盖安装即可升级；数据库在 `%APPDATA%\com.handpulse.desktop\data.db`，不随安装目录删除。升级前建议在设置里备份 `data.db`。
 
-- 所有数据是 Mock：今日 17,642 = 按键 12,438 + 点击 5,204；峰值 380 APM（21:03）。
-- 键详情的“平均按住 / 最长按住 / 首次 / 最近”、7 天范围、鼠标移动图层是按确定性规则派生的演示值，UI 内已注明。
-- 折线 Y 轴按需求从 0 起、上限 400；白天基数低所以左侧贴近底部，是数据形状。
-- 键盘键帽上只保留主标，不叠计数：计数在 Top10、inspector、鼠标指标里，避免小键帽上出现两行小字（“简化”的一部分）。
-- 版本号（0.9.0 / Core 0.4.2 / schema v3）是占位文案。
+## 技术栈
+
+- Tauri 2 / Rust 2024
+- React 19 / TypeScript / Vite
+- Windows Raw Input（键鼠）/ XInput（手柄）
+- SQLite WAL + 后台 Writer
+- 自绘标题栏、托盘、单实例
+
+## 本地开发
+
+需要 Node.js、Rust stable、Windows WebView2。
+
+```powershell
+cd app
+npm install
+npm run tauri dev
+```
+
+浏览器预览（没有真实采集，回退 mock）：
+
+```powershell
+npm run dev
+# http://localhost:1420/#/keyboard
+```
+
+## 构建
+
+```powershell
+cd app
+npm run build
+npm run tauri build
+
+# app/src-tauri/target/release/bundle/nsis/
+# app/src-tauri/target/release/bundle/msi/
+```
+
+Rust 检查：
+
+```powershell
+cd app/src-tauri
+cargo test
+cargo clippy --all-targets -- -D warnings
+```
+
+## 目录
+
+```
+app/                 Tauri + React 主工程
+  src/               前端页面、组件、IPC
+  src-tauri/         Rust 采集、存储、命令
+.github/workflows/   CI 与 GitHub Release
+docs/                需求、落地文档、发布说明
+design-demos/        早期视觉原型（保留）
+screenshots 等       app/screenshots
+```
+
+## 隐私
+
+- 只记录物理键位 ID 的聚合次数和时长，不记录字符内容；
+- 鼠标只记录点击次数、移动距离、屏幕网格落点，不记录光标轨迹原文；
+- 不上传、不联网；
+- 数据全部在本地 SQLite。
+
+## 发布与签名
+
+- GitHub Actions 工作流见 `.github/workflows/release.yml`；
+- 版本标签形如 `v0.9.9`，推送后生成草稿 Release；
+- 自动更新还需要配置 Tauri updater 公钥、签名私钥和 `latest.json`；
+- Windows 代码签名证书不是自动更新的硬性前提，但能减少 SmartScreen 拦截。
+
+详细步骤见 [docs/GITHUB_PUBLISH.md](docs/GITHUB_PUBLISH.md)。
+
+## 状态与限制
+
+- 仅 Windows x64；macOS/Linux 未适配；
+- 未签名安装包会有 SmartScreen 提示；
+- PS / Switch 手柄的实际数据读取依赖系统暴露方式；当前 XInput 链路完整，其他手柄可能需要 HID/WebHID；
+- 自动更新尚未接入，当前通过安装新版本覆盖升级。
+
+## License
+
+尚未添加开源许可证；在添加 LICENSE 前，默认保留所有权利。
