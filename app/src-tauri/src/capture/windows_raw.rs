@@ -200,46 +200,49 @@ unsafe fn read_raw_input(
             let mouse = unsafe { raw.data.mouse };
             let buttons = unsafe { mouse.Anonymous.Anonymous };
             let flags = buttons.usButtonFlags;
-            if flags & RI_MOUSE_WHEEL != 0 {
+            let buttons_active = !super::mouse_hook::active();
+            if buttons_active && flags & RI_MOUSE_WHEEL != 0 {
                 let delta = buttons.usButtonData as i16;
                 send(tx, shared, RawEvent::Wheel { delta, at });
             }
-            for (flag, btn) in [
-                (RI_MOUSE_LEFT_BUTTON_DOWN, MouseBtn::Left),
-                (RI_MOUSE_RIGHT_BUTTON_DOWN, MouseBtn::Right),
-                (RI_MOUSE_MIDDLE_BUTTON_DOWN, MouseBtn::Middle),
-                (RI_MOUSE_BUTTON_4_DOWN, MouseBtn::Side1),
-                (RI_MOUSE_BUTTON_5_DOWN, MouseBtn::Side2),
-            ] {
-                if flags & flag != 0 {
-                    send(
-                        tx,
-                        shared,
-                        RawEvent::Button {
-                            btn,
-                            down: true,
-                            at,
-                        },
-                    );
+            if buttons_active {
+                for (flag, btn) in [
+                    (RI_MOUSE_LEFT_BUTTON_DOWN, MouseBtn::Left),
+                    (RI_MOUSE_RIGHT_BUTTON_DOWN, MouseBtn::Right),
+                    (RI_MOUSE_MIDDLE_BUTTON_DOWN, MouseBtn::Middle),
+                    (RI_MOUSE_BUTTON_4_DOWN, MouseBtn::Side1),
+                    (RI_MOUSE_BUTTON_5_DOWN, MouseBtn::Side2),
+                ] {
+                    if flags & flag != 0 {
+                        send(
+                            tx,
+                            shared,
+                            RawEvent::Button {
+                                btn,
+                                down: true,
+                                at,
+                            },
+                        );
+                    }
                 }
-            }
-            for (flag, btn) in [
-                (RI_MOUSE_LEFT_BUTTON_UP, MouseBtn::Left),
-                (RI_MOUSE_RIGHT_BUTTON_UP, MouseBtn::Right),
-                (RI_MOUSE_MIDDLE_BUTTON_UP, MouseBtn::Middle),
-                (RI_MOUSE_BUTTON_4_UP, MouseBtn::Side1),
-                (RI_MOUSE_BUTTON_5_UP, MouseBtn::Side2),
-            ] {
-                if flags & flag != 0 {
-                    send(
-                        tx,
-                        shared,
-                        RawEvent::Button {
-                            btn,
-                            down: false,
-                            at,
-                        },
-                    );
+                for (flag, btn) in [
+                    (RI_MOUSE_LEFT_BUTTON_UP, MouseBtn::Left),
+                    (RI_MOUSE_RIGHT_BUTTON_UP, MouseBtn::Right),
+                    (RI_MOUSE_MIDDLE_BUTTON_UP, MouseBtn::Middle),
+                    (RI_MOUSE_BUTTON_4_UP, MouseBtn::Side1),
+                    (RI_MOUSE_BUTTON_5_UP, MouseBtn::Side2),
+                ] {
+                    if flags & flag != 0 {
+                        send(
+                            tx,
+                            shared,
+                            RawEvent::Button {
+                                btn,
+                                down: false,
+                                at,
+                            },
+                        );
+                    }
                 }
             }
             let absolute =

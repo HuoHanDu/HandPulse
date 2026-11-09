@@ -11,6 +11,8 @@ pub mod aggregator;
 pub mod gamepad;
 pub mod keymap;
 #[cfg(windows)]
+pub mod mouse_hook;
+#[cfg(windows)]
 pub mod windows_raw;
 
 use std::sync::Arc;
@@ -256,7 +258,16 @@ impl CaptureHandle {
         #[cfg(windows)]
         let gamepad_tx = tx.clone();
         #[cfg(windows)]
+        let mouse_tx = tx.clone();
+        #[cfg(windows)]
         {
+            let hook_shared = shared.clone();
+            if let Err(err) = std::thread::Builder::new()
+                .name("hp-mouse-hook".into())
+                .spawn(move || mouse_hook::run(hook_shared, mouse_tx))
+            {
+                eprintln!("[handpulse] 鼠标钩子线程启动失败: {err}");
+            }
             let raw_shared = shared.clone();
             let raw_keymap = keymap.clone();
             if let Err(err) = std::thread::Builder::new()
