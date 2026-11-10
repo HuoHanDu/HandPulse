@@ -1,1 +1,87 @@
-<svg viewBox="0 0 441 383" class="w-full h-full drop-shadow-xl filter"><g id="XboxController"><path d="M220.5 294.5C220.5 294.5 195 294.5 150 294.5C105 294.5 81.5 378.5 49.5 378.5C17.5 378.5 4 363.9 4 317.5C4 271.1 43.5 165.5 55 137.5C66.5 109.5 95.5 92.0001 128 92.0001C154 92.0001 200.5 92.0001 220.5 92.0001" class="fill-stone-100 dark:fill-stone-800 stroke-stone-300 dark:stroke-stone-700 stroke-[3]"></path><path d="M220 294.5C220 294.5 245.5 294.5 290.5 294.5C335.5 294.5 359 378.5 391 378.5C423 378.5 436.5 363.9 436.5 317.5C436.5 271.1 397 165.5 385.5 137.5C374 109.5 345 92.0001 312.5 92.0001C286.5 92.0001 240 92.0001 220 92.0001" class="fill-stone-100 dark:fill-stone-800 stroke-stone-300 dark:stroke-stone-700 stroke-[3]"></path><path d="m152.5,52.97c0,4.61 -3.35,8.36 -7.5,8.36l-13,0c-4.14,0 -7.5,-3.74 -7.5,-8.36l0,-22.86c0,-8.62 6.27,-15.61 14,-15.61c7.73,0 14,6.99 14,15.61l0,22.86z" class="fill-stone-200 dark:fill-stone-700 transition-colors duration-200 stroke-stone-300 dark:stroke-stone-600 stroke-2"></path><path d="m316.83,53.44c0,4.64 -3.44,8.39 -7.68,8.39l-13.31,0c-4.24,0 -7.68,-3.76 -7.68,-8.39l0,-22.94c0,-8.65 6.42,-15.67 14.33,-15.67c7.92,0 14.33,7.01 14.33,15.67l0,22.94z" class="fill-stone-200 dark:fill-stone-700 transition-colors duration-200 stroke-stone-300 dark:stroke-stone-600 stroke-2"></path><rect x="116.8" y="66.8" width="43.3" height="17" rx="4" class="fill-stone-200 dark:fill-stone-700 transition-colors duration-200 stroke-stone-300 dark:stroke-stone-600 stroke-2"></rect><text x="138.5" y="79" text-anchor="middle" class="fill-stone-400 text-[10px] font-bold pointer-events-none transition-colors">LB</text><rect x="281.3" y="67" width="42.6" height="17" rx="4" class="fill-stone-200 dark:fill-stone-700 transition-colors duration-200 stroke-stone-300 dark:stroke-stone-600 stroke-2"></rect><text x="302.5" y="79" text-anchor="middle" class="fill-stone-400 text-[10px] font-bold pointer-events-none transition-colors">RB</text><circle cx="113" cy="160" r="37.5" class="fill-stone-50 dark:fill-stone-900 stroke-stone-200 dark:stroke-stone-700 stroke-2"></circle><circle cx="278" cy="238" r="37.5" class="fill-stone-50 dark:fill-stone-900 stroke-stone-200 dark:stroke-stone-700 stroke-2"></circle><g transform="translate(0, 0)"><circle cx="113" cy="160" r="28" class="fill-stone-300 dark:fill-stone-600 transition-colors duration-100 stroke-white dark:stroke-stone-800 stroke-2"></circle><circle cx="113" cy="160" r="22" class="fill-none stroke-black/5 dark:stroke-white/5 stroke-2"></circle><circle cx="113" cy="160" r="10" class="fill-stone-400/50 stroke-none"></circle></g><g transform="translate(0, 0)"><circle cx="278" cy="238" r="28" class="fill-stone-300 dark:fill-stone-600 transition-colors duration-100 stroke-white dark:stroke-stone-800 stroke-2"></circle><circle cx="278" cy="238" r="22" class="fill-none stroke-black/5 dark:stroke-white/5 stroke-2"></circle><circle cx="278" cy="238" r="10" class="fill-stone-400/50 stroke-none"></circle></g><circle cx="166" cy="238" r="37.5" class="fill-stone-50 dark:fill-stone-900 stroke-stone-200 dark:stroke-stone-700 stroke-2"></circle><rect x="159" y="211" width="14" height="20" class="fill-stone-200 dark:fill-stone-700 transition-colors duration-200"></rect><rect x="159" y="239" width="14" height="20" class="fill-stone-200 dark:fill-stone-700 transition-colors duration-200"></rect><rect x="142" y="228" width="20" height="14" class="fill-stone-200 dark:fill-stone-700 transition-colors duration-200"></rect><rect x="170" y="228" width="20" height="14" class="fill-stone-200 dark:fill-stone-700 transition-colors duration-200"></rect><rect x="159" y="228" width="14" height="14" class="fill-stone-200 dark:fill-stone-700"></rect><circle cx="329" cy="160" r="37.5" class="fill-stone-50 dark:fill-stone-900 stroke-stone-200 dark:stroke-stone-700 stroke-2"></circle><circle cx="329" cy="140" r="13" class="fill-transparent stroke-yellow-500/50 stroke-2"></circle><text x="329" y="144" text-anchor="middle" class="fill-stone-400 text-[12px] font-black pointer-events-none">Y</text><circle cx="310" cy="162" r="13" class="fill-transparent stroke-blue-500/50 stroke-2"></circle><text x="310" y="166" text-anchor="middle" class="fill-stone-400 text-[12px] font-black pointer-events-none">X</text><circle cx="348" cy="161" r="13" class="fill-transparent stroke-red-500/50 stroke-2"></circle><text x="348" y="165" text-anchor="middle" class="fill-stone-400 text-[12px] font-black pointer-events-none">B</text><circle cx="330" cy="181" r="13" class="fill-transparent stroke-green-600/50 stroke-2"></circle><text x="330" y="185" text-anchor="middle" class="fill-stone-400 text-[12px] font-black pointer-events-none">A</text><circle cx="188" cy="162" r="10" class="fill-stone-200 dark:fill-stone-700 transition-colors duration-200"></circle><rect x="184" y="158" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5" class="text-stone-400 pointer-events-none"></rect><circle cx="253" cy="162" r="10" class="fill-stone-200 dark:fill-stone-700 transition-colors duration-200"></circle><path d="M249 158 H257 M249 162 H257 M249 166 H257" stroke="currentColor" stroke-width="1.5" class="text-stone-400 pointer-events-none"></path><rect x="208" y="178" width="24" height="14" rx="7" class="fill-stone-200 dark:fill-stone-700 transition-colors duration-200"></rect><path d="M220 180 V186 M218 182 L220 180 L222 182 M217 188 H223" stroke="currentColor" stroke-width="1.5" class="text-stone-400 pointer-events-none" fill="none" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="220.5" cy="125" r="16" class="fill-stone-200 dark:fill-stone-700"></circle><path d="M216 120 L225 130 M225 120 L216 130" stroke="#a8a29e" stroke-width="3" stroke-linecap="round"></path></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 441 383" width="441" height="383">
+  <!-- ===== Step 01 · 机身轮廓（一条闭合路径，x=220.5 左右镜像）===== -->
+  <path d="M220.5,294.5C220.5,294.5 195,294.5 150,294.5C105,294.5 81.5,378.5 49.5,378.5C17.5,378.5 4,363.9 4,317.5C4,271.1 43.5,165.5 55,137.5C66.5,109.5 95.5,92 128,92C154,92 200.5,92 220.5,92C240.5,92 287,92 313,92C345.5,92 374.5,109.5 386,137.5C397.5,165.5 437,271.1 437,317.5C437,363.9 423.5,378.5 391.5,378.5C359.5,378.5 336,294.5 291,294.5C246,294.5 220.5,294.5 220.5,294.5Z"
+        fill="#252a32" stroke="#414954" stroke-width="3"
+        stroke-linejoin="round" stroke-linecap="round"/>
+
+  <!-- ===== Step 03 · 扳机 LT / RT ===== -->
+  <g fill="#303640" stroke="#414954" stroke-width="2" stroke-linejoin="round">
+    <path d="M152.5,52.97 C152.5,57.58 149.15,61.33 145,61.33 L132,61.33 C127.86,61.33 124.5,57.59 124.5,52.97 L124.5,30.11 C124.5,21.49 130.77,14.5 138.5,14.5 C146.23,14.5 152.5,21.49 152.5,30.11 L152.5,52.97 Z"/>
+    <path d="M288.5,52.97 C288.5,57.58 291.85,61.33 296,61.33 L309,61.33 C313.14,61.33 316.5,57.59 316.5,52.97 L316.5,30.11 C316.5,21.49 310.23,14.5 302.5,14.5 C294.77,14.5 288.5,21.49 288.5,30.11 L288.5,52.97 Z"/>
+  </g>
+
+  <!-- ===== Step 02 · 肩键 LB / RB ===== -->
+  <g fill="#303640" stroke="#414954" stroke-width="2">
+    <rect x="116.8" y="66.8" width="43.3" height="17" rx="4"/>
+    <rect x="280.9" y="66.8" width="43.3" height="17" rx="4"/>
+  </g>
+  <g font-family="Inter, 'Noto Sans SC', system-ui, sans-serif" font-size="10" font-weight="700"
+     fill="#8b949f" text-anchor="middle">
+    <text x="138.5" y="79">LB</text>
+    <text x="302.5" y="79">RB</text>
+  </g>
+
+  <!-- ===== Step 04 · 摇杆（4 层同心圆）===== -->
+  <g id="sticks">
+    <g><circle cx="113" cy="160" r="37.5" fill="#111419" stroke="#343b45" stroke-width="2"/><circle cx="113" cy="160" r="28" fill="#3c434e" stroke="#161a20" stroke-width="2"/><circle cx="113" cy="160" r="22" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="2"/><circle cx="113" cy="160" r="10" fill="#8b949f"/></g>
+    <g><circle cx="278" cy="238" r="37.5" fill="#111419" stroke="#343b45" stroke-width="2"/><circle cx="278" cy="238" r="28" fill="#3c434e" stroke="#161a20" stroke-width="2"/><circle cx="278" cy="238" r="22" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="2"/><circle cx="278" cy="238" r="10" fill="#8b949f"/></g>
+  </g>
+
+  <!-- ===== Step 05 · 十字键（底盘 r37.5 + 5 块矩形，48×48，臂宽 14）===== -->
+  <g id="dpad">
+    <circle cx="166" cy="238" r="37.5" fill="#111419" stroke="#343b45" stroke-width="2"/>
+    <g fill="#303640">
+      <rect x="159" y="214" width="14" height="20"/>
+      <rect x="159" y="242" width="14" height="20"/>
+      <rect x="142" y="231" width="20" height="14"/>
+      <rect x="170" y="231" width="20" height="14"/>
+      <rect x="159" y="231" width="14" height="14"/>
+    </g>
+  </g>
+
+  <!-- ===== Step 06 · ABXY（实心键 r13，菱形半径 20，中心 329,160）===== -->
+  <g id="abxy">
+    <circle cx="329" cy="160" r="37.5" fill="#111419" stroke="#343b45" stroke-width="2"/>
+    <circle cx="329" cy="140" r="13" fill="#b89a45"/>
+    <circle cx="309" cy="160" r="13" fill="#4b8dd8"/>
+    <circle cx="349" cy="160" r="13" fill="#c76464"/>
+    <circle cx="329" cy="180" r="13" fill="#4aa77e"/>
+    <g font-family="Inter, 'Noto Sans SC', system-ui, sans-serif" font-size="12" font-weight="900"
+       fill="#0d1014" text-anchor="middle">
+      <text x="329" y="144">Y</text>
+      <text x="309" y="164">X</text>
+      <text x="349" y="164">B</text>
+      <text x="329" y="184">A</text>
+    </g>
+  </g>
+
+  <!-- ===== Step 07 · View / Menu / Share / Guide ===== -->
+  <!-- View：r10 圆 + 8×8 空心方框 -->
+  <g id="view">
+    <circle cx="188" cy="162" r="10" fill="#303640"/>
+    <rect x="184" y="158" width="8" height="8" rx="1" fill="none"
+          stroke="#8b949f" stroke-width="1.5"/>
+  </g>
+
+  <!-- Menu：r10 圆 + 三横线 -->
+  <g id="menu">
+    <circle cx="253" cy="162" r="10" fill="#303640"/>
+    <path d="M249 158 H257 M249 162 H257 M249 166 H257"
+          fill="none" stroke="#8b949f" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+
+  <!-- Share：24×14 胶囊（rx7）+ 上箭头 -->
+  <g id="share">
+    <rect x="208.5" y="178" width="24" height="14" rx="7" fill="#303640"/>
+    <path d="M220.5 180 V186 M218.5 182 L220.5 180 L222.5 182 M217.5 188 H223.5"
+          fill="none" stroke="#8b949f" stroke-width="1.5"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Guide：r16 圆 + X 标 -->
+  <g id="guide">
+    <circle cx="220.5" cy="125" r="16" fill="#303640"/>
+    <path d="M216 120 L225 130 M225 120 L216 130"
+          fill="none" stroke="#a8a29e" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

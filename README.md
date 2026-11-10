@@ -2,7 +2,7 @@
 
 Windows 本地键盘 / 鼠标 / 手柄使用分析工具。所有统计都在本机完成：不联网、不读取输入内容、不记录按键顺序，只保存聚合后的次数、时长、点击与移动距离。
 
-> 当前版本：**0.9.9**，Windows 10/11 x64，Tauri 2 + React 19 + Rust。
+> 当前版本：**0.9.10**，Windows 10/11 x64，Tauri 2 + React 19 + Rust。
 > 安装包尚未做 Windows 代码签名，首次运行会出现 SmartScreen 提示。
 
 ## 功能
@@ -116,4 +116,6 @@ screenshots 等       app/screenshots
 
 ## License
 
-尚未添加开源许可证；在添加 LICENSE 前，默认保留所有权利。
+Apache License 2.0。见 [LICENSE](LICENSE) 和 [NOTICE](NOTICE)。
+
+代码开源不代表商标、Logo、硬件设计授权；这些权利保留。

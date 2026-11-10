@@ -1,6 +1,6 @@
 [package]
 name = "handpulse"
-version = "0.9.9"
+version = "0.9.10"
 description = "HandPulse — local keyboard and mouse usage analytics"
 authors = ["HandPulse"]
 edition = "2024"

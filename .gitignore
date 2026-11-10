@@ -13,6 +13,7 @@ app/src-tauri/gen/schemas/
 
 # 日志与本地环境
 *.log
+*.key
 npm-debug.log*
 .env
 .env.*

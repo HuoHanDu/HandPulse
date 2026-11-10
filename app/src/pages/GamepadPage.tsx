@@ -173,7 +173,7 @@ export function GamepadPage({ active }: Props) {
               ))}
             </div>
           </div>
-          <ControllerGraphic type={view} buttons={pad.buttons} axes={pad.axes} triggers={pad.triggers} connected={pad.connected} />
+          <ControllerGraphic type={view} buttons={pad.buttons} axes={pad.axes} connected={pad.connected} />
         </div>
 
         <div className="pad-side">

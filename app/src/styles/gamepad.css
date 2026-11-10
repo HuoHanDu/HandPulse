@@ -20,48 +20,8 @@
 .pad-hit-halo{fill:rgba(41,151,255,.2);filter:blur(3px)}
 .pad-hit-ring{fill:none;stroke:#2997ff;stroke-width:2;filter:drop-shadow(0 0 5px rgba(41,151,255,.65))}
 .pad-stick-dot{fill:#2997ff;filter:drop-shadow(0 0 6px rgba(41,151,255,.9))}
-.pad-trigger-mark{fill:#2997ff}
 
-/* 把网站 SVG 的浅色/Tailwind 色映射到 HandPulse 的深色界面 */
-.pad-art svg [class~="fill-stone-50"],
-.pad-art svg [class~="dark:fill-stone-900"]{fill:#111419}
-.pad-art svg [class~="fill-stone-100"],
-.pad-art svg [class~="dark:fill-stone-800"]{fill:#252a32}
-.pad-art svg [class~="fill-stone-200"],
-.pad-art svg [class~="dark:fill-stone-700"]{fill:#303640}
-.pad-art svg [class~="fill-stone-300"],
-.pad-art svg [class~="dark:fill-stone-600"]{fill:#3c434e}
-.pad-art svg [class~="fill-stone-400"],
-.pad-art svg [class~="fill-stone-400/50"]{fill:#8b949f}
-.pad-art svg [class~="fill-stone-500"],
-.pad-art svg [class~="fill-stone-600"]{fill:#59616d}
-.pad-art svg [class~="fill-stone-700"]{fill:#4a515c}
-.pad-art svg [class~="fill-stone-800"]{fill:#1a1e24}
-.pad-art svg [class~="fill-stone-900"]{fill:#0d0f13}
-.pad-art svg [class~="fill-white"]{fill:#d7dde6}
-.pad-art svg [class~="fill-[#00C3E3]"]{fill:#0b6574}
-.pad-art svg [class~="fill-[#FF3C28]"]{fill:#8d3933}
-.pad-art svg [class~="opacity-20"]{opacity:.2}
-
-.pad-art svg [class~="stroke-stone-200"],
-.pad-art svg [class~="dark:stroke-stone-700"]{stroke:#343b45}
-.pad-art svg [class~="stroke-stone-300"],
-.pad-art svg [class~="dark:stroke-stone-600"]{stroke:#414954}
-.pad-art svg [class~="stroke-stone-400"],
-.pad-art svg [class~="dark:stroke-stone-500"]{stroke:#727b87}
-.pad-art svg [class~="stroke-stone-500"]{stroke:#59616d}
-.pad-art svg [class~="stroke-stone-600"]{stroke:#414954}
-.pad-art svg [class~="stroke-white"],
-.pad-art svg [class~="dark:stroke-stone-800"]{stroke:#161a20}
-.pad-art svg [class~="stroke-black/5"],
-.pad-art svg [class~="dark:stroke-white/5"]{stroke:rgba(255,255,255,.06)}
-.pad-art svg [class~="stroke-yellow-500/50"]{stroke:#b89a45}
-.pad-art svg [class~="stroke-blue-500/50"]{stroke:#4b8dd8}
-.pad-art svg [class~="stroke-red-500/50"]{stroke:#c76464}
-.pad-art svg [class~="stroke-green-600/50"]{stroke:#4aa77e}
-.pad-art svg [class~="text-stone-400"]{color:#8b949f}
-.pad-art svg #XboxController > path:first-child,
-.pad-art svg #XboxController > path:nth-child(2){stroke-width:3}
+/* 新 SVG 已自带深色配色和内联样式，不再需要 Tailwind class 映射 */
 .pad-art svg{font-family:var(--sans)}
 .pad-layout-tabs{display:flex;align-items:center;gap:2px;border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:2px;background:#0b0c0f}
 .pad-layout-tabs button{height:20px;padding:0 7px;border-radius:5px;font-size:10px;color:var(--text-3)}
