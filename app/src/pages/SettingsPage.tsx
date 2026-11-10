@@ -4,6 +4,7 @@ import { useApp } from '../app/store';
 import { getSettings, isTauri, openDataDir, setSettings } from '../ipc/client';
 import { clearPageDataCache, usePageData } from '../state/usePageData';
 import { Switch } from '../ui/Switch';
+import { requestUpdateCheck } from '../update/UpdateCenter';
 import {
   CLOSE_BEHAVIOR_EVENT,
   readCloseBehavior,
@@ -247,6 +248,18 @@ export function SettingsPage({ active }: Props) {
               )}
             </div>
           </div>
+          <div className="pref-group">
+            <div className="pref-head">更新</div>
+            <div className="pref-row">
+              <div className="pref-label">
+                <div className="pref-name">检查更新</div>
+                <div className="pref-hint">从 GitHub Releases 获取新版本；安装包会校验更新签名。</div>
+              </div>
+              <div className="pref-ctl">
+                <button className="tbtn" type="button" onClick={requestUpdateCheck}>检查更新</button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="about">
@@ -254,7 +267,7 @@ export function SettingsPage({ active }: Props) {
           <div className="about-rows">
             <div className="pref-row">
               <div className="pref-label"><div className="pref-name">版本</div></div>
-              <div className="pref-ctl"><span className="ver mono">0.9.10<span>原型</span></span></div>
+              <div className="pref-ctl"><span className="ver mono">0.9.11<span>原型</span></span></div>
             </div>
             <div className="pref-row">
               <div className="pref-label"><div className="pref-name">数据库 schema</div></div>

@@ -20,6 +20,7 @@ import { DataPage } from './pages/DataPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { Modal } from './ui/Modal';
 import { Toast } from './ui/Toast';
+import { UpdateCenter } from './update/UpdateCenter';
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -159,6 +160,7 @@ export default function App() {
         <Inspector />
       </div>
       <Modal />
+      <UpdateCenter />
       <Toast />
     </AppContext.Provider>
   );

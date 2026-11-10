@@ -41,7 +41,7 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # 接入自动更新后，在仓库 Secrets 里加这两个；没有更新签名时先留空。
+          # 仓库 Secrets 里必须配置；留空会生成未签名 updater 产物。
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
@@ -57,6 +57,6 @@ jobs:
             安装包尚未做 Windows 代码签名，首次运行可能触发 SmartScreen 提示。
           releaseDraft: true
           prerelease: false
-          # 接入 updater 并生成 .sig 后改成 true。
-          uploadUpdaterJson: false
+          args: --config src-tauri/tauri.updater.conf.json
+          uploadUpdaterJson: true
           updaterJsonPreferNsis: true

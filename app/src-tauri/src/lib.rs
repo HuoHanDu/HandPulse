@@ -17,6 +17,8 @@ pub fn run() {
         return;
     }
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let (db, init_error) = match app.path().app_data_dir() {
                 Ok(dir) => {

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "HandPulse",
-  "version": "0.9.10",
+  "version": "0.9.11",
   "identifier": "com.handpulse.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -33,12 +33,29 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
+    "targets": [
+      "nsis",
+      "msi"
+    ],
     "publisher": "HandPulse",
     "copyright": "Copyright © 2026 HandPulse",
     "category": "Utility",
     "shortDescription": "本地键鼠使用分析",
     "longDescription": "HandPulse 在本地统计键盘与鼠标的聚合使用情况，不联网、不读取输入内容、不记录按键顺序。",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png", "icons/icon.ico"]
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.ico"
+    ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDA2QTlGOUZGMzc4NjYzQUMKUldTc1k0WTMvL21wQnU2dGxiN1Y4anlFbmRML2FaeUZrK3BMUGhtM0FvaHVDdUNNTTNhZTlDbVkK",
+      "endpoints": [
+        "https://github.com/HuoHanDu/HandPulse/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

@@ -72,13 +72,10 @@ cd src-tauri
 cargo add tauri-plugin-updater tauri-plugin-process
 ```
 
-`tauri.conf.json`：
+`tauri.conf.json` 的 `plugins.updater` 写 `pubkey` / `endpoints`：
 
 ```json
 {
-  "bundle": {
-    "createUpdaterArtifacts": true
-  },
   "plugins": {
     "updater": {
       "pubkey": "<handpulse-updater.key.pub 的内容>",
@@ -86,6 +83,16 @@ cargo add tauri-plugin-updater tauri-plugin-process
         "https://github.com/<用户名>/HandPulse/releases/latest/download/latest.json"
       ]
     }
+  }
+}
+```
+
+`bundle.createUpdaterArtifacts` 放在 `src-tauri/tauri.updater.conf.json` 里，只让 Release 构建启用，避免本地普通构建强制要求签名私钥：
+
+```json
+{
+  "bundle": {
+    "createUpdaterArtifacts": true
   }
 }
 ```
