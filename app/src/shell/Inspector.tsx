@@ -280,6 +280,7 @@ export function Inspector() {
                     : '暂无'
                 } />
                 <Kv label="前台权限" value={capture.uipiSuspected ? '更高（可能被 UIPI 拦截）' : '正常'} />
+                <Kv label="HandPulse 权限" value={capture.appElevated ? '管理员' : '普通用户'} />
                 <Kv label="丢弃" value={nf(capture.dropped)} />
                 <Kv label="延迟 P95 / P99" value={capture.latencyP95Ms + ' / ' + capture.latencyP99Ms + ' ms'} />
                 <Kv label="未映射" value={nf(capture.unmapped)} />
@@ -291,10 +292,23 @@ export function Inspector() {
           </div>
           {capture?.error ? <p className="insp-p" style={{ padding: '8px 0 0' }}>{capture.error}</p> : null}
           {capture?.storageError ? <p className="insp-p" style={{ padding: '8px 0 0' }}>{capture.storageError}</p> : null}
-          {capture?.uipiSuspected ? (
-            <p className="insp-p" style={{ padding: '8px 0 0' }}>
-              前台应用以管理员权限运行，Windows UIPI 可能阻止 HandPulse 接收它的输入。可尝试让前台应用以普通权限运行，或以管理员身份重启 HandPulse 后验证。
-            </p>
+          {capture?.uipiSuspected || (isTauri && capture && !capture.appElevated) ? (
+            <div style={{ paddingTop: 8 }}>
+              <p className="insp-p" style={{ padding: '0 0 6px' }}>
+                {capture?.uipiSuspected
+                  ? '前台应用以管理员权限运行，Windows UIPI 会阻止 HandPulse 接收它的输入。请以管理员身份重启 HandPulse。'
+                  : '如果全屏游戏里键鼠不计数，可以尝试以管理员身份重启 HandPulse。'}
+              </p>
+              <button
+                className="tbtn"
+                type="button"
+                onClick={() => {
+                  invoke('relaunch_as_admin').catch((err) => {
+                    dispatch({ type: 'toast', message: '管理员重启失败：' + String(err) });
+                  });
+                }}
+              >以管理员身份重启</button>
+            </div>
           ) : null}
           {isTauri ? (
             <div style={{ paddingTop: 10 }}>

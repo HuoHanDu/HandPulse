@@ -80,6 +80,7 @@ pub fn run() {
             commands::capture::unsubscribe_live,
             commands::capture::set_paused,
             commands::capture::get_capture_stats,
+            commands::capture::get_hook_status,
             commands::capture::get_session_summary,
             commands::capture::get_gamepad_state,
             commands::capture::reset_gamepad_counts,
@@ -107,6 +108,8 @@ pub fn run() {
             commands::window::open_data_dir,
             commands::window::set_main_hidden,
             commands::window::stage_database_import,
+            commands::window::is_elevated,
+            commands::window::relaunch_as_admin,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

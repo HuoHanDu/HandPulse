@@ -1,6 +1,30 @@
 //! 单实例：避免双击启动两个采集器导致重复计数。
 
 #[cfg(windows)]
+use std::sync::{Mutex, OnceLock};
+
+#[cfg(windows)]
+static INSTANCE: OnceLock<Mutex<Option<usize>>> = OnceLock::new();
+
+#[cfg(windows)]
+fn instance() -> &'static Mutex<Option<usize>> {
+    INSTANCE.get_or_init(|| Mutex::new(None))
+}
+
+/// 交出单实例锁，让提权重启的新进程可以正常启动。
+#[cfg(windows)]
+pub(crate) fn release() {
+    use windows::Win32::Foundation::{CloseHandle, HANDLE};
+    if let Ok(mut slot) = instance().lock()
+        && let Some(raw) = slot.take()
+    {
+        unsafe {
+            let _ = CloseHandle(HANDLE(raw as *mut core::ffi::c_void));
+        }
+    }
+}
+
+#[cfg(windows)]
 pub fn acquire() -> bool {
     use windows::Win32::Foundation::{ERROR_ALREADY_EXISTS, GetLastError};
     use windows::Win32::System::Threading::CreateMutexW;
@@ -27,8 +51,10 @@ pub fn acquire() -> bool {
         return false;
     }
 
-    // HANDLE 故意不 CloseHandle：它要活到进程结束，作为单实例标记。
-    let _ = handle;
+    // 句柄要活到进程结束（或 release 时主动关闭），作为单实例标记。
+    if let Ok(mut slot) = instance().lock() {
+        *slot = Some(handle.0 as usize);
+    }
     true
 }
 

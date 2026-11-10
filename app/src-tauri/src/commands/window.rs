@@ -40,6 +40,46 @@ pub fn open_data_dir(state: tauri::State<'_, CaptureHandle>) -> Result<(), Strin
     Ok(())
 }
 
+#[tauri::command]
+pub fn is_elevated() -> bool {
+    crate::capture::windows_raw::elevation_status().1
+}
+
+/// 用 UAC 重新启动自己。返回 Err 通常表示用户取消了 UAC。
+#[tauri::command]
+pub fn relaunch_as_admin(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use windows::Win32::UI::Shell::ShellExecuteW;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+        use windows::core::HSTRING;
+
+        let exe = std::env::current_exe().map_err(|e| format!("无法定位程序路径：{e}"))?;
+        // 新进程启动前先放掉单实例互斥量，否则提权后的新进程会立即退出。
+        crate::single_instance::release();
+        let operation = HSTRING::from("runas");
+        let file = HSTRING::from(exe.to_string_lossy().as_ref());
+        let result = unsafe { ShellExecuteW(None, &operation, &file, None, None, SW_SHOWNORMAL) };
+        // ShellExecuteW 返回值 <= 32 表示失败；UAC 取消通常是 5 (ERROR_ACCESS_DENIED)。
+        if result.0 as isize <= 32 {
+            // UAC 被取消时恢复旧实例的锁，应用继续运行。
+            let _ = crate::single_instance::acquire();
+            return Err(format!(
+                "请求管理员权限失败（错误码 {}）",
+                result.0 as isize
+            ));
+        }
+        app.state::<CaptureHandle>().shutdown();
+        app.exit(0);
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        Err("仅 Windows 支持以管理员身份重启".into())
+    }
+}
+
 /// 托盘隐藏/显示。Tauri 的 window.hide() 在当前无边框窗口上不总是生效，
 /// 这里直接调用 Win32 ShowWindow，保证隐藏后进程继续采集。
 #[tauri::command]

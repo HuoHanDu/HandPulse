@@ -70,3 +70,18 @@ pub fn reset_session(state: State<'_, CaptureHandle>) -> Result<(), String> {
     state.shared.reset_request.store(true, Ordering::Relaxed);
     Ok(())
 }
+
+#[tauri::command]
+pub fn get_hook_status() -> (bool, bool) {
+    #[cfg(windows)]
+    {
+        (
+            crate::capture::keyboard_hook::active(),
+            crate::capture::mouse_hook::active(),
+        )
+    }
+    #[cfg(not(windows))]
+    {
+        (false, false)
+    }
+}

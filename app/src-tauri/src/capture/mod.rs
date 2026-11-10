@@ -9,6 +9,8 @@
 pub mod aggregator;
 #[cfg(windows)]
 pub mod gamepad;
+#[cfg(windows)]
+pub mod keyboard_hook;
 pub mod keymap;
 #[cfg(windows)]
 pub mod mouse_hook;
@@ -260,6 +262,8 @@ impl CaptureHandle {
         #[cfg(windows)]
         let mouse_tx = tx.clone();
         #[cfg(windows)]
+        let keyboard_tx = tx.clone();
+        #[cfg(windows)]
         {
             let hook_shared = shared.clone();
             if let Err(err) = std::thread::Builder::new()
@@ -267,6 +271,14 @@ impl CaptureHandle {
                 .spawn(move || mouse_hook::run(hook_shared, mouse_tx))
             {
                 eprintln!("[handpulse] 鼠标钩子线程启动失败: {err}");
+            }
+            let keyboard_shared = shared.clone();
+            let keyboard_keymap = keymap.clone();
+            if let Err(err) = std::thread::Builder::new()
+                .name("hp-keyboard-hook".into())
+                .spawn(move || keyboard_hook::run(keyboard_shared, keyboard_tx, keyboard_keymap))
+            {
+                eprintln!("[handpulse] 键盘钩子线程启动失败: {err}");
             }
             let raw_shared = shared.clone();
             let raw_keymap = keymap.clone();
