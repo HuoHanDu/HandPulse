@@ -1,7 +1,7 @@
 # 手脉 HandPulse · app
 
 Windows 桌面常驻应用「手脉」的 Tauri 2 工程。界面沿用已定稿原型（`../design-demos/HandPulse-Prototype.html`）。
-当前版本 **0.9.11**；Tauri 下的历史数据来自本机 SQLite；浏览器 dev 仍回退 mock。不联网、不读取输入内容。
+当前版本 **0.9.12**；Tauri 下的历史数据来自本机 SQLite；浏览器 dev 仍回退 mock。除检查更新外不联网、不读取输入内容。
 
 ## 状态
 
@@ -136,7 +136,7 @@ app/
 
 ## 采集边界（Windows）
 
-- Raw Input 是旁路监听：不 hook、不注入、不截图、不读取输入内容，也不联网。
+- Raw Input 是旁路监听：不 hook、不注入、不截图、不读取输入内容；采集链路不联网。
 - 不默认提权。若前台是管理员权限的游戏（UIPI 更高完整性级别），低权限进程可能收不到输入；
   这种情况会在设置页采集状态里体现为事件停滞，需要时再评估按需提权。
 - 屏幕网格只统计主屏，按 `GetSystemMetrics(SM_CXSCREEN/SM_CYSCREEN)` 归一化到 32×18；
@@ -166,5 +166,6 @@ app/
 - 窗口/任务栏图标与标题栏同款三柱标记：`src-tauri/icons/` 已替换全套 PNG/ICO，启动时再用
   `window.set_icon()` 显式设置窗口图标。
 - 无原生 Snap Layouts 菜单（自绘标题栏限制，见上）。
+
 
 
