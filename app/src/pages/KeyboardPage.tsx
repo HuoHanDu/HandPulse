@@ -1,13 +1,15 @@
-import { useMemo, useReducer, useRef, useEffect } from 'react';
+import { useMemo, useReducer, useRef, useEffect, useState } from 'react';
 import { useApp } from '../app/store';
 import { useReducedMotion } from '../app/useReducedMotion';
-import { isTauri, loadKeyboard } from '../ipc/client';
+import { isTauri, loadKeyboard, loadPatterns } from '../ipc/client';
 import { usePageData } from '../state/usePageData';
 import { useLiveOverlay } from '../state/useLiveOverlay';
 import { KeyboardCanvas, type KeyboardHandle } from '../keyboard/KeyboardCanvas';
 import { displayKey } from '../keyboard/layout';
 import { Top10List } from '../keyboard/Top10List';
+import { KeyboardPatterns } from '../keyboard/KeyboardPatterns';
 import { LegendChips } from '../keyboard/LegendChips';
+import type { PatternStats } from '../ipc/types';
 
 function pad2(n: number) {
   return (n < 10 ? '0' : '') + n;
@@ -32,6 +34,24 @@ export function KeyboardPage({ active }: Props) {
   const kbRef = useRef<KeyboardHandle>(null);
   const [, tick] = useReducer((x: number) => x + 1, 0);
   const reduceMotion = useReducedMotion();
+  const [bottomTab, setBottomTab] = useState<'top10' | 'patterns'>('top10');
+  const [patterns, setPatterns] = useState<PatternStats | null>(null);
+
+  useEffect(() => {
+    if (!active) return;
+    let alive = true;
+    const refresh = () => {
+      loadPatterns(range)
+        .then((data) => { if (alive) setPatterns(data); })
+        .catch(() => {});
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 2000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [active, range]);
 
   useEffect(() => {
     if (!state.paused) return;
@@ -150,18 +170,35 @@ export function KeyboardPage({ active }: Props) {
 
       <div className="panel top10">
         <div className="ph">
-          <span className="ph-title">Top 10 键位</span>
+          <div className="seg" id="kbBottomSeg" role="group" aria-label="键盘底部视图">
+            <button
+              type="button"
+              aria-pressed={bottomTab === 'top10'}
+              onClick={() => setBottomTab('top10')}
+            >Top 10</button>
+            <button
+              type="button"
+              aria-pressed={bottomTab === 'patterns'}
+              onClick={() => setBottomTab('patterns')}
+            >操作习惯</button>
+          </div>
           <div className="ph-spacer" />
-          <span className="ph-meta">占比 = 次数 / 全部按键</span>
+          <span className="ph-meta">
+            {bottomTab === 'top10' ? '占比 = 次数 / 全部按键' : '无序组合 · 不含精确时序'}
+          </span>
         </div>
-        <Top10List
-          keyStats={keyStats}
-          total={total}
-          sel={state.sel}
-          empty={state.empty}
-          viewReset={state.viewReset}
-          onPick={(label) => pick(label, true)}
-        />
+        {bottomTab === 'top10' ? (
+          <Top10List
+            keyStats={keyStats}
+            total={total}
+            sel={state.sel}
+            empty={state.empty}
+            viewReset={state.viewReset}
+            onPick={(label) => pick(label, true)}
+          />
+        ) : (
+          <KeyboardPatterns patterns={patterns} />
+        )}
       </div>
 
       <div className="kbfoot" id="kbFoot">

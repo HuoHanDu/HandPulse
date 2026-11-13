@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../app/store';
-import { getDetailPage, isTauri, loadPatterns, loadStats } from '../ipc/client';
+import { getDetailPage, isTauri, loadStats } from '../ipc/client';
 import { usePageData } from '../state/usePageData';
 import { LineChart } from '../charts/LineChart';
 import { Histogram } from '../charts/Histogram';
@@ -22,7 +22,6 @@ export function StatsPage({ active }: Props) {
   const range = state.ranges.stats;
   const { data } = usePageData(`stats:${range}`, () => loadStats(range));
   const { data: detail } = usePageData(`detail:${range}:${state.page}`, () => getDetailPage(range, state.page));
-  const { data: patterns } = usePageData(`patterns:${range}`, () => loadPatterns(range));
 
   const [lineReadout, setLineReadout] = useState('');
   const [histReadout, setHistReadout] = useState('');
@@ -124,56 +123,6 @@ export function StatsPage({ active }: Props) {
             {heat && state.heat === 'week' && <WeekHeatmap chart={heat} empty={state.empty} onReadout={setHeatReadout} />}
             {heat && state.heat === 'cal' && <CalendarHeatmap chart={heat} empty={state.empty} onReadout={setHeatReadout} />}
             {heat && state.heat === 'month' && <MonthHeatmap chart={heat} empty={state.empty} onReadout={setHeatReadout} />}
-          </div>
-        </div>
-      </div>
-
-      <div className="panel pattern-panel">
-        <div className="ph">
-          <span className="ph-title">操作习惯</span>
-          <span className="ph-meta">无序组合 · 不含精确时序</span>
-          <div className="ph-spacer" />
-          <span className="ph-meta">{patterns ? `${patterns.total.toLocaleString('en-US')} 次组合` : ''}</span>
-        </div>
-        <div className="pattern-body">
-          <div className="pattern-column">
-            <div className="pattern-kicker">快速交替</div>
-            {patterns && patterns.adTotal > 0 ? (
-              <>
-                <div className="pattern-big mono">{patterns.adFast.toLocaleString('en-US')} <span>次</span></div>
-                <div className="pattern-sub">A / D 在 120ms 内交替 · 共 {patterns.adTotal.toLocaleString('en-US')} 次</div>
-                <div className="pattern-meter"><span style={{ width: `${Math.round((patterns.adFast / patterns.adTotal) * 100)}%` }} /></div>
-              </>
-            ) : (
-              <div className="pattern-empty">还没有足够的 A/D 交替数据</div>
-            )}
-          </div>
-          <div className="pattern-column pattern-pairs">
-            <div className="pattern-kicker">高频组合</div>
-            {patterns?.pairs.length ? patterns.pairs.slice(0, 8).map((p) => (
-              <div className="pattern-row" key={`${p.a}:${p.b}`}>
-                <span className="pattern-pair">{p.a} + {p.b}</span>
-                <span className="pattern-bar"><i style={{ width: `${Math.max(4, Math.round((p.count / Math.max(1, patterns.pairs[0].count)) * 100))}%` }} /></span>
-                <span className="pattern-count mono">{p.count.toLocaleString('en-US')}</span>
-              </div>
-            )) : <div className="pattern-empty">还没有足够的组合数据</div>}
-          </div>
-          <div className="pattern-column pattern-gap">
-            <div className="pattern-kicker">间隔分布</div>
-            {patterns && patterns.total > 0 ? (
-              <div className="pattern-gap-list">
-                {['0–40', '40–80', '80–120', '120–200', '200–350', '350–500', '500+'].map((label, i) => {
-                  const v = patterns.gapHist[i] ?? 0;
-                  return (
-                    <div className="pattern-gap-row" key={label}>
-                      <span>{label}ms</span>
-                      <span className="pattern-gap-track"><i style={{ width: `${Math.round((v / Math.max(1, patterns.gapHist.reduce((a, b) => a + b, 0))) * 100)}%` }} /></span>
-                      <span className="mono">{v.toLocaleString('en-US')}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : <div className="pattern-empty">还没有间隔数据</div>}
           </div>
         </div>
       </div>

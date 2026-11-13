@@ -267,7 +267,7 @@ export function SettingsPage({ active }: Props) {
           <div className="about-rows">
             <div className="pref-row">
               <div className="pref-label"><div className="pref-name">版本</div></div>
-              <div className="pref-ctl"><span className="ver mono">0.9.14<span>原型</span></span></div>
+              <div className="pref-ctl"><span className="ver mono">0.9.15<span>原型</span></span></div>
             </div>
             <div className="pref-row">
               <div className="pref-label"><div className="pref-name">数据库 schema</div></div>
@@ -290,4 +290,5 @@ export function SettingsPage({ active }: Props) {
     </section>
   );
 }
+
 
