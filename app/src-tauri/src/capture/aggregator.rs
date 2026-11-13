@@ -12,13 +12,16 @@ use std::time::{Duration, Instant};
 use chrono::{Local, Timelike};
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
 
+#[cfg(windows)]
+use super::foreground;
 use super::keymap::Keymap;
 use super::{
     CaptureStats, LiveFrame, MouseBtn, RawEvent, SessionKey, SessionSnapshot, SessionSummary,
     Shared, Snapshot, TopKey, now_ms,
 };
 use crate::storage::payload::{
-    CurrentBucket, Device, KbPayload, MousePayload, PadPayload, PersistBucket, encode, px_to_cm,
+    AppUsage, CurrentBucket, Device, KbPayload, MousePayload, PadPayload, PersistBucket, encode,
+    px_to_cm,
 };
 use crate::storage::writer::WriteMsg;
 
@@ -108,6 +111,7 @@ struct BucketAcc {
     pad: [u32; 17],
     pair: HashMap<u32, u32>,
     pair_gap: HashMap<u64, u32>,
+    apps: HashMap<String, AppUsage>,
 }
 
 impl Default for BucketAcc {
@@ -133,6 +137,7 @@ impl Default for BucketAcc {
             pad: [0; 17],
             pair: HashMap::new(),
             pair_gap: HashMap::new(),
+            apps: HashMap::new(),
         }
     }
 }
@@ -151,7 +156,7 @@ impl BucketAcc {
     }
 
     fn has_kb(&self) -> bool {
-        !self.counts.is_empty() || !self.pair.is_empty()
+        !self.counts.is_empty() || !self.pair.is_empty() || !self.apps.is_empty()
     }
 
     fn has_mouse(&self) -> bool {
@@ -192,6 +197,11 @@ impl BucketAcc {
             last: self.last.iter().map(|(k, v)| (*k, *v)).collect(),
             pair: self.pair.iter().map(|(k, v)| (*k, *v)).collect(),
             pair_gap: self.pair_gap.iter().map(|(k, v)| (*k, *v)).collect(),
+            apps: self
+                .apps
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
         }
     }
 
@@ -472,6 +482,46 @@ impl Aggregator {
         }
     }
 
+    fn record_app_key(&mut self) {
+        #[cfg(windows)]
+        if let Some(app) = foreground::current_app() {
+            self.bucket.apps.entry(app).or_default().keys += 1;
+        }
+    }
+
+    fn record_app_click(&mut self) {
+        #[cfg(windows)]
+        if let Some(app) = foreground::current_app() {
+            self.bucket.apps.entry(app).or_default().clicks += 1;
+        }
+    }
+
+    fn record_app_wheel(&mut self) {
+        #[cfg(windows)]
+        if let Some(app) = foreground::current_app() {
+            self.bucket.apps.entry(app).or_default().wheel += 1;
+        }
+    }
+
+    fn record_app_move(&mut self, dist: f64) {
+        #[cfg(windows)]
+        if let Some(app) = foreground::current_app() {
+            self.bucket.apps.entry(app).or_default().px += dist;
+        }
+    }
+
+    fn record_app_duration(&mut self, now: Instant) {
+        #[cfg(windows)]
+        if foreground::enabled() {
+            let elapsed = now.saturating_duration_since(self.last_flush).as_millis() as u64;
+            if elapsed > 0
+                && let Some(app) = foreground::current_app()
+            {
+                self.bucket.apps.entry(app).or_default().ms += elapsed;
+            }
+        }
+    }
+
     fn touch_input(&mut self, at: Instant) {
         if let Some(prev) = self.last_input_at {
             let gap = at.saturating_duration_since(prev);
@@ -555,6 +605,7 @@ impl Aggregator {
                     }
                     self.last_key_at = Some(at);
                     self.record_pair(id as u16, at);
+                    self.record_app_key();
                     self.touch_input(at);
                 } else if let Some(start) = self.pressed.remove(&(id as u16)) {
                     let hold = at.duration_since(start).as_millis() as u64;
@@ -591,6 +642,7 @@ impl Aggregator {
                     self.frame.grid.push((gx, gy));
                 }
                 self.record_pair(MOUSE_TOKEN_BASE + idx as u16, at);
+                self.record_app_click();
                 self.touch_input(at);
             }
             RawEvent::Wheel { delta, at } => {
@@ -608,6 +660,9 @@ impl Aggregator {
                     self.bucket.wheel[1] += 1;
                     self.frame.wheel[1] += 1;
                 }
+                if delta != 0 {
+                    self.record_app_wheel();
+                }
                 self.touch_input(at);
             }
             RawEvent::Move { dx, dy, at } => {
@@ -618,6 +673,7 @@ impl Aggregator {
                 self.move_px += dist;
                 self.bucket.move_px += dist;
                 self.frame.move_px += dist;
+                self.record_app_move(dist);
                 // 移动热力采样：50ms 一次，避免高频鼠标事件里频繁 GetCursorPos
                 if self.last_move_sample.is_none_or(|last| {
                     at.saturating_duration_since(last) >= Duration::from_millis(50)
@@ -709,6 +765,8 @@ impl Aggregator {
             *shared.snapshot.lock() = self.snapshot(shared);
             return;
         }
+
+        self.record_app_duration(now);
 
         // 峰值速度按 100ms 窗口计算，避免两次相邻 flush 间隔过小导致 px/s 虚高
         self.speed_window_px += self.frame.move_px;

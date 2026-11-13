@@ -98,6 +98,17 @@ pub struct MouseStats {
 
 #[derive(Clone, Debug, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct AppStat {
+    pub name: String,
+    pub seconds: u64,
+    pub keys: u64,
+    pub clicks: u64,
+    pub wheel: u64,
+    pub move_px: f64,
+}
+
+#[derive(Clone, Debug, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct PatternStats {
     pub pairs: Vec<PairStat>,
     pub total: u64,
@@ -1347,6 +1358,48 @@ fn parse_day(day: &str) -> i64 {
         .ok()
         .map(day_start)
         .unwrap_or_else(|| Local::now().timestamp())
+}
+
+pub fn app_stats(db: &Db, range: Range, live: &LiveSnapshot) -> Result<Vec<AppStat>> {
+    let conn = db.open_read()?;
+    let mut agg: HashMap<String, AppStat> = HashMap::new();
+
+    let mut add = |p: &KbPayload| {
+        for (name, usage) in &p.apps {
+            let entry = agg.entry(name.clone()).or_insert_with(|| AppStat {
+                name: name.clone(),
+                ..AppStat::default()
+            });
+            entry.seconds += usage.ms / 1000;
+            entry.keys += usage.keys;
+            entry.clicks += usage.clicks;
+            entry.wheel += usage.wheel;
+            entry.move_px += usage.px;
+        }
+    };
+
+    if range == Range::Session {
+        if let Some(cur) = current_bucket(live) {
+            add(&cur.kb);
+        }
+    } else {
+        let b = bounds(range)?;
+        let mut stmt =
+            conn.prepare("SELECT payload FROM bucket WHERE device='kb' AND ts>=?1 AND ts<?2")?;
+        let rows = stmt.query_map([b.start_ts, b.end_ts], |r| r.get::<_, Vec<u8>>(0))?;
+        for row in rows {
+            let p: KbPayload = decode(&row?)?;
+            add(&p);
+        }
+        if let Some(cur) = current_bucket(live).filter(|c| in_range_current(c, &b)) {
+            add(&cur.kb);
+        }
+    }
+
+    let mut out: Vec<AppStat> = agg.into_values().collect();
+    out.sort_by(|a, b| b.seconds.cmp(&a.seconds).then_with(|| a.name.cmp(&b.name)));
+    out.truncate(12);
+    Ok(out)
 }
 
 /// 组合/连键分析：只读取无序 pair 计数和间隔分桶，不读取任何原始事件。

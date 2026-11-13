@@ -8,6 +8,8 @@
 
 pub mod aggregator;
 #[cfg(windows)]
+pub mod foreground;
+#[cfg(windows)]
 pub mod gamepad;
 #[cfg(windows)]
 pub mod keyboard_hook;

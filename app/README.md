@@ -1,7 +1,7 @@
 # 手脉 HandPulse · app
 
 Windows 桌面常驻应用「手脉」的 Tauri 2 工程。界面沿用已定稿原型（`../design-demos/HandPulse-Prototype.html`）。
-当前版本 **0.9.16**；Tauri 下的历史数据来自本机 SQLite；浏览器 dev 仍回退 mock。除检查更新外不联网、不读取输入内容。
+当前版本 **0.9.17**；Tauri 下的历史数据来自本机 SQLite；浏览器 dev 仍回退 mock。除检查更新外不联网、不读取输入内容。前台应用统计默认关闭，开启后只记录 exe 名称和聚合操作量。
 
 ## 状态
 
@@ -166,6 +166,7 @@ app/
 - 窗口/任务栏图标与标题栏同款三柱标记：`src-tauri/icons/` 已替换全套 PNG/ICO，启动时再用
   `window.set_icon()` 显式设置窗口图标。
 - 无原生 Snap Layouts 菜单（自绘标题栏限制，见上）。
+
 
 
 

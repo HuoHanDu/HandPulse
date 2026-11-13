@@ -3,7 +3,7 @@ import { HP } from '../mock/mock';
 import type {
   Bucket, DetailPage, DetailRowView, GridCell, Heatmap, HeatmapChart, HeatType,
   Histogram, HistogramChart, HistDim, KeyStat, KeyboardData, LineSeries, MouseData,
-  MouseStats, PadStats, PatternStats, RangeKey, Settings, StatsData, Summary
+  MouseStats, PadStats, PatternStats, RangeKey, Settings, StatsData, Summary, AppStat
 } from './types';
 
 /**
@@ -287,6 +287,11 @@ export function getDetail(range: RangeKey, page: number, pageSize = 50): Promise
 }
 
 /* ---------------- 页面 loaders ---------------- */
+
+export async function loadAppStats(range: RangeKey): Promise<AppStat[]> {
+  if (isTauri) return invoke<AppStat[]>('get_app_stats', { range });
+  return [];
+}
 
 export async function loadPatterns(range: RangeKey): Promise<PatternStats> {
   if (isTauri) return invoke<PatternStats>('get_patterns', { range });

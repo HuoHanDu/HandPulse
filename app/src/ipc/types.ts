@@ -209,6 +209,15 @@ export interface StatsData {
   heatmaps: Record<HeatType, HeatmapChart>;
 }
 
+export interface AppStat {
+  name: string;
+  seconds: number;
+  keys: number;
+  clicks: number;
+  wheel: number;
+  movePx: number;
+}
+
 export interface PairStat {
   a: string;
   b: string;

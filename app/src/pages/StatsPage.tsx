@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../app/store';
-import { getDetailPage, isTauri, loadStats } from '../ipc/client';
+import { getDetailPage, isTauri, loadAppStats, loadStats } from '../ipc/client';
 import { usePageData } from '../state/usePageData';
 import { LineChart } from '../charts/LineChart';
 import { Histogram } from '../charts/Histogram';
@@ -22,6 +22,7 @@ export function StatsPage({ active }: Props) {
   const range = state.ranges.stats;
   const { data } = usePageData(`stats:${range}`, () => loadStats(range));
   const { data: detail } = usePageData(`detail:${range}:${state.page}`, () => getDetailPage(range, state.page));
+  const { data: apps } = usePageData(`apps:${range}`, () => loadAppStats(range));
 
   const [lineReadout, setLineReadout] = useState('');
   const [histReadout, setHistReadout] = useState('');
@@ -125,6 +126,35 @@ export function StatsPage({ active }: Props) {
             {heat && state.heat === 'month' && <MonthHeatmap chart={heat} empty={state.empty} onReadout={setHeatReadout} />}
           </div>
         </div>
+      </div>
+
+      <div className="panel app-panel">
+        <div className="ph">
+          <span className="ph-title">前台应用</span>
+          <span className="ph-meta">只记录 exe 名称与聚合操作量</span>
+          <div className="ph-spacer" />
+          <span className="ph-meta">{apps?.length ? `Top ${apps.length}` : ''}</span>
+        </div>
+        {apps?.length ? (
+          <div className="app-list">
+            <div className="app-head"><span>程序</span><span>前台时长</span><span>按键</span><span>点击</span></div>
+            {apps.slice(0, 8).map((a) => {
+              const h = Math.floor(a.seconds / 3600);
+              const m = Math.floor((a.seconds % 3600) / 60);
+              const duration = h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m` : `${a.seconds}s`;
+              return (
+                <div className="app-row" key={a.name}>
+                  <span className="app-name">{a.name}</span>
+                  <span className="mono">{duration}</span>
+                  <span className="mono">{a.keys.toLocaleString('en-US')}</span>
+                  <span className="mono">{a.clicks.toLocaleString('en-US')}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="app-empty">还没有前台应用数据。到设置里开启“前台应用统计”后，只记录程序名和聚合操作量。</div>
+        )}
       </div>
 
       <div className="panel stat-table">

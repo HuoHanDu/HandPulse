@@ -9,6 +9,16 @@ pub const KEY_COUNT: usize = 104;
 pub const GAP_BIN_COUNT: usize = 7;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AppUsage {
+    pub ms: u64,
+    pub keys: u64,
+    pub clicks: u64,
+    pub wheel: u64,
+    pub px: f64,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct KbPayload {
     pub v: u8,
     /// 本次启动的会话 id；用于区分“重放同一个桶”和“同一分钟的新不完整桶”。
@@ -32,6 +42,9 @@ pub struct KbPayload {
     /// (pair << 3 | gap_bin) -> 次数；只保存间隔区间，不保存时间戳。
     #[serde(default)]
     pub pair_gap: BTreeMap<u64, u32>,
+    /// 前台 exe basename -> 聚合时长/操作量；不保存窗口标题。
+    #[serde(default)]
+    pub apps: BTreeMap<String, AppUsage>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -113,6 +126,14 @@ impl KbPayload {
         }
         for (key, count) in &other.pair_gap {
             *self.pair_gap.entry(*key).or_default() += *count;
+        }
+        for (name, usage) in &other.apps {
+            let entry = self.apps.entry(name.clone()).or_default();
+            entry.ms = entry.ms.saturating_add(usage.ms);
+            entry.keys = entry.keys.saturating_add(usage.keys);
+            entry.clicks = entry.clicks.saturating_add(usage.clicks);
+            entry.wheel = entry.wheel.saturating_add(usage.wheel);
+            entry.px += usage.px;
         }
     }
 }

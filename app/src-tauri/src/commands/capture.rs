@@ -29,6 +29,15 @@ pub fn set_paused(paused: bool, state: State<'_, CaptureHandle>) -> Result<(), S
 }
 
 #[tauri::command]
+pub fn set_foreground_enabled(enabled: bool) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        crate::capture::foreground::set_enabled(enabled);
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub fn get_capture_stats(state: State<'_, CaptureHandle>) -> CaptureStats {
     let mut stats = state.shared.snapshot.lock().stats.clone();
     // 暂停状态是原子量，命令返回时以最新值为准（快照最多落后 100ms）
