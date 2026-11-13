@@ -267,7 +267,7 @@ export function SettingsPage({ active }: Props) {
           <div className="about-rows">
             <div className="pref-row">
               <div className="pref-label"><div className="pref-name">版本</div></div>
-              <div className="pref-ctl"><span className="ver mono">0.9.13<span>原型</span></span></div>
+              <div className="pref-ctl"><span className="ver mono">0.9.14<span>原型</span></span></div>
             </div>
             <div className="pref-row">
               <div className="pref-label"><div className="pref-name">数据库 schema</div></div>
@@ -281,6 +281,7 @@ export function SettingsPage({ active }: Props) {
           <div className="privacy">
             <p>手脉只记录你按下哪个物理键、按了多少次、鼠标移动了多远。</p>
             <p>它不记录你输入了什么字，不读取窗口标题，不截屏；除检查更新外不联网。</p>
+            <p>它不保存完整按键顺序或每次按键的精确时间；操作习惯只保存无序组合计数和间隔区间。</p>
             <p>你可以随时在设置里暂停记录或清空全部数据。删除后不可恢复。</p>
             <p>采集内核 HandPulse Core 的源码公开，你可以自行验证上述承诺。</p>
           </div>

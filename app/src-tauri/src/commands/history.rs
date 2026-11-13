@@ -10,7 +10,7 @@ use crate::capture::{CaptureHandle, SessionKey};
 use crate::storage::payload::CurrentBucket;
 use crate::storage::query::{
     self, BucketPoint, DetailPage, GridCell, Heatmap, Histogram, KeyStat, LiveSnapshot, MouseStats,
-    PadStats, Range, Summary,
+    PadStats, PatternStats, Range, Summary,
 };
 use crate::storage::{Db, Settings};
 
@@ -88,6 +88,20 @@ pub async fn get_key_stats(
     blocking(move || {
         let r = parse_range(&range)?;
         query::key_stats(&db, r, &live).map_err(|e| e.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn get_patterns(
+    range: String,
+    state: State<'_, CaptureHandle>,
+) -> Result<PatternStats, String> {
+    let db = get_db(&state)?;
+    let live = live_snapshot(&state.shared);
+    blocking(move || {
+        let r = parse_range(&range)?;
+        query::patterns(&db, r, &live).map_err(|e| e.to_string())
     })
     .await
 }

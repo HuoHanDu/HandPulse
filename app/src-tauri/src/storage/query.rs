@@ -8,7 +8,9 @@ use rusqlite::Connection;
 use serde::Serialize;
 
 use super::Db;
-use super::payload::{CurrentBucket, KbPayload, MousePayload, PadPayload, decode, px_to_cm};
+use super::payload::{
+    CurrentBucket, GAP_BIN_COUNT, KbPayload, MousePayload, PadPayload, decode, px_to_cm,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Range {
@@ -92,6 +94,25 @@ pub struct MouseStats {
     pub wheel: [u64; 2],
     pub peak_speed: f64,
     pub move_km: f64,
+}
+
+#[derive(Clone, Debug, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PatternStats {
+    pub pairs: Vec<PairStat>,
+    pub total: u64,
+    pub ad_fast: u64,
+    pub ad_total: u64,
+    pub gap_hist: [u64; GAP_BIN_COUNT],
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PairStat {
+    pub a: String,
+    pub b: String,
+    pub count: u64,
+    pub fast_count: u64,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -1328,6 +1349,113 @@ fn parse_day(day: &str) -> i64 {
         .unwrap_or_else(|| Local::now().timestamp())
 }
 
+/// 组合/连键分析：只读取无序 pair 计数和间隔分桶，不读取任何原始事件。
+pub fn patterns(db: &Db, range: Range, live: &LiveSnapshot) -> Result<PatternStats> {
+    let conn = db.open_read()?;
+    let labels = key_labels(&conn)?;
+    let mut pairs: HashMap<u32, u64> = HashMap::new();
+    let mut pair_gap: HashMap<u64, u64> = HashMap::new();
+
+    let mut add_payload = |p: &KbPayload| {
+        for (pair, count) in &p.pair {
+            *pairs.entry(*pair).or_default() += *count as u64;
+        }
+        for (key, count) in &p.pair_gap {
+            *pair_gap.entry(*key).or_default() += *count as u64;
+        }
+    };
+
+    if range == Range::Session {
+        if let Some(cur) = current_bucket(live) {
+            add_payload(&cur.kb);
+        }
+    } else {
+        let b = bounds(range)?;
+        let mut stmt =
+            conn.prepare("SELECT payload FROM bucket WHERE device='kb' AND ts>=?1 AND ts<?2")?;
+        let rows = stmt.query_map([b.start_ts, b.end_ts], |r| r.get::<_, Vec<u8>>(0))?;
+        for row in rows {
+            let p: KbPayload = decode(&row?)?;
+            add_payload(&p);
+        }
+        if let Some(cur) = current_bucket(live).filter(|c| in_range_current(c, &b)) {
+            add_payload(&cur.kb);
+        }
+    }
+
+    let mut gap_hist = [0u64; GAP_BIN_COUNT];
+    for (key, count) in &pair_gap {
+        let bin = (*key & 7) as usize;
+        if bin < gap_hist.len() {
+            gap_hist[bin] += *count;
+        }
+    }
+
+    let mut fast_by_pair: HashMap<u32, u64> = HashMap::new();
+    for (key, count) in &pair_gap {
+        let pair = (*key >> 3) as u32;
+        let bin = (*key & 7) as usize;
+        if bin <= 2 {
+            *fast_by_pair.entry(pair).or_default() += *count;
+        }
+    }
+
+    let mut out: Vec<PairStat> = pairs
+        .iter()
+        .map(|(pair, count)| {
+            let a = (pair >> 16) as u16;
+            let b = (*pair & 0xffff) as u16;
+            PairStat {
+                a: token_label(a, &labels),
+                b: token_label(b, &labels),
+                count: *count,
+                fast_count: *fast_by_pair.get(pair).unwrap_or(&0),
+            }
+        })
+        .collect();
+    out.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.a.cmp(&b.a)));
+    out.truncate(12);
+
+    let total = pairs.values().sum();
+    let ad_id = |label: &str| {
+        labels
+            .iter()
+            .find_map(|(id, l)| (l == label).then_some(*id))
+    };
+    let (ad_fast, ad_total) = match (ad_id("A"), ad_id("D")) {
+        (Some(a), Some(d)) => {
+            let pair = ((a.min(d) as u32) << 16) | a.max(d) as u32;
+            (
+                *fast_by_pair.get(&pair).unwrap_or(&0),
+                *pairs.get(&pair).unwrap_or(&0),
+            )
+        }
+        _ => (0, 0),
+    };
+
+    Ok(PatternStats {
+        pairs: out,
+        total,
+        ad_fast,
+        ad_total,
+        gap_hist,
+    })
+}
+
+fn token_label(token: u16, labels: &HashMap<u16, String>) -> String {
+    if let Some(label) = labels.get(&token) {
+        return label.clone();
+    }
+    match token {
+        104 => "左键".into(),
+        105 => "右键".into(),
+        106 => "中键".into(),
+        107 => "侧键1".into(),
+        108 => "侧键2".into(),
+        _ => format!("#{token}"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1591,6 +1719,42 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM key_def", [], |r| r.get(0))
             .unwrap();
         assert_eq!(keys, 104);
+        cleanup(&p);
+    }
+
+    #[test]
+    fn patterns_are_unordered_and_read_gap_bins() {
+        let (db, p) = temp_db("patterns");
+        let km = crate::capture::keymap::load();
+        let a = km.id_for(0x1e, false).unwrap();
+        let d = km.id_for(0x20, false).unwrap();
+        let (lo, hi) = if a < d { (a, d) } else { (d, a) };
+        let pair = ((lo as u32) << 16) | hi as u32;
+        let mut kb = KbPayload {
+            v: 2,
+            ..Default::default()
+        };
+        kb.pair.insert(pair, 10);
+        kb.pair_gap.insert(((pair as u64) << 3) | 1, 7);
+        kb.pair_gap.insert(((pair as u64) << 3) | 2, 3);
+        let ts = Local::now().timestamp();
+        let ts = ts - ts.rem_euclid(60);
+        apply_bucket(
+            &mut db.open_write().unwrap(),
+            &PersistBucket::new(ts, 60, Device::Kb, 10, encode(&kb).unwrap()),
+        )
+        .unwrap();
+
+        let out = patterns(&db, Range::Today, &LiveSnapshot::default()).unwrap();
+        assert_eq!(out.ad_total, 10);
+        assert_eq!(out.ad_fast, 10);
+        assert_eq!(out.gap_hist[1], 7);
+        assert_eq!(out.gap_hist[2], 3);
+        assert!(
+            out.pairs
+                .iter()
+                .any(|x| (x.a == "A" && x.b == "D") || (x.a == "D" && x.b == "A"))
+        );
         cleanup(&p);
     }
 }

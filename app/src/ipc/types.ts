@@ -207,6 +207,21 @@ export interface StatsData {
   heatmaps: Record<HeatType, HeatmapChart>;
 }
 
+export interface PairStat {
+  a: string;
+  b: string;
+  count: number;
+  fastCount: number;
+}
+
+export interface PatternStats {
+  pairs: PairStat[];
+  total: number;
+  adFast: number;
+  adTotal: number;
+  gapHist: number[];
+}
+
 export interface DetailRowView extends DetailRow {
   label: string;
 }

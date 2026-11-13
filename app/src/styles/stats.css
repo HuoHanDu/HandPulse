@@ -41,3 +41,26 @@
 .pager{border-top:1px solid rgba(255,255,255,.07);padding:0;margin-top:4px;height:44px}
 .pg-btn{border-radius:999px;border-color:rgba(255,255,255,.10)!important;background:transparent!important;height:28px!important}
 .pg-btn:hover:not(:disabled){border-color:rgba(255,255,255,.28)!important}
+
+/* 操作习惯：只展示无序组合和间隔分桶，不展示原始序列 */
+.pattern-panel{flex:0 0 auto}
+.pattern-body{display:grid;grid-template-columns:minmax(0,0.85fr) minmax(0,1.4fr) minmax(0,1fr);gap:18px;padding:12px 14px 14px}
+.pattern-column{min-width:0}
+.pattern-kicker{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);margin-bottom:7px}
+.pattern-big{font-size:26px;line-height:1;color:var(--text);font-weight:600}
+.pattern-big span{font-size:11px;color:var(--text-3);font-weight:400;margin-left:3px}
+.pattern-sub{font-size:11px;color:var(--text-3);margin-top:6px;line-height:1.5}
+.pattern-meter{height:5px;border-radius:3px;background:#1a1d23;margin-top:10px;overflow:hidden}
+.pattern-meter span{display:block;height:100%;background:var(--accent);border-radius:3px}
+.pattern-empty{font-size:12px;color:var(--text-3);padding-top:6px}
+.pattern-row{display:grid;grid-template-columns:92px minmax(0,1fr) 54px;gap:8px;align-items:center;height:23px;font-size:12px;color:var(--text-2)}
+.pattern-pair{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pattern-bar{height:4px;border-radius:2px;background:#1a1d23;overflow:hidden}
+.pattern-bar i{display:block;height:100%;background:var(--accent);border-radius:2px}
+.pattern-count{text-align:right;color:var(--text-2);font-size:11px}
+.pattern-gap-list{display:flex;flex-direction:column;gap:4px}
+.pattern-gap-row{display:grid;grid-template-columns:64px minmax(0,1fr) 46px;gap:7px;align-items:center;font-size:10px;color:var(--text-3)}
+.pattern-gap-row .mono{text-align:right;color:var(--text-2)}
+.pattern-gap-track{height:3px;border-radius:2px;background:#1a1d23;overflow:hidden}
+.pattern-gap-track i{display:block;height:100%;background:#4b8dd8;border-radius:2px}
+@media (max-width:1400px){.pattern-body{grid-template-columns:1fr 1.4fr 1fr;gap:12px}}

@@ -87,6 +87,7 @@ pub fn run() {
             commands::capture::reset_session,
             commands::history::get_summary,
             commands::history::get_key_stats,
+            commands::history::get_patterns,
             commands::history::get_mouse_stats,
             commands::history::get_buckets,
             commands::history::get_histogram,

@@ -6,6 +6,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 pub const KEY_COUNT: usize = 104;
+pub const GAP_BIN_COUNT: usize = 7;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct KbPayload {
@@ -25,6 +26,12 @@ pub struct KbPayload {
     pub first: BTreeMap<u16, i64>,
     #[serde(default)]
     pub last: BTreeMap<u16, i64>,
+    /// 无序输入对统计：低 16 位 / 高 16 位各一个 token；不保存方向。
+    #[serde(default)]
+    pub pair: BTreeMap<u32, u32>,
+    /// (pair << 3 | gap_bin) -> 次数；只保存间隔区间，不保存时间戳。
+    #[serde(default)]
+    pub pair_gap: BTreeMap<u64, u32>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -100,6 +107,12 @@ impl KbPayload {
         for (id, ts) in &other.last {
             let entry = self.last.entry(*id).or_insert(*ts);
             *entry = (*entry).max(*ts);
+        }
+        for (pair, count) in &other.pair {
+            *self.pair.entry(*pair).or_default() += *count;
+        }
+        for (key, count) in &other.pair_gap {
+            *self.pair_gap.entry(*key).or_default() += *count;
         }
     }
 }

@@ -32,6 +32,14 @@ const LATENCY_CAP: usize = 1024;
 const SECOND_CAP: usize = 60;
 const MAX_EVENT_ATS: usize = 512;
 const STREAK_GAP_MS: u64 = 5000;
+const MOUSE_TOKEN_BASE: u16 = 104;
+const PAIR_WINDOW_MS: u64 = 350;
+const RECENT_CAP: usize = 8;
+
+struct RecentInput {
+    token: u16,
+    at: Instant,
+}
 
 #[derive(Clone, Default)]
 pub struct SecondSample {
@@ -94,6 +102,8 @@ struct BucketAcc {
     peak_speed: f64,
     fast: u64,
     pad: [u32; 17],
+    pair: HashMap<u32, u32>,
+    pair_gap: HashMap<u64, u32>,
 }
 
 impl Default for BucketAcc {
@@ -117,6 +127,8 @@ impl Default for BucketAcc {
             peak_speed: 0.0,
             fast: 0,
             pad: [0; 17],
+            pair: HashMap::new(),
+            pair_gap: HashMap::new(),
         }
     }
 }
@@ -135,7 +147,7 @@ impl BucketAcc {
     }
 
     fn has_kb(&self) -> bool {
-        !self.counts.is_empty()
+        !self.counts.is_empty() || !self.pair.is_empty()
     }
 
     fn has_mouse(&self) -> bool {
@@ -164,7 +176,7 @@ impl BucketAcc {
 
     fn kb_payload(&self, streak_ms: u64) -> KbPayload {
         KbPayload {
-            v: 1,
+            v: 2,
             session: 0,
             k: self.counts.iter().map(|(k, v)| (*k, *v)).collect(),
             hold_sum: self.hold_sum.iter().map(|(k, v)| (*k, *v)).collect(),
@@ -174,6 +186,8 @@ impl BucketAcc {
             streak_ms,
             first: self.first.iter().map(|(k, v)| (*k, *v)).collect(),
             last: self.last.iter().map(|(k, v)| (*k, *v)).collect(),
+            pair: self.pair.iter().map(|(k, v)| (*k, *v)).collect(),
+            pair_gap: self.pair_gap.iter().map(|(k, v)| (*k, *v)).collect(),
         }
     }
 
@@ -265,6 +279,7 @@ pub struct Aggregator {
     seq: u64,
     session_id: u64,
     paused: bool,
+    recent: VecDeque<RecentInput>,
 }
 
 /// 光标归一化到 32×18 主屏网格；越界 clamp。抽成纯函数便于单测。
@@ -306,6 +321,18 @@ fn gap_bin(ms: u64) -> usize {
         100..=199 => 2,
         200..=499 => 3,
         _ => 4,
+    }
+}
+
+fn pair_gap_bin(ms: u64) -> usize {
+    match ms {
+        0..=39 => 0,
+        40..=79 => 1,
+        80..=119 => 2,
+        120..=199 => 3,
+        200..=349 => 4,
+        350..=499 => 5,
+        _ => 6,
     }
 }
 
@@ -357,12 +384,14 @@ impl Aggregator {
             seq: 0,
             session_id: new_session_id(),
             paused: false,
+            recent: VecDeque::with_capacity(RECENT_CAP),
         }
     }
 
     pub fn set_paused(&mut self, paused: bool) {
         if paused && !self.paused {
             self.pressed.clear();
+            self.recent.clear();
         }
         self.paused = paused;
     }
@@ -403,12 +432,38 @@ impl Aggregator {
         self.session_start = now;
         self.last_key_at = None;
         self.last_input_at = None;
+        self.recent.clear();
         self.last_move_sample = None;
         self.speed_window_px = 0.0;
         self.speed_window_start = now;
         self.streak_start = None;
         self.longest_streak_ms = 0;
         self.bucket.reset(self.granularity, now);
+    }
+
+    fn record_pair(&mut self, token: u16, at: Instant) {
+        for prev in self.recent.iter().rev().take(3) {
+            if prev.token == token {
+                continue;
+            }
+            let gap = at.saturating_duration_since(prev.at).as_millis() as u64;
+            if gap > PAIR_WINDOW_MS {
+                continue;
+            }
+            let (a, b) = if prev.token < token {
+                (prev.token, token)
+            } else {
+                (token, prev.token)
+            };
+            let pair = ((a as u32) << 16) | b as u32;
+            *self.bucket.pair.entry(pair).or_insert(0) += 1;
+            let key = ((pair as u64) << 3) | pair_gap_bin(gap) as u64;
+            *self.bucket.pair_gap.entry(key).or_insert(0) += 1;
+        }
+        self.recent.push_back(RecentInput { token, at });
+        if self.recent.len() > RECENT_CAP {
+            self.recent.pop_front();
+        }
     }
 
     fn touch_input(&mut self, at: Instant) {
@@ -493,6 +548,7 @@ impl Aggregator {
                         bucket.gap[gap_bin(gap)] += 1;
                     }
                     self.last_key_at = Some(at);
+                    self.record_pair(id as u16, at);
                     self.touch_input(at);
                 } else if let Some(start) = self.pressed.remove(&(id as u16)) {
                     let hold = at.duration_since(start).as_millis() as u64;
@@ -528,6 +584,7 @@ impl Aggregator {
                     self.bucket.grid[cell] += 1;
                     self.frame.grid.push((gx, gy));
                 }
+                self.record_pair(MOUSE_TOKEN_BASE + idx as u16, at);
                 self.touch_input(at);
             }
             RawEvent::Wheel { delta, at } => {
@@ -627,6 +684,7 @@ impl Aggregator {
             }
         }
         self.bucket.reset(self.granularity, Instant::now());
+        self.recent.clear();
         *shared.live_bucket.lock() = Some(self.bucket.current());
     }
 
@@ -1308,5 +1366,52 @@ mod tests {
         let snap = agg.snapshot(&shared);
         assert!(!snap.stats.running);
         assert_eq!(snap.stats.error.as_deref(), Some("Raw Input 不可用"));
+    }
+
+    #[test]
+    fn pair_counts_are_unordered_and_binned() {
+        let (mut agg, km) = new_agg();
+        let a = key_id(&km, 0x1e, false);
+        let d = key_id(&km, 0x20, false);
+        let t = Instant::now();
+
+        // A down/up, D down/up, A down/up: A-D and D-A must merge into {A,D}.
+        for (id, offset, down) in [
+            (a, 0, true),
+            (a, 30, false),
+            (d, 70, true),
+            (d, 100, false),
+            (a, 150, true),
+            (a, 180, false),
+        ] {
+            agg.handle(RawEvent::Key {
+                key_id: Some(id),
+                down,
+                at: t + Duration::from_millis(offset),
+                unmapped: None,
+            });
+        }
+
+        let (lo, hi) = if a < d { (a, d) } else { (d, a) };
+        let pair = ((lo as u32) << 16) | hi as u32;
+        // D 与 A、A 与 D 各一次；第二次 A 与前一个 D 配对，但与自己不配对。
+        assert_eq!(agg.bucket.pair.get(&pair).copied(), Some(2));
+        let fast: u32 = agg
+            .bucket
+            .pair_gap
+            .iter()
+            .filter(|(k, _)| ((*k >> 3) as u32) == pair)
+            .map(|(_, v)| *v)
+            .sum();
+        assert_eq!(fast, 2);
+        // 70ms 落在 40–79ms 桶，80ms 落在 80–119ms 桶。
+        assert_eq!(
+            agg.bucket.pair_gap.get(&(((pair as u64) << 3) | 1)),
+            Some(&1)
+        );
+        assert_eq!(
+            agg.bucket.pair_gap.get(&(((pair as u64) << 3) | 2)),
+            Some(&1)
+        );
     }
 }

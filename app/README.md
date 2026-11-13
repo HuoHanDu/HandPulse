@@ -1,7 +1,7 @@
 # 手脉 HandPulse · app
 
 Windows 桌面常驻应用「手脉」的 Tauri 2 工程。界面沿用已定稿原型（`../design-demos/HandPulse-Prototype.html`）。
-当前版本 **0.9.13**；Tauri 下的历史数据来自本机 SQLite；浏览器 dev 仍回退 mock。除检查更新外不联网、不读取输入内容。
+当前版本 **0.9.14**；Tauri 下的历史数据来自本机 SQLite；浏览器 dev 仍回退 mock。除检查更新外不联网、不读取输入内容。
 
 ## 状态
 
@@ -114,7 +114,7 @@ app/
   `agg_hour`、`agg_day`、`key_day`、`grid_day`、`gap_day`，以及为避免 30 天查询解 4 万+ payload
   而增加的 `agg_mouse_day`（鼠标左右中侧/滚轮/峰值日聚合）。
 - payload 只存聚合计数：键盘 `k/hold_sum/hold_max/chord/gap/streak_ms`，鼠标
-  `cl/wh/px/cm/vmax/fast/grid`；不含按键顺序、窗口标题、输入内容。
+  `cl/wh/px/cm/vmax/fast/grid`；不含完整按键顺序、每次按键时间、窗口标题或输入内容。
 - 桶按本地时区对齐，粒度 10/30/60 秒（设置页可改）；桶关闭时由 writer 在单事务里写 bucket +
   预聚合 + `data_version`。强杀最多丢 1 个未关闭桶；正常退出会 flush 当前桶。
 - 保留期 7/30/90 天：启动时、writer 每小时检查并清理；`clear_all_data` 事务删除历史表并
