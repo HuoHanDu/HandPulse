@@ -65,6 +65,8 @@ export interface LiveFrame {
   dx: number;
   dy: number;
   grid: Array<[number, number]>;
+  pairs: Array<[number, number]>;
+  pairGap: Array<[number, number]>;
 }
 
 /** M2 采集层状态（camelCase 与 Rust CaptureStats 对齐）。 */

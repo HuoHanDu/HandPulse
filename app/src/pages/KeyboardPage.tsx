@@ -23,8 +23,7 @@ export function KeyboardPage({ active }: Props) {
   const { state, dispatch } = useApp();
   const range = state.ranges.keyboard;
   const { data } = usePageData(`keyboard:${range}`, () => loadKeyboard(range));
-  const overlay = useLiveOverlay(data);
-  const keyStats = useMemo(() => {
+  const overlay = useLiveOverlay(data);  const keyStats = useMemo(() => {
     const base = data?.keyStats ?? [];
     if (!overlay.keysTotal) return base;
     return base
@@ -46,12 +45,13 @@ export function KeyboardPage({ active }: Props) {
         .catch(() => {});
     };
     refresh();
-    const timer = window.setInterval(refresh, 2000);
+    const timer = window.setInterval(refresh, 15000);
     return () => {
       alive = false;
       window.clearInterval(timer);
     };
   }, [active, range]);
+  const patternsOverlay = useLiveOverlay(patterns);
 
   useEffect(() => {
     if (!state.paused) return;
@@ -197,7 +197,7 @@ export function KeyboardPage({ active }: Props) {
             onPick={(label) => pick(label, true)}
           />
         ) : (
-          <KeyboardPatterns patterns={patterns} />
+          <KeyboardPatterns patterns={patterns} overlay={patternsOverlay} keyStats={keyStats} />
         )}
       </div>
 

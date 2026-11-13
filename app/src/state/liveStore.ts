@@ -9,6 +9,8 @@ export interface LiveDeltas {
   dx: number;
   dy: number;
   grid: Array<[number, number]>;
+  pairs: Map<number, number>;
+  pairGap: Map<number, number>;
 }
 
 function emptyClicks(): [number, number, number, number, number] {
@@ -31,9 +33,12 @@ class LiveStore {
   private pendingDx = 0;
   private pendingDy = 0;
   private pendingGrid: Array<[number, number]> = [];
+  private pendingPairs = new Map<number, number>();
+  private pendingPairGap = new Map<number, number>();
 
   private published: LiveDeltas = {
-    seq: -1, ts: 0, keys: new Map(), clicks: emptyClicks(), wheel: [0, 0], dx: 0, dy: 0, grid: []
+    seq: -1, ts: 0, keys: new Map(), clicks: emptyClicks(), wheel: [0, 0], dx: 0, dy: 0, grid: [],
+    pairs: new Map(), pairGap: new Map()
   };
 
   private listeners = new Set<() => void>();
@@ -63,6 +68,12 @@ class LiveStore {
     this.pendingDx += frame.dx || 0;
     this.pendingDy += frame.dy || 0;
     if (frame.grid.length) this.pendingGrid.push(...frame.grid);
+    for (const [pair, delta] of frame.pairs || []) {
+      this.pendingPairs.set(pair, (this.pendingPairs.get(pair) || 0) + delta);
+    }
+    for (const [key, delta] of frame.pairGap || []) {
+      this.pendingPairGap.set(key, (this.pendingPairGap.get(key) || 0) + delta);
+    }
     this.schedule();
   }
 
@@ -83,7 +94,7 @@ class LiveStore {
 
   reset(): void {
     this.clearPending();
-    this.published = { seq: this.lastSeq, ts: 0, keys: new Map(), clicks: emptyClicks(), wheel: [0, 0], dx: 0, dy: 0, grid: [] };
+    this.published = { seq: this.lastSeq, ts: 0, keys: new Map(), clicks: emptyClicks(), wheel: [0, 0], dx: 0, dy: 0, grid: [], pairs: new Map(), pairGap: new Map() };
   }
 
   /**
@@ -98,7 +109,7 @@ class LiveStore {
     this.lastSeq = seqBase;
     this.pendingWhenVisible = false;
     this.clearPending();
-    this.published = { seq: seqBase, ts: 0, keys: new Map(), clicks: emptyClicks(), wheel: [0, 0], dx: 0, dy: 0, grid: [] };
+    this.published = { seq: seqBase, ts: 0, keys: new Map(), clicks: emptyClicks(), wheel: [0, 0], dx: 0, dy: 0, grid: [], pairs: new Map(), pairGap: new Map() };
   }
 
   private clearPending(): void {
@@ -108,6 +119,8 @@ class LiveStore {
     this.pendingDx = 0;
     this.pendingDy = 0;
     this.pendingGrid = [];
+    this.pendingPairs.clear();
+    this.pendingPairGap.clear();
   }
 
   private schedule(): void {
@@ -133,7 +146,11 @@ class LiveStore {
     this.pendingDy = 0;
     const grid = this.pendingGrid;
     this.pendingGrid = [];
-    this.published = { seq: this.lastSeq, ts: Date.now(), keys, clicks, wheel, dx, dy, grid };
+    const pairs = this.pendingPairs;
+    this.pendingPairs = new Map();
+    const pairGap = this.pendingPairGap;
+    this.pendingPairGap = new Map();
+    this.published = { seq: this.lastSeq, ts: Date.now(), keys, clicks, wheel, dx, dy, grid, pairs, pairGap };
     for (const listener of Array.from(this.listeners)) listener();
   }
 }

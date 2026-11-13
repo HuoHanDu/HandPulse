@@ -16,6 +16,8 @@ export interface LiveOverlay {
   wheel: [number, number];
   movePx: number;
   grid: Map<string, number>;
+  pairs: Map<number, number>;
+  pairGap: Map<number, number>;
 }
 
 export function emptyOverlay(): LiveOverlay {
@@ -26,7 +28,9 @@ export function emptyOverlay(): LiveOverlay {
     clicksTotal: 0,
     wheel: [0, 0],
     movePx: 0,
-    grid: new Map()
+    grid: new Map(),
+    pairs: new Map(),
+    pairGap: new Map()
   };
 }
 
@@ -51,6 +55,14 @@ function addDeltas(prev: LiveOverlay, d: ReturnType<typeof liveStore.getDeltas>)
     const k = x + ',' + y;
     grid.set(k, (grid.get(k) || 0) + 1);
   });
+  const pairs = new Map(prev.pairs);
+  d.pairs.forEach((delta, pair) => {
+    if (delta) pairs.set(pair, (pairs.get(pair) || 0) + delta);
+  });
+  const pairGap = new Map(prev.pairGap);
+  d.pairGap.forEach((delta, key) => {
+    if (delta) pairGap.set(key, (pairGap.get(key) || 0) + delta);
+  });
   return {
     keyCount,
     keysTotal,
@@ -58,7 +70,9 @@ function addDeltas(prev: LiveOverlay, d: ReturnType<typeof liveStore.getDeltas>)
     clicksTotal,
     wheel: [prev.wheel[0] + d.wheel[0], prev.wheel[1] + d.wheel[1]],
     movePx: prev.movePx + Math.hypot(d.dx, d.dy),
-    grid
+    grid,
+    pairs,
+    pairGap
   };
 }
 

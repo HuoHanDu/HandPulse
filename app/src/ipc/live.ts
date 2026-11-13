@@ -150,7 +150,9 @@ function startMockLive(): () => void {
       wheel,
       dx: Math.round((Math.random() - 0.5) * 40),
       dy: Math.round((Math.random() - 0.5) * 40),
-      grid
+      grid,
+      pairs: [],
+      pairGap: []
     };
     liveStore.push(frame);
   }, 100);

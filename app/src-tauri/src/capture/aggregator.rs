@@ -66,6 +66,8 @@ struct FrameAcc {
     dx: i32,
     dy: i32,
     grid: Vec<(u8, u8)>,
+    pairs: HashMap<u32, u32>,
+    pair_gap: HashMap<u64, u32>,
     move_px: f64,
     event_ats: Vec<Instant>,
 }
@@ -78,6 +80,8 @@ impl FrameAcc {
         self.dx = 0;
         self.dy = 0;
         self.grid.clear();
+        self.pairs.clear();
+        self.pair_gap.clear();
         self.move_px = 0.0;
         self.event_ats.clear();
     }
@@ -457,8 +461,10 @@ impl Aggregator {
             };
             let pair = ((a as u32) << 16) | b as u32;
             *self.bucket.pair.entry(pair).or_insert(0) += 1;
+            *self.frame.pairs.entry(pair).or_insert(0) += 1;
             let key = ((pair as u64) << 3) | pair_gap_bin(gap) as u64;
             *self.bucket.pair_gap.entry(key).or_insert(0) += 1;
+            *self.frame.pair_gap.entry(key).or_insert(0) += 1;
         }
         self.recent.push_back(RecentInput { token, at });
         if self.recent.len() > RECENT_CAP {
@@ -736,6 +742,8 @@ impl Aggregator {
             dx: self.frame.dx,
             dy: self.frame.dy,
             grid: self.frame.grid.clone(),
+            pairs: self.frame.pairs.drain().collect(),
+            pair_gap: self.frame.pair_gap.drain().collect(),
         };
 
         self.second_acc.ts = now_ms();

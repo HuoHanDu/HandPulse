@@ -42,6 +42,12 @@ pub struct LiveFrame {
     pub dx: i32,
     pub dy: i32,
     pub grid: Vec<(u8, u8)>,
+    /// 本帧新增的无序组合计数。
+    #[serde(default)]
+    pub pairs: Vec<(u32, u32)>,
+    /// 本帧新增的 (pair << 3 | gap_bin) 计数。
+    #[serde(default)]
+    pub pair_gap: Vec<(u64, u32)>,
 }
 
 #[derive(Clone, Serialize)]
