@@ -2,7 +2,7 @@
 
 Windows 本地键盘 / 鼠标 / 手柄使用分析工具。所有统计都在本机完成：除检查更新外不联网、不读取输入内容、不保存完整按键顺序或每次按键时间，只保存聚合后的次数、时长、无序组合计数、间隔区间和移动距离。前台应用统计默认关闭；开启后只保存程序 exe 名称和聚合操作量，不读取窗口标题。
 
-> 当前版本：**0.9.17**，Windows 10/11 x64，Tauri 2 + React 19 + Rust。
+> 当前版本：**0.9.18**，Windows 10/11 x64，Tauri 2 + React 19 + Rust。
 > 安装包尚未做 Windows 代码签名，首次运行会出现 SmartScreen 提示。
 
 ## 功能
@@ -107,6 +107,24 @@ screenshots 等       app/screenshots
 
 详细步骤见 [docs/GITHUB_PUBLISH.md](docs/GITHUB_PUBLISH.md)。
 
+## 更新镜像
+
+国内网络无法访问 GitHub 时，安装包和更新清单会从自有服务器读取：
+
+- 下载页：<https://huohandu.cn/handpulse/>
+- 更新清单：<https://huohandu.cn/handpulse/latest.json>
+- 更新日志：<https://huohandu.cn/handpulse/CHANGELOG.md>
+
+服务器只保留最新版本的 exe/msi/sig、`latest.json`、`index.html` 和 `CHANGELOG.md`。同步脚本由服务器每 10 分钟拉取一次 GitHub 最新正式 Release，不依赖 GitHub Actions 或额外密钥：
+
+```bash
+python3 /home/ubuntu/handpulse-mirror/sync.py
+```
+
+Tauri updater 先请求服务器清单，服务器不可用时回退到 GitHub Releases。
+
+详细步骤见 [docs/GITHUB_PUBLISH.md](docs/GITHUB_PUBLISH.md)。
+
 ## 状态与限制
 
 - 仅 Windows x64；macOS/Linux 未适配；
@@ -120,6 +138,7 @@ screenshots 等       app/screenshots
 Apache License 2.0。见 [LICENSE](LICENSE) 和 [NOTICE](NOTICE)。
 
 代码开源不代表商标、Logo、硬件设计授权；这些权利保留。
+
 
 
 

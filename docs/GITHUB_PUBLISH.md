@@ -165,3 +165,42 @@ if (update) {
 - [ ] 用上一版安装包升级到新版，数据库保留
 - [ ] 自动更新：旧版能检测到新版并安装
 - [ ] 私钥、密码不在仓库里
+
+## 7. 国内镜像
+
+如果用户无法直连 GitHub，可以让自有服务器直接从 GitHub 最新**正式** Release 拉取：
+
+```text
+/var/www/handpulse/
+  HandPulse_<version>_x64-setup.exe
+  HandPulse_<version>_x64-setup.exe.sig
+  HandPulse_<version>_x64_en-US.msi
+  HandPulse_<version>_x64_en-US.msi.sig
+  latest.json
+  index.html
+  CHANGELOG.md
+```
+
+服务器上的 `sync.py` 每 10 分钟请求 GitHub API 的 `releases/latest`，重新生成指向本机的 `latest.json`，再用 `rsync --delete` 删除旧安装包。只同步正式发布，草稿不会同步。
+
+```bash
+python3 /home/ubuntu/handpulse-mirror/sync.py
+```
+
+`tauri.conf.json` 中把镜像放在 GitHub 前面：
+
+```json
+"endpoints": [
+  "https://huohandu.cn/handpulse/latest.json",
+  "https://github.com/HuoHanDu/HandPulse/releases/latest/download/latest.json"
+]
+```
+
+这样国内用户优先走自有服务器；服务器不可用时自动回退 GitHub。
+
+部署细节：
+
+- 目录：`/var/www/handpulse`，nginx `location /handpulse/`；
+- 同步脚本：`/home/ubuntu/handpulse-mirror/sync.py`；
+- cron：`*/10 * * * * /usr/bin/python3 /home/ubuntu/handpulse-mirror/sync.py`；
+- 同步脚本不需要 GitHub Token，使用的是公开 Release API。
