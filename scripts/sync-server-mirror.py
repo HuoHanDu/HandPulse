@@ -8,7 +8,6 @@
 """
 from __future__ import annotations
 
-import base64
 import html
 import json
 import os
@@ -128,7 +127,7 @@ def main() -> int:
         for name in required:
             log(f"download {name}")
             download(assets[name], staging / name)
-        sig = base64.b64encode((staging / required[1]).read_bytes()).decode("ascii")
+        sig = (staging / required[1]).read_text("utf-8").strip()
         manifest = {
             "version": version,
             "notes": notes,

@@ -27,7 +27,7 @@ for (const file of [nsis, `${nsis}.sig`, msi, `${msi}.sig`]) {
   fs.copyFileSync(file, path.join(out, path.basename(file)));
 }
 
-const signature = fs.readFileSync(`${nsis}.sig`).toString('base64');
+const signature = fs.readFileSync(`${nsis}.sig`, 'utf8').trim();
 const latest = {
   version,
   notes,
