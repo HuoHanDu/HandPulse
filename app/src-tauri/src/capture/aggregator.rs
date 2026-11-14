@@ -61,6 +61,16 @@ pub struct Bucket {
     pub move_px: f64,
 }
 
+#[cfg(windows)]
+fn foreground_current() -> Option<String> {
+    foreground::current_app()
+}
+
+#[cfg(not(windows))]
+fn foreground_current() -> Option<String> {
+    None
+}
+
 #[derive(Default)]
 struct FrameAcc {
     keys: HashMap<u16, u32>,
@@ -71,6 +81,7 @@ struct FrameAcc {
     grid: Vec<(u8, u8)>,
     pairs: HashMap<u32, u32>,
     pair_gap: HashMap<u64, u32>,
+    apps: HashMap<String, AppUsage>,
     move_px: f64,
     event_ats: Vec<Instant>,
 }
@@ -85,6 +96,7 @@ impl FrameAcc {
         self.grid.clear();
         self.pairs.clear();
         self.pair_gap.clear();
+        self.apps.clear();
         self.move_px = 0.0;
         self.event_ats.clear();
     }
@@ -482,6 +494,9 @@ impl Aggregator {
                 let usage = self.bucket.apps.entry(app.clone()).or_default();
                 *usage.pair.entry(pair).or_insert(0) += 1;
                 *usage.pair_gap.entry(key).or_insert(0) += 1;
+                let live = self.frame.apps.entry(app.clone()).or_default();
+                *live.pair.entry(pair).or_insert(0) += 1;
+                *live.pair_gap.entry(key).or_insert(0) += 1;
             }
         }
         self.recent.push_back(RecentInput { token, at });
@@ -493,32 +508,42 @@ impl Aggregator {
     fn record_app_key(&mut self, key_id: u16) {
         #[cfg(windows)]
         if let Some(app) = foreground::current_app() {
-            let usage = self.bucket.apps.entry(app).or_default();
+            let usage = self.bucket.apps.entry(app.clone()).or_default();
             usage.keys += 1;
             *usage.key_counts.entry(key_id).or_default() += 1;
+            let live = self.frame.apps.entry(app).or_default();
+            live.keys += 1;
+            *live.key_counts.entry(key_id).or_default() += 1;
         }
     }
 
     fn record_app_click(&mut self, button: usize) {
         #[cfg(windows)]
         if let Some(app) = foreground::current_app() {
-            let usage = self.bucket.apps.entry(app).or_default();
+            let usage = self.bucket.apps.entry(app.clone()).or_default();
             usage.clicks += 1;
             usage.buttons[button] += 1;
+            let live = self.frame.apps.entry(app).or_default();
+            live.clicks += 1;
+            live.buttons[button] += 1;
         }
     }
 
     fn record_app_wheel(&mut self) {
         #[cfg(windows)]
         if let Some(app) = foreground::current_app() {
-            self.bucket.apps.entry(app).or_default().wheel += 1;
+            let usage = self.bucket.apps.entry(app.clone()).or_default();
+            usage.wheel += 1;
+            self.frame.apps.entry(app).or_default().wheel += 1;
         }
     }
 
     fn record_app_move(&mut self, dist: f64) {
         #[cfg(windows)]
         if let Some(app) = foreground::current_app() {
-            self.bucket.apps.entry(app).or_default().px += dist;
+            let usage = self.bucket.apps.entry(app.clone()).or_default();
+            usage.px += dist;
+            self.frame.apps.entry(app).or_default().px += dist;
         }
     }
 
@@ -529,7 +554,9 @@ impl Aggregator {
             if elapsed > 0
                 && let Some(app) = foreground::current_app()
             {
-                self.bucket.apps.entry(app).or_default().ms += elapsed;
+                let usage = self.bucket.apps.entry(app.clone()).or_default();
+                usage.ms += elapsed;
+                self.frame.apps.entry(app).or_default().ms += elapsed;
             }
         }
     }
@@ -814,6 +841,8 @@ impl Aggregator {
             grid: self.frame.grid.clone(),
             pairs: self.frame.pairs.drain().collect(),
             pair_gap: self.frame.pair_gap.drain().collect(),
+            apps: self.frame.apps.drain().collect(),
+            current_app: foreground_current(),
         };
 
         self.second_acc.ts = now_ms();

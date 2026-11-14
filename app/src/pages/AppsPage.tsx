@@ -3,12 +3,93 @@ import { useApp } from '../app/store';
 import { useReducedMotion } from '../app/useReducedMotion';
 import { useForegroundEnabled, writeForegroundEnabled } from '../app/foregroundSetting';
 import { loadAppDetail, loadAppStats } from '../ipc/client';
-import type { AppDetail, AppStat } from '../ipc/types';
+import type { AppDetail, AppStat, LiveAppUsage } from '../ipc/types';
+import { useLiveOverlay } from '../state/useLiveOverlay';
 import { KeyboardCanvas } from '../keyboard/KeyboardCanvas';
 import { Top10List } from '../keyboard/Top10List';
+import { KEYS, displayKey } from '../keyboard/layout';
 
 const GAP_LABELS = ['0–40', '40–80', '80–120', '120–200', '200–350', '350–500', '500+'];
 const BUTTON_LABELS = ['左键', '右键', '中键', '侧键1', '侧键2'];
+const PAIR_SEP = '\u0000';
+
+function mouseLabel(token: number): string {
+  return token === 104 ? '左键'
+    : token === 105 ? '右键'
+      : token === 106 ? '中键'
+        : token === 107 ? '侧键1'
+          : token === 108 ? '侧键2'
+            : `#${token}`;
+}
+
+function keyLabel(id: number): string {
+  if (id >= 104) return mouseLabel(id);
+  const raw = KEYS[id]?.label;
+  return raw ? displayKey(raw) : `#${id}`;
+}
+
+function mergeDetail(base: AppDetail, live: LiveAppUsage | undefined): AppDetail {
+  if (!live) return base;
+  const seconds = base.seconds + Math.floor(live.ms / 1000);
+  const keys = base.keys + live.keys;
+  const clicks = base.clicks + live.clicks;
+  const wheel = base.wheel + live.wheel;
+  const movePx = base.movePx + live.px;
+  const buttons = base.buttons.map((n, i) => n + (live.buttons[i] || 0));
+
+  const keyCounts = new Map<number, number>();
+  for (const k of base.keyStats) keyCounts.set(k.keyId, k.count);
+  for (const [id, count] of live.keyCounts) keyCounts.set(id, (keyCounts.get(id) || 0) + count);
+  const keyStats = Array.from(keyCounts.entries())
+    .map(([keyId, count]) => ({
+      keyId, label: keyLabel(keyId), count,
+      ratio: keys ? count / keys : 0,
+      holdAvgMs: 0, holdMaxMs: 0, firstTs: 0, lastTs: 0
+    }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
+  const pairMap = new Map<string, { a: string; b: string; count: number; fast: number }>();
+  for (const p of base.pairs) {
+    pairMap.set(`${p.a}${PAIR_SEP}${p.b}`, { a: p.a, b: p.b, count: p.count, fast: p.fastCount });
+  }
+  const liveFast = new Map<number, number>();
+  for (const [rawKey, count] of live.pairGap) {
+    const pair = Math.floor(rawKey / 8);
+    const bin = rawKey % 8;
+    if (bin <= 2) liveFast.set(pair, (liveFast.get(pair) || 0) + count);
+  }
+  for (const [pair, count] of live.pair) {
+    const a = keyLabel((pair >>> 16) & 0xffff);
+    const b = keyLabel(pair & 0xffff);
+    const k = `${a}${PAIR_SEP}${b}`;
+    const cur = pairMap.get(k) || { a, b, count: 0, fast: 0 };
+    cur.count += count;
+    cur.fast += liveFast.get(pair) || 0;
+    pairMap.set(k, cur);
+  }
+  const pairs = Array.from(pairMap.values())
+    .sort((a, b) => b.count - a.count)
+    .map(p => ({ a: p.a, b: p.b, count: p.count, fastCount: p.fast }));
+
+  const gapHist = [...base.gapHist];
+  for (const [rawKey, count] of live.pairGap) {
+    const bin = rawKey % 8;
+    if (bin < gapHist.length) gapHist[bin] += count;
+  }
+  let adFast = 0;
+  let adTotal = 0;
+  for (const p of pairs) {
+    if ((p.a === 'A' && p.b === 'D') || (p.a === 'D' && p.b === 'A')) {
+      adTotal += p.count;
+      adFast += p.fastCount;
+    }
+  }
+  return {
+    ...base,
+    seconds, keys, clicks, wheel, movePx, buttons,
+    keyStats, pairs, gapHist, adFast, adTotal
+  };
+}
 
 function duration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -87,6 +168,25 @@ export function AppsPage({ active }: { active: boolean }) {
   const [apps, setApps] = useState<AppStat[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<AppDetail | null>(null);
+  const live = useLiveOverlay(detail);
+
+  const liveApps = useMemo(() => apps.map(a => {
+    const d = live.apps.get(a.name);
+    if (!d) return a;
+    return {
+      ...a,
+      seconds: a.seconds + Math.floor(d.ms / 1000),
+      keys: a.keys + d.keys,
+      clicks: a.clicks + d.clicks,
+      wheel: a.wheel + d.wheel,
+      movePx: a.movePx + d.px
+    };
+  }).sort((a, b) => b.seconds - a.seconds), [apps, live]);
+
+  const viewDetail = useMemo(
+    () => (detail ? mergeDetail(detail, live.apps.get(detail.name)) : null),
+    [detail, live]
+  );
 
   useEffect(() => {
     if (!active || !enabled) return;
@@ -121,14 +221,14 @@ export function AppsPage({ active }: { active: boolean }) {
     return () => { alive = false; window.clearInterval(timer); };
   }, [active, enabled, range, selected]);
 
-  const keyStats = detail?.keyStats ?? [];
+  const keyStats = viewDetail?.keyStats ?? [];
   const counts = useMemo(() => {
     const m = new Map<string, number>();
     for (const k of keyStats) m.set(k.label, k.count);
     return m;
   }, [keyStats]);
   const maxCount = keyStats[0]?.count ?? 0;
-  const total = detail?.keys ?? 0;
+  const total = viewDetail?.keys ?? 0;
 
   if (!enabled) {
     return (
@@ -157,17 +257,18 @@ export function AppsPage({ active }: { active: boolean }) {
       <header className="g-head">
         <h1>前台应用</h1>
         <p>按前台时长排序。选择应用，查看它在键盘、鼠标和操作习惯上的画像。</p>
+        {live.currentApp && <div className="apps-now">当前前台：<span>{live.currentApp}</span></div>}
       </header>
 
       <div className="apps-layout">
         <aside className="panel apps-nav">
           <div className="ph">
             <span className="ph-title">应用</span>
-            <span className="ph-meta">{apps.length ? `${apps.length} 个` : ''}</span>
+            <span className="ph-meta">{liveApps.length ? `${liveApps.length} 个` : ''}</span>
           </div>
           <div className="apps-list">
-            {apps.length ? apps.map((a, i) => {
-              const maxSec = apps[0]?.seconds || 1;
+            {liveApps.length ? liveApps.map((a, i) => {
+              const maxSec = liveApps[0]?.seconds || 1;
               return (
                 <button
                   key={a.name}
@@ -190,20 +291,20 @@ export function AppsPage({ active }: { active: boolean }) {
         </aside>
 
         <div className="apps-detail">
-          {detail ? (
+          {viewDetail ? (
             <>
               <div className="panel app-summary">
                 <div className="ph">
-                  <span className="ph-title app-detail-title">{detail.name}</span>
-                  <span className="ph-meta">{duration(detail.seconds)} 前台</span>
+                  <span className="ph-title app-detail-title">{viewDetail.name}</span>
+                  <span className="ph-meta">{duration(viewDetail.seconds)} 前台</span>
                   <div className="ph-spacer" />
                   <span className="ph-meta">只统计前台时输入</span>
                 </div>
                 <div className="app-summary-grid">
-                  <div><span>按键</span><b className="mono">{detail.keys.toLocaleString('en-US')}</b></div>
-                  <div><span>点击</span><b className="mono">{detail.clicks.toLocaleString('en-US')}</b></div>
-                  <div><span>滚轮</span><b className="mono">{detail.wheel.toLocaleString('en-US')}</b></div>
-                  <div><span>移动</span><b className="mono">{formatDistance(detail.movePx)}</b></div>
+                  <div><span>按键</span><b className="mono">{viewDetail.keys.toLocaleString('en-US')}</b></div>
+                  <div><span>点击</span><b className="mono">{viewDetail.clicks.toLocaleString('en-US')}</b></div>
+                  <div><span>滚轮</span><b className="mono">{viewDetail.wheel.toLocaleString('en-US')}</b></div>
+                  <div><span>移动</span><b className="mono">{formatDistance(viewDetail.movePx)}</b></div>
                 </div>
               </div>
 
@@ -211,7 +312,7 @@ export function AppsPage({ active }: { active: boolean }) {
                 <div className="panel app-heat">
                   <div className="ph">
                     <span className="ph-title">键盘热力</span>
-                    <span className="ph-meta">{(detail.keys ? '按在该应用前台的按键' : '无按键')}</span>
+                    <span className="ph-meta">{(viewDetail.keys ? '按在该应用前台的按键' : '无按键')}</span>
                   </div>
                   <div className="app-kb-stage">
                     <KeyboardCanvas
@@ -222,7 +323,7 @@ export function AppsPage({ active }: { active: boolean }) {
                       maxCount={maxCount}
                       sel={null}
                       paused={false}
-                      empty={!detail.keys}
+                      empty={!viewDetail.keys}
                       reduce={reduce}
                       minU={20}
                     />
@@ -240,11 +341,11 @@ export function AppsPage({ active }: { active: boolean }) {
                     keyStats={keyStats}
                     total={total}
                     sel={null}
-                    empty={!detail.keys}
+                    empty={!viewDetail.keys}
                     viewReset={false}
                     onPick={() => {}}
                   />
-                  {!keyStats.length && detail.keys > 0 && (
+                  {!keyStats.length && viewDetail.keys > 0 && (
                     <div className="app-empty-line" style={{ padding: '0 10px 8px' }}>
                       这个应用只有升级后的新数据才会带键位明细。
                     </div>
@@ -254,9 +355,9 @@ export function AppsPage({ active }: { active: boolean }) {
                 <div className="panel app-mouse">
                   <div className="ph">
                     <span className="ph-title">鼠标使用</span>
-                    <span className="ph-meta">{detail.clicks.toLocaleString('en-US')} 次点击</span>
+                    <span className="ph-meta">{viewDetail.clicks.toLocaleString('en-US')} 次点击</span>
                   </div>
-                  <MiniBars values={detail.buttons} labels={BUTTON_LABELS} />
+                  <MiniBars values={viewDetail.buttons} labels={BUTTON_LABELS} />
                 </div>
               </div>
 
@@ -265,12 +366,12 @@ export function AppsPage({ active }: { active: boolean }) {
                   <span className="ph-title">操作习惯</span>
                   <span className="ph-meta">无序组合 · 不含精确时序</span>
                 </div>
-                <AppHabits detail={detail} />
+                <AppHabits detail={viewDetail} />
               </div>
             </>
           ) : (
             <div className="panel apps-detail-empty">
-              {apps.length ? '选择一个应用查看详情' : '还没有可展示的应用数据'}
+              {liveApps.length ? '选择一个应用查看详情' : '还没有可展示的应用数据'}
             </div>
           )}
         </div>
@@ -278,3 +379,5 @@ export function AppsPage({ active }: { active: boolean }) {
     </section>
   );
 }
+
+

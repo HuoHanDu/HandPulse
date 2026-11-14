@@ -152,7 +152,9 @@ function startMockLive(): () => void {
       dy: Math.round((Math.random() - 0.5) * 40),
       grid,
       pairs: [],
-      pairGap: []
+      pairGap: [],
+      apps: [],
+      currentApp: null
     };
     liveStore.push(frame);
   }, 100);

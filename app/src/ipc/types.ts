@@ -56,6 +56,18 @@ export interface DetailRow {
  * 实时帧。M2 通过 `tauri::ipc::Channel` 推送，seq 单调递增用于去重/丢弃晚到帧。
  * keys 为 [keyId, delta]，keyId 与 KeyStat.keyId 一致。
  */
+export interface LiveAppUsage {
+  ms: number;
+  keys: number;
+  clicks: number;
+  wheel: number;
+  px: number;
+  buttons: number[];
+  keyCounts: Array<[number, number]>;
+  pair: Array<[number, number]>;
+  pairGap: Array<[number, number]>;
+}
+
 export interface LiveFrame {
   seq: number;
   ts: number;
@@ -67,6 +79,8 @@ export interface LiveFrame {
   grid: Array<[number, number]>;
   pairs: Array<[number, number]>;
   pairGap: Array<[number, number]>;
+  apps: Array<[string, LiveAppUsage]>;
+  currentApp: string | null;
 }
 
 /** M2 采集层状态（camelCase 与 Rust CaptureStats 对齐）。 */

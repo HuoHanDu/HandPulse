@@ -29,7 +29,7 @@ use serde::Serialize;
 use tauri::ipc::Channel;
 
 use crate::storage::Db;
-use crate::storage::payload::CurrentBucket;
+use crate::storage::payload::{AppUsage, CurrentBucket};
 use crate::storage::writer::{WriteMsg, spawn as spawn_writer};
 
 /// 实时帧，字段与 `app/src/ipc/types.ts` 的 LiveFrame 一一对应。
@@ -50,6 +50,12 @@ pub struct LiveFrame {
     /// 本帧新增的 (pair << 3 | gap_bin) 计数。
     #[serde(default)]
     pub pair_gap: Vec<(u64, u32)>,
+    /// 本帧新增的前台应用增量（只含 exe basename）。
+    #[serde(default)]
+    pub apps: Vec<(String, AppUsage)>,
+    /// 当前前台 exe basename；用于页面高亮。
+    #[serde(default)]
+    pub current_app: Option<String>,
 }
 
 #[derive(Clone, Serialize)]

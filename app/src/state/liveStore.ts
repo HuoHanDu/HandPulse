@@ -1,4 +1,4 @@
-import type { LiveFrame } from '../ipc/types';
+import type { LiveAppUsage, LiveFrame } from '../ipc/types';
 
 export interface LiveDeltas {
   seq: number;
@@ -11,10 +11,39 @@ export interface LiveDeltas {
   grid: Array<[number, number]>;
   pairs: Map<number, number>;
   pairGap: Map<number, number>;
+  apps: Map<string, LiveAppUsage>;
+  currentApp: string | null;
 }
 
 function emptyClicks(): [number, number, number, number, number] {
   return [0, 0, 0, 0, 0];
+}
+
+function emptyApp(): LiveAppUsage {
+  return { ms: 0, keys: 0, clicks: 0, wheel: 0, px: 0, buttons: [0, 0, 0, 0, 0], keyCounts: [], pair: [], pairGap: [] };
+}
+
+function mergePairs(a: Array<[number, number]>, b: Array<[number, number]>): Array<[number, number]> {
+  if (!b.length) return a;
+  const m = new Map(a);
+  for (const [k, v] of b) m.set(k, (m.get(k) || 0) + v);
+  return Array.from(m.entries());
+}
+
+function mergeApp(a: LiveAppUsage, b: LiveAppUsage): LiveAppUsage {
+  const buttons = [0, 0, 0, 0, 0];
+  for (let i = 0; i < 5; i++) buttons[i] = (a.buttons[i] || 0) + (b.buttons[i] || 0);
+  return {
+    ms: a.ms + b.ms,
+    keys: a.keys + b.keys,
+    clicks: a.clicks + b.clicks,
+    wheel: a.wheel + b.wheel,
+    px: a.px + b.px,
+    buttons,
+    keyCounts: mergePairs(a.keyCounts, b.keyCounts),
+    pair: mergePairs(a.pair, b.pair),
+    pairGap: mergePairs(a.pairGap, b.pairGap)
+  };
 }
 
 /**
@@ -35,10 +64,12 @@ class LiveStore {
   private pendingGrid: Array<[number, number]> = [];
   private pendingPairs = new Map<number, number>();
   private pendingPairGap = new Map<number, number>();
+  private pendingApps = new Map<string, LiveAppUsage>();
+  private pendingCurrentApp: string | null = null;
 
   private published: LiveDeltas = {
     seq: -1, ts: 0, keys: new Map(), clicks: emptyClicks(), wheel: [0, 0], dx: 0, dy: 0, grid: [],
-    pairs: new Map(), pairGap: new Map()
+    pairs: new Map(), pairGap: new Map(), apps: new Map(), currentApp: null
   };
 
   private listeners = new Set<() => void>();
@@ -74,6 +105,11 @@ class LiveStore {
     for (const [key, delta] of frame.pairGap || []) {
       this.pendingPairGap.set(key, (this.pendingPairGap.get(key) || 0) + delta);
     }
+    for (const [app, delta] of frame.apps || []) {
+      const cur = this.pendingApps.get(app) || emptyApp();
+      this.pendingApps.set(app, mergeApp(cur, delta));
+    }
+    this.pendingCurrentApp = frame.currentApp ?? null;
     this.schedule();
   }
 
@@ -94,7 +130,7 @@ class LiveStore {
 
   reset(): void {
     this.clearPending();
-    this.published = { seq: this.lastSeq, ts: 0, keys: new Map(), clicks: emptyClicks(), wheel: [0, 0], dx: 0, dy: 0, grid: [], pairs: new Map(), pairGap: new Map() };
+    this.published = { seq: this.lastSeq, ts: 0, keys: new Map(), clicks: emptyClicks(), wheel: [0, 0], dx: 0, dy: 0, grid: [], pairs: new Map(), pairGap: new Map(), apps: new Map(), currentApp: null };
   }
 
   /**
@@ -109,7 +145,7 @@ class LiveStore {
     this.lastSeq = seqBase;
     this.pendingWhenVisible = false;
     this.clearPending();
-    this.published = { seq: seqBase, ts: 0, keys: new Map(), clicks: emptyClicks(), wheel: [0, 0], dx: 0, dy: 0, grid: [], pairs: new Map(), pairGap: new Map() };
+    this.published = { seq: seqBase, ts: 0, keys: new Map(), clicks: emptyClicks(), wheel: [0, 0], dx: 0, dy: 0, grid: [], pairs: new Map(), pairGap: new Map(), apps: new Map(), currentApp: null };
   }
 
   private clearPending(): void {
@@ -121,6 +157,8 @@ class LiveStore {
     this.pendingGrid = [];
     this.pendingPairs.clear();
     this.pendingPairGap.clear();
+    this.pendingApps.clear();
+    this.pendingCurrentApp = null;
   }
 
   private schedule(): void {
@@ -150,7 +188,12 @@ class LiveStore {
     this.pendingPairs = new Map();
     const pairGap = this.pendingPairGap;
     this.pendingPairGap = new Map();
-    this.published = { seq: this.lastSeq, ts: Date.now(), keys, clicks, wheel, dx, dy, grid, pairs, pairGap };
+    const apps = this.pendingApps;
+    this.pendingApps = new Map();
+    this.published = {
+      seq: this.lastSeq, ts: Date.now(), keys, clicks, wheel, dx, dy, grid, pairs, pairGap,
+      apps, currentApp: this.pendingCurrentApp
+    };
     for (const listener of Array.from(this.listeners)) listener();
   }
 }

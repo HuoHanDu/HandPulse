@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { liveStore } from './liveStore';
+import type { LiveAppUsage } from '../ipc/types';
 
 /**
  * 历史查询（DB + 当前桶，最多 1s 前）之上的「即时增量」。
@@ -18,6 +19,8 @@ export interface LiveOverlay {
   grid: Map<string, number>;
   pairs: Map<number, number>;
   pairGap: Map<number, number>;
+  apps: Map<string, LiveAppUsage>;
+  currentApp: string | null;
 }
 
 export function emptyOverlay(): LiveOverlay {
@@ -30,7 +33,36 @@ export function emptyOverlay(): LiveOverlay {
     movePx: 0,
     grid: new Map(),
     pairs: new Map(),
-    pairGap: new Map()
+    pairGap: new Map(),
+    apps: new Map(),
+    currentApp: null
+  };
+}
+
+function emptyApp(): LiveAppUsage {
+  return { ms: 0, keys: 0, clicks: 0, wheel: 0, px: 0, buttons: [0, 0, 0, 0, 0], keyCounts: [], pair: [], pairGap: [] };
+}
+
+function mergePairs(a: Array<[number, number]>, b: Array<[number, number]>): Array<[number, number]> {
+  if (!b.length) return a;
+  const m = new Map(a);
+  for (const [k, v] of b) m.set(k, (m.get(k) || 0) + v);
+  return Array.from(m.entries());
+}
+
+function mergeApp(a: LiveAppUsage, b: LiveAppUsage): LiveAppUsage {
+  const buttons = [0, 0, 0, 0, 0];
+  for (let i = 0; i < 5; i++) buttons[i] = (a.buttons[i] || 0) + (b.buttons[i] || 0);
+  return {
+    ms: a.ms + b.ms,
+    keys: a.keys + b.keys,
+    clicks: a.clicks + b.clicks,
+    wheel: a.wheel + b.wheel,
+    px: a.px + b.px,
+    buttons,
+    keyCounts: mergePairs(a.keyCounts, b.keyCounts),
+    pair: mergePairs(a.pair, b.pair),
+    pairGap: mergePairs(a.pairGap, b.pairGap)
   };
 }
 
@@ -63,6 +95,10 @@ function addDeltas(prev: LiveOverlay, d: ReturnType<typeof liveStore.getDeltas>)
   d.pairGap.forEach((delta, key) => {
     if (delta) pairGap.set(key, (pairGap.get(key) || 0) + delta);
   });
+  const apps = new Map(prev.apps);
+  d.apps.forEach((delta, app) => {
+    apps.set(app, mergeApp(apps.get(app) || emptyApp(), delta));
+  });
   return {
     keyCount,
     keysTotal,
@@ -72,7 +108,9 @@ function addDeltas(prev: LiveOverlay, d: ReturnType<typeof liveStore.getDeltas>)
     movePx: prev.movePx + Math.hypot(d.dx, d.dy),
     grid,
     pairs,
-    pairGap
+    pairGap,
+    apps,
+    currentApp: d.currentApp ?? prev.currentApp
   };
 }
 
