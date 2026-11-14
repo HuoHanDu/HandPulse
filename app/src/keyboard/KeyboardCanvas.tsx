@@ -19,6 +19,7 @@ interface Props {
   paused: boolean;
   empty: boolean;
   reduce: boolean;
+  minU?: number;
 }
 
 function levelOf(count: number, max: number): number {
@@ -120,7 +121,7 @@ export const KeyboardCanvas = forwardRef<KeyboardHandle, Props>(function Keyboar
     if (!stage) return;
     const measure = () => {
       const avail = stage.clientWidth - 20;
-      const next = Math.max(29, Math.min(41, Math.floor(avail / 24)));
+      const next = Math.max(propsRef.current.minU ?? 29, Math.min(41, Math.floor(avail / 24)));
       setU(prev => (prev === next ? prev : next));
     };
     measure();

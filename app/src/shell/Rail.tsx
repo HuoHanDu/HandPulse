@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { useApp, type Route } from '../app/store';
+import { useForegroundEnabled } from '../app/foregroundSetting';
 
-const ITEMS: Array<{ route: Route; label: string; path: ReactNode }> = [
+const ITEMS: Array<{ route: Route; label: string; path: ReactNode; requiresForeground?: boolean }> = [
   {
     route: 'keyboard',
     label: '键盘查看',
@@ -48,6 +49,19 @@ const ITEMS: Array<{ route: Route; label: string; path: ReactNode }> = [
     )
   },
   {
+    route: 'apps',
+    label: '前台应用',
+    requiresForeground: true,
+    path: (
+      <>
+        <rect x="3.5" y="4.5" width="7" height="7" rx="1.2" />
+        <rect x="13.5" y="4.5" width="7" height="7" rx="1.2" />
+        <rect x="3.5" y="14.5" width="7" height="5" rx="1.2" />
+        <rect x="13.5" y="14.5" width="7" height="5" rx="1.2" />
+      </>
+    )
+  },
+  {
     route: 'settings',
     label: '设置',
     path: (
@@ -61,11 +75,13 @@ const ITEMS: Array<{ route: Route; label: string; path: ReactNode }> = [
 
 export function Rail() {
   const { state } = useApp();
+  const foregroundEnabled = useForegroundEnabled();
+  const items = ITEMS.filter(item => !item.requiresForeground || foregroundEnabled);
   return (
     <nav className="rail" aria-label="主导航">
       <div className="rail-brand" aria-hidden="true">手脉</div>
       <div className="rail-list">
-        {ITEMS.map(item => (
+        {items.map(item => (
           <a
             key={item.route}
             className="rail-btn"

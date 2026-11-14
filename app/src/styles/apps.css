@@ -1,0 +1,80 @@
+
+/* 前台应用页 */
+.apps-layout{display:grid;grid-template-columns:248px minmax(0,1fr);gap:14px;flex:1 1 auto;min-height:0}
+.apps-nav{display:flex;flex-direction:column;min-height:0}
+.apps-list{flex:1 1 auto;min-height:0;overflow:auto;padding:2px 8px 8px}
+.apps-item{display:grid;grid-template-columns:22px minmax(0,1fr) 62px;grid-template-rows:auto 3px;gap:4px 8px;align-items:center;width:100%;padding:8px 7px;border:1px solid transparent;background:none;color:var(--text-2);text-align:left;cursor:pointer;border-radius:6px}
+.apps-item:hover{background:rgba(255,255,255,.035)}
+.apps-item.is-sel{background:rgba(76,141,255,.12);border-color:rgba(76,141,255,.28);color:var(--text)}
+.apps-rank{font-size:10px;color:var(--text-3)}
+.apps-name{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.apps-time{font-size:10px;color:var(--text-3);text-align:right}
+.apps-bar{grid-column:2 / 4;height:3px;border-radius:2px;background:#191d23;overflow:hidden}
+.apps-bar i{display:block;height:100%;background:var(--accent);border-radius:2px}
+.apps-list-empty{padding:16px 8px;font-size:12px;color:var(--text-3);line-height:1.6}
+.apps-detail{min-width:0;min-height:0;display:flex;flex-direction:column;gap:12px;overflow:auto;padding-right:2px}
+.app-detail-title{font-size:16px;color:var(--text)}
+.app-summary{flex:0 0 auto}
+.app-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;padding:10px 14px 14px}
+.app-summary-grid>div{display:flex;flex-direction:column;gap:4px;padding:2px 10px;border-left:1px solid var(--line)}
+.app-summary-grid>div:first-child{border-left:0;padding-left:0}
+.app-summary-grid span{font-size:10px;color:var(--text-3);letter-spacing:.04em}
+.app-summary-grid b{font-size:22px;font-weight:500;color:var(--text)}
+.apps-mid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(230px,.85fr);gap:12px;min-height:0}
+.app-heat,.app-top10{min-width:0;display:flex;flex-direction:column}
+.app-kb-stage{flex:1 1 auto;min-height:0;padding:0 4px 4px;overflow:hidden}
+.app-kb-stage .kbstage{height:214px;min-height:0;padding:0}
+.app-kb-stage .kbstage::before{display:none}
+.app-top10 .top10-table{display:grid;grid-template-columns:1fr;grid-template-rows:repeat(10,minmax(0,1fr));padding:0 8px 8px;overflow:hidden}
+.app-top10 .t10-row{grid-template-columns:20px 72px minmax(0,1fr) 62px 46px;gap:7px;font-size:11px}
+.app-top10 .t10-rank{font-size:10px}
+.app-mouse{flex:0 0 auto}
+.app-mini-bars{display:flex;flex-direction:column;gap:4px;padding:2px 14px 12px}
+.app-mini-bar{display:grid;grid-template-columns:52px minmax(0,1fr) 58px;gap:10px;align-items:center;font-size:11px;color:var(--text-3)}
+.app-mini-bar>span{color:var(--text-2)}
+.app-mini-bar>i{height:4px;border-radius:2px;background:#1a1d23;overflow:hidden}
+.app-mini-bar>i>b{display:block;height:100%;background:#5d9ce6;border-radius:2px}
+.app-mini-bar>em{text-align:right;font-style:normal;color:var(--text-2);font-size:10px}
+.app-habits-panel{flex:0 0 auto}
+.app-habits{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr) minmax(0,1fr);gap:22px;padding:2px 14px 14px}
+.app-habit-col{min-width:0}
+.app-kicker{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);margin-bottom:6px}
+.app-habit-big{font-size:30px;line-height:1;color:var(--text);font-weight:600}
+.app-habit-big span{font-size:11px;color:var(--text-3);font-weight:400;margin-left:4px}
+.app-habit-hint{font-size:11px;line-height:1.45;color:var(--text-3);margin-top:7px;min-height:30px}
+.app-meter{height:5px;border-radius:3px;background:#1a1d23;overflow:hidden;margin-top:8px}
+.app-meter i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.app-habit-row{display:grid;grid-template-columns:88px minmax(0,1fr) 50px;gap:8px;align-items:center;height:21px;font-size:11px;color:var(--text-2)}
+.app-habit-row>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app-habit-row>i{height:4px;border-radius:2px;background:#1a1d23;overflow:hidden}
+.app-habit-row>i>b{display:block;height:100%;background:var(--accent);border-radius:2px}
+.app-habit-row>em{text-align:right;font-style:normal;font-size:10px;color:var(--text-2)}
+.app-gap-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;height:88px;align-items:end}
+.app-gap-cell{display:flex;flex-direction:column;justify-content:flex-end;gap:4px;height:100%;min-width:0}
+.app-gap-cell>span{display:flex;align-items:flex-end;height:64px;background:#111419;border-radius:2px;overflow:hidden}
+.app-gap-cell>span>i{display:block;width:100%;background:#4b8dd8;border-radius:2px 2px 0 0}
+.app-gap-cell>em{font-style:normal;font-size:8px;color:var(--text-3);text-align:center;white-space:nowrap;transform:scale(.9);transform-origin:center}
+.app-empty-line{font-size:11px;color:var(--text-3);padding-top:3px}
+.apps-detail-empty{display:flex;align-items:center;justify-content:center;min-height:220px;color:var(--text-3);font-size:13px}
+.apps-disabled{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:360px;text-align:center;padding:30px}
+.apps-disabled-icon{font-size:38px;color:var(--accent);opacity:.7}
+.apps-disabled h2{margin:0;font-size:18px;font-weight:500;color:var(--text)}
+.apps-disabled p{max-width:430px;margin:0;color:var(--text-3);font-size:12px;line-height:1.7}
+.apps-disabled-note{font-size:11px;color:var(--text-3);opacity:.7}
+@media (max-width:1180px){
+  .apps-layout{grid-template-columns:210px minmax(0,1fr)}
+  .apps-lower{grid-template-columns:minmax(0,1fr)}
+  .app-top10 .top10-table{grid-template-columns:1fr 1fr;grid-template-rows:repeat(5,minmax(0,1fr));grid-auto-flow:column}
+  .app-habits{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .app-habits>.app-habit-col:last-child{grid-column:1 / -1}
+}
+.apps-mid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-height:0}
+.app-kb-stage .kbstage{height:230px;min-height:0;padding:0}
+.apps-lower{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:12px;min-height:0}
+
+.app-heat{height:290px;flex:0 0 290px}
+.app-kb-stage{flex:1 1 auto;min-height:0}
+.app-kb-stage .kbstage{height:230px}
+.apps-mid{height:290px;min-height:290px;flex:0 0 290px}
+.apps-detail>*{flex:0 0 auto}
+.apps-lower{flex:0 0 auto;min-height:240px}

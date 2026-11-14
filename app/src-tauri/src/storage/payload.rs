@@ -16,6 +16,14 @@ pub struct AppUsage {
     pub clicks: u64,
     pub wheel: u64,
     pub px: f64,
+    #[serde(default)]
+    pub buttons: [u64; 5],
+    #[serde(default)]
+    pub key_counts: BTreeMap<u16, u32>,
+    #[serde(default)]
+    pub pair: BTreeMap<u32, u32>,
+    #[serde(default)]
+    pub pair_gap: BTreeMap<u64, u32>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
@@ -134,6 +142,18 @@ impl KbPayload {
             entry.clicks = entry.clicks.saturating_add(usage.clicks);
             entry.wheel = entry.wheel.saturating_add(usage.wheel);
             entry.px += usage.px;
+            for (i, count) in usage.buttons.iter().enumerate() {
+                entry.buttons[i] = entry.buttons[i].saturating_add(*count);
+            }
+            for (key, count) in &usage.key_counts {
+                *entry.key_counts.entry(*key).or_default() += *count;
+            }
+            for (pair, count) in &usage.pair {
+                *entry.pair.entry(*pair).or_default() += *count;
+            }
+            for (key, count) in &usage.pair_gap {
+                *entry.pair_gap.entry(*key).or_default() += *count;
+            }
         }
     }
 }

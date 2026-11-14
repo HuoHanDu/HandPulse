@@ -218,6 +218,21 @@ export interface AppStat {
   movePx: number;
 }
 
+export interface AppDetail {
+  name: string;
+  seconds: number;
+  keys: number;
+  clicks: number;
+  wheel: number;
+  movePx: number;
+  buttons: number[];
+  keyStats: KeyStat[];
+  pairs: PairStat[];
+  gapHist: number[];
+  adFast: number;
+  adTotal: number;
+}
+
 export interface PairStat {
   a: string;
   b: string;

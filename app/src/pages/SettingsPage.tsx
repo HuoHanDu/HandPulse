@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useApp } from '../app/store';
+import { useForegroundEnabled, writeForegroundEnabled } from '../app/foregroundSetting';
 import { getSettings, isTauri, openDataDir, setSettings } from '../ipc/client';
 import { clearPageDataCache, usePageData } from '../state/usePageData';
 import { Switch } from '../ui/Switch';
@@ -21,17 +22,8 @@ export function SettingsPage({ active }: Props) {
   const toast = (message: string) => dispatch({ type: 'toast', message });
   const { data: settings } = usePageData('settings', getSettings);
   const [closeBehavior, setCloseBehavior] = useState<CloseBehavior>(readCloseBehavior);
-  const [foregroundEnabled, setForegroundEnabled] = useState(() => {
-    try { return localStorage.getItem('hp.foreground.enabled') === '1'; } catch { return false; }
-  });
+  const foregroundEnabled = useForegroundEnabled();
   const fileInput = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!isTauri) return;
-    invoke('set_foreground_enabled', { enabled: foregroundEnabled }).catch((err) => {
-      toast('前台应用设置失败：' + String(err));
-    });
-  }, [foregroundEnabled]);
 
   const importDatabase = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -118,7 +110,7 @@ export function SettingsPage({ active }: Props) {
               <div className="pref-label">
                 <div className="pref-name">前台应用统计</div>
                 <div className="pref-hint">
-                  只记录前台程序的 exe 名称、前台时长和按键/点击总量；不读取窗口标题或输入内容。默认关闭。
+                  只记录前台程序的 exe 名称、前台时长和按键/点击聚合；开启后还会按应用保存按键次数与无序组合。不读取窗口标题或输入内容。默认关闭。
                 </div>
               </div>
               <div className="pref-ctl">
@@ -128,8 +120,7 @@ export function SettingsPage({ active }: Props) {
                   checked={foregroundEnabled}
                   onChange={() => {
                     const next = !foregroundEnabled;
-                    setForegroundEnabled(next);
-                    try { localStorage.setItem('hp.foreground.enabled', next ? '1' : '0'); } catch {}
+                    writeForegroundEnabled(next);
                     if (isTauri) {
                       invoke('set_foreground_enabled', { enabled: next }).catch((err) => {
                         toast('前台应用设置失败：' + String(err));
@@ -302,7 +293,7 @@ export function SettingsPage({ active }: Props) {
           <div className="about-rows">
             <div className="pref-row">
               <div className="pref-label"><div className="pref-name">版本</div></div>
-              <div className="pref-ctl"><span className="ver mono">0.9.18<span>原型</span></span></div>
+              <div className="pref-ctl"><span className="ver mono">0.9.19<span>原型</span></span></div>
             </div>
             <div className="pref-row">
               <div className="pref-label"><div className="pref-name">数据库 schema</div></div>
@@ -325,6 +316,7 @@ export function SettingsPage({ active }: Props) {
     </section>
   );
 }
+
 
 
 

@@ -9,7 +9,7 @@ use serde::Serialize;
 
 use super::Db;
 use super::payload::{
-    CurrentBucket, GAP_BIN_COUNT, KbPayload, MousePayload, PadPayload, decode, px_to_cm,
+    AppUsage, CurrentBucket, GAP_BIN_COUNT, KbPayload, MousePayload, PadPayload, decode, px_to_cm,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -105,6 +105,23 @@ pub struct AppStat {
     pub clicks: u64,
     pub wheel: u64,
     pub move_px: f64,
+}
+
+#[derive(Clone, Debug, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AppDetail {
+    pub name: String,
+    pub seconds: u64,
+    pub keys: u64,
+    pub clicks: u64,
+    pub wheel: u64,
+    pub move_px: f64,
+    pub buttons: [u64; 5],
+    pub key_stats: Vec<KeyStat>,
+    pub pairs: Vec<PairStat>,
+    pub gap_hist: Vec<u32>,
+    pub ad_fast: u32,
+    pub ad_total: u32,
 }
 
 #[derive(Clone, Debug, Serialize, Default)]
@@ -1360,6 +1377,127 @@ fn parse_day(day: &str) -> i64 {
         .unwrap_or_else(|| Local::now().timestamp())
 }
 
+pub fn app_detail(db: &Db, range: Range, app_name: &str, live: &LiveSnapshot) -> Result<AppDetail> {
+    let conn = db.open_read()?;
+    let labels = key_labels(&conn)?;
+    let mut agg = AppUsage::default();
+
+    let mut add_payload = |p: &KbPayload| {
+        if let Some(usage) = p.apps.get(app_name) {
+            agg.ms = agg.ms.saturating_add(usage.ms);
+            agg.keys = agg.keys.saturating_add(usage.keys);
+            agg.clicks = agg.clicks.saturating_add(usage.clicks);
+            agg.wheel = agg.wheel.saturating_add(usage.wheel);
+            agg.px += usage.px;
+            for (i, count) in usage.buttons.iter().enumerate() {
+                agg.buttons[i] = agg.buttons[i].saturating_add(*count);
+            }
+            for (key, count) in &usage.key_counts {
+                *agg.key_counts.entry(*key).or_default() += *count;
+            }
+            for (pair, count) in &usage.pair {
+                *agg.pair.entry(*pair).or_default() += *count;
+            }
+            for (key, count) in &usage.pair_gap {
+                *agg.pair_gap.entry(*key).or_default() += *count;
+            }
+        }
+    };
+
+    if range == Range::Session {
+        if let Some(cur) = current_bucket(live) {
+            add_payload(&cur.kb);
+        }
+    } else {
+        let b = bounds(range)?;
+        let mut stmt =
+            conn.prepare("SELECT payload FROM bucket WHERE device='kb' AND ts>=?1 AND ts<?2")?;
+        let rows = stmt.query_map([b.start_ts, b.end_ts], |r| r.get::<_, Vec<u8>>(0))?;
+        for row in rows {
+            let p: KbPayload = decode(&row?)?;
+            add_payload(&p);
+        }
+        if let Some(cur) = current_bucket(live).filter(|c| in_range_current(c, &b)) {
+            add_payload(&cur.kb);
+        }
+    }
+
+    let total_keys = agg.keys.max(1) as f64;
+    let mut key_stats: Vec<KeyStat> = agg
+        .key_counts
+        .iter()
+        .map(|(key_id, count)| KeyStat {
+            key_id: *key_id,
+            label: labels
+                .get(key_id)
+                .cloned()
+                .unwrap_or_else(|| format!("#{key_id}")),
+            count: *count as u64,
+            ratio: *count as f64 / total_keys,
+            hold_avg_ms: 0,
+            hold_max_ms: 0,
+            first_ts: 0,
+            last_ts: 0,
+        })
+        .collect();
+    key_stats.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.label.cmp(&b.label)));
+
+    let mut pairs: Vec<PairStat> = agg
+        .pair
+        .iter()
+        .map(|(pair, count)| {
+            let a = ((pair >> 16) & 0xffff) as u16;
+            let b = (pair & 0xffff) as u16;
+            let fast = (0..=2u64)
+                .map(|bin| {
+                    *agg.pair_gap
+                        .get(&(((*pair as u64) << 3) | bin))
+                        .unwrap_or(&0) as u64
+                })
+                .sum();
+            PairStat {
+                a: token_label(a, &labels),
+                b: token_label(b, &labels),
+                count: *count as u64,
+                fast_count: fast,
+            }
+        })
+        .collect();
+    pairs.sort_by_key(|p| std::cmp::Reverse(p.count));
+
+    let mut gap_hist = vec![0u32; GAP_BIN_COUNT];
+    for (key, count) in &agg.pair_gap {
+        let bin = (*key % 8) as usize;
+        if bin < gap_hist.len() {
+            gap_hist[bin] += *count;
+        }
+    }
+
+    let mut ad_fast = 0u32;
+    let mut ad_total = 0u32;
+    for p in &pairs {
+        if (p.a == "A" && p.b == "D") || (p.a == "D" && p.b == "A") {
+            ad_total += p.count as u32;
+            ad_fast += p.fast_count as u32;
+        }
+    }
+
+    Ok(AppDetail {
+        name: app_name.to_string(),
+        seconds: agg.ms / 1000,
+        keys: agg.keys,
+        clicks: agg.clicks,
+        wheel: agg.wheel,
+        move_px: agg.px,
+        buttons: agg.buttons,
+        key_stats,
+        pairs,
+        gap_hist,
+        ad_fast,
+        ad_total,
+    })
+}
+
 pub fn app_stats(db: &Db, range: Range, live: &LiveSnapshot) -> Result<Vec<AppStat>> {
     let conn = db.open_read()?;
     let mut agg: HashMap<String, AppStat> = HashMap::new();
@@ -1654,6 +1792,56 @@ mod tests {
         cleanup(&p);
     }
 
+    #[test]
+    fn app_detail_sums_keys_pairs_and_buttons() {
+        let (db, p) = temp_db("app_detail");
+        let km = crate::capture::keymap::load();
+        let a = km.id_for(0x1e, false).unwrap();
+        let d = km.id_for(0x20, false).unwrap();
+        let (lo, hi) = if a < d { (a, d) } else { (d, a) };
+        let pair = ((lo as u32) << 16) | hi as u32;
+        let now = Local::now().timestamp();
+        let ts = now - now.rem_euclid(60);
+        let mut usage = AppUsage {
+            ms: 120_000,
+            keys: 3,
+            clicks: 4,
+            wheel: 2,
+            px: 500.0,
+            buttons: [3, 1, 0, 0, 0],
+            ..Default::default()
+        };
+        usage.key_counts.insert(a, 2);
+        usage.key_counts.insert(d, 1);
+        usage.pair.insert(pair, 3);
+        usage.pair_gap.insert(((pair as u64) << 3) | 1, 2);
+        usage.pair_gap.insert(((pair as u64) << 3) | 3, 1);
+        let mut kb = KbPayload {
+            v: 2,
+            ..Default::default()
+        };
+        kb.apps.insert("game.exe".into(), usage);
+        apply_bucket(
+            &mut db.open_write().unwrap(),
+            &PersistBucket::new(ts, 60, Device::Kb, 7, encode(&kb).unwrap()),
+        )
+        .unwrap();
+        let detail = app_detail(&db, Range::Today, "game.exe", &LiveSnapshot::default()).unwrap();
+        assert_eq!(detail.seconds, 120);
+        assert_eq!(detail.keys, 3);
+        assert_eq!(detail.clicks, 4);
+        assert_eq!(detail.buttons, [3, 1, 0, 0, 0]);
+        assert_eq!(detail.key_stats.len(), 2);
+        assert_eq!(detail.key_stats[0].count, 2);
+        assert_eq!(detail.pairs.len(), 1);
+        assert_eq!(detail.pairs[0].count, 3);
+        assert_eq!(detail.pairs[0].fast_count, 2);
+        assert_eq!(detail.ad_fast, 2);
+        assert_eq!(detail.ad_total, 3);
+        assert_eq!(detail.gap_hist[1], 2);
+        assert_eq!(detail.gap_hist[3], 1);
+        cleanup(&p);
+    }
     #[test]
     fn custom_pad_stats_sums_buttons() {
         let (db, p) = temp_db("custom_pad");

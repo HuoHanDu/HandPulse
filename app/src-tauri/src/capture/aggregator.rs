@@ -456,6 +456,8 @@ impl Aggregator {
     }
 
     fn record_pair(&mut self, token: u16, at: Instant) {
+        #[cfg(windows)]
+        let app = foreground::current_app();
         for prev in self.recent.iter().rev().take(3) {
             if prev.token == token {
                 continue;
@@ -475,6 +477,12 @@ impl Aggregator {
             let key = ((pair as u64) << 3) | pair_gap_bin(gap) as u64;
             *self.bucket.pair_gap.entry(key).or_insert(0) += 1;
             *self.frame.pair_gap.entry(key).or_insert(0) += 1;
+            #[cfg(windows)]
+            if let Some(app) = &app {
+                let usage = self.bucket.apps.entry(app.clone()).or_default();
+                *usage.pair.entry(pair).or_insert(0) += 1;
+                *usage.pair_gap.entry(key).or_insert(0) += 1;
+            }
         }
         self.recent.push_back(RecentInput { token, at });
         if self.recent.len() > RECENT_CAP {
@@ -482,17 +490,21 @@ impl Aggregator {
         }
     }
 
-    fn record_app_key(&mut self) {
+    fn record_app_key(&mut self, key_id: u16) {
         #[cfg(windows)]
         if let Some(app) = foreground::current_app() {
-            self.bucket.apps.entry(app).or_default().keys += 1;
+            let usage = self.bucket.apps.entry(app).or_default();
+            usage.keys += 1;
+            *usage.key_counts.entry(key_id).or_default() += 1;
         }
     }
 
-    fn record_app_click(&mut self) {
+    fn record_app_click(&mut self, button: usize) {
         #[cfg(windows)]
         if let Some(app) = foreground::current_app() {
-            self.bucket.apps.entry(app).or_default().clicks += 1;
+            let usage = self.bucket.apps.entry(app).or_default();
+            usage.clicks += 1;
+            usage.buttons[button] += 1;
         }
     }
 
@@ -605,7 +617,7 @@ impl Aggregator {
                     }
                     self.last_key_at = Some(at);
                     self.record_pair(id as u16, at);
-                    self.record_app_key();
+                    self.record_app_key(id as u16);
                     self.touch_input(at);
                 } else if let Some(start) = self.pressed.remove(&(id as u16)) {
                     let hold = at.duration_since(start).as_millis() as u64;
@@ -642,7 +654,7 @@ impl Aggregator {
                     self.frame.grid.push((gx, gy));
                 }
                 self.record_pair(MOUSE_TOKEN_BASE + idx as u16, at);
-                self.record_app_click();
+                self.record_app_click(idx);
                 self.touch_input(at);
             }
             RawEvent::Wheel { delta, at } => {

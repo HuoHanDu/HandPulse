@@ -9,8 +9,8 @@ use tauri::State;
 use crate::capture::{CaptureHandle, SessionKey};
 use crate::storage::payload::CurrentBucket;
 use crate::storage::query::{
-    self, AppStat, BucketPoint, DetailPage, GridCell, Heatmap, Histogram, KeyStat, LiveSnapshot,
-    MouseStats, PadStats, PatternStats, Range, Summary,
+    self, AppDetail, AppStat, BucketPoint, DetailPage, GridCell, Heatmap, Histogram, KeyStat,
+    LiveSnapshot, MouseStats, PadStats, PatternStats, Range, Summary,
 };
 use crate::storage::{Db, Settings};
 
@@ -88,6 +88,21 @@ pub async fn get_key_stats(
     blocking(move || {
         let r = parse_range(&range)?;
         query::key_stats(&db, r, &live).map_err(|e| e.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn get_app_detail(
+    app: String,
+    range: String,
+    state: State<'_, CaptureHandle>,
+) -> Result<AppDetail, String> {
+    let db = get_db(&state)?;
+    let live = live_snapshot(&state.shared);
+    blocking(move || {
+        let r = parse_range(&range)?;
+        query::app_detail(&db, r, &app, &live).map_err(|e| e.to_string())
     })
     .await
 }

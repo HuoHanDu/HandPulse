@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import type { Route } from './store';
 
-const ROUTES: Route[] = ['keyboard', 'mouse', 'gamepad', 'stats', 'data', 'settings'];
+const ROUTES: Route[] = ['keyboard', 'mouse', 'gamepad', 'stats', 'data', 'apps', 'settings'];
 
 export function parseRoute(): Route {
   const h = (location.hash || '').replace(/^#\/?/, '').split('?')[0];

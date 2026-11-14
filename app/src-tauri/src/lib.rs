@@ -89,6 +89,7 @@ pub fn run() {
             commands::history::get_summary,
             commands::history::get_key_stats,
             commands::history::get_app_stats,
+            commands::history::get_app_detail,
             commands::history::get_patterns,
             commands::history::get_mouse_stats,
             commands::history::get_buckets,

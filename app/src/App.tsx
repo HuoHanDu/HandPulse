@@ -17,15 +17,18 @@ import { MousePage } from './pages/MousePage';
 import { GamepadPage } from './pages/GamepadPage';
 import { StatsPage } from './pages/StatsPage';
 import { DataPage } from './pages/DataPage';
+import { AppsPage } from './pages/AppsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { Modal } from './ui/Modal';
 import { Toast } from './ui/Toast';
 import { UpdateCenter } from './update/UpdateCenter';
+import { useForegroundEnabled } from './app/foregroundSetting';
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const route = useHashRoute();
   const pausedRef = useRef(state.paused);
+  const foregroundEnabled = useForegroundEnabled();
   pausedRef.current = state.paused;
 
   useEffect(() => {
@@ -37,6 +40,13 @@ export default function App() {
     document.body.dataset.route = route;
     document.title = '手脉 HandPulse';
   }, [route]);
+
+  useEffect(() => {
+    if (!isTauri) return;
+    invoke('set_foreground_enabled', { enabled: foregroundEnabled }).catch((err) => {
+      dispatch({ type: 'toast', message: '前台应用设置失败：' + String(err) });
+    });
+  }, [foregroundEnabled]);
 
   useEffect(() => {
     let alive = true;
@@ -154,6 +164,7 @@ export default function App() {
             <GamepadPage active={state.route === 'gamepad'} />
             <StatsPage active={state.route === 'stats'} />
             <DataPage active={state.route === 'data'} />
+            <AppsPage active={state.route === 'apps'} />
             <SettingsPage active={state.route === 'settings'} />
           </div>
         </main>
