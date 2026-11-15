@@ -168,7 +168,8 @@ export function AppsPage({ active }: { active: boolean }) {
   const [apps, setApps] = useState<AppStat[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<AppDetail | null>(null);
-  const live = useLiveOverlay(detail);
+  // 只在切换应用/范围时重置实时增量基线，历史基准刷新不再清空。
+  const live = useLiveOverlay(selected ? `${selected}:${range}` : null);
 
   const liveApps = useMemo(() => apps.map(a => {
     const d = live.apps.get(a.name);
@@ -181,7 +182,7 @@ export function AppsPage({ active }: { active: boolean }) {
       wheel: a.wheel + d.wheel,
       movePx: a.movePx + d.px
     };
-  }).sort((a, b) => b.seconds - a.seconds), [apps, live]);
+  }), [apps, live]);
 
   const viewDetail = useMemo(
     () => (detail ? mergeDetail(detail, live.apps.get(detail.name)) : null),
@@ -191,18 +192,14 @@ export function AppsPage({ active }: { active: boolean }) {
   useEffect(() => {
     if (!active || !enabled) return;
     let alive = true;
-    const load = () => {
-      loadAppStats(range)
-        .then(list => {
-          if (!alive) return;
-          setApps(list);
-          setSelected(prev => (prev && list.some(a => a.name === prev)) ? prev : (list[0]?.name ?? null));
-        })
-        .catch(() => {});
-    };
-    load();
-    const timer = window.setInterval(load, 5000);
-    return () => { alive = false; window.clearInterval(timer); };
+    loadAppStats(range)
+      .then(list => {
+        if (!alive) return;
+        setApps(list);
+        setSelected(prev => (prev && list.some(a => a.name === prev)) ? prev : (list[0]?.name ?? null));
+      })
+      .catch(() => {});
+    return () => { alive = false; };
   }, [active, enabled, range]);
 
   useEffect(() => {
@@ -211,14 +208,11 @@ export function AppsPage({ active }: { active: boolean }) {
       return;
     }
     let alive = true;
-    const load = () => {
-      loadAppDetail(selected, range)
-        .then(d => { if (alive) setDetail(d); })
-        .catch(() => {});
-    };
-    load();
-    const timer = window.setInterval(load, 5000);
-    return () => { alive = false; window.clearInterval(timer); };
+    setDetail(null);
+    loadAppDetail(selected, range)
+      .then(d => { if (alive) setDetail(d); })
+      .catch(() => {});
+    return () => { alive = false; };
   }, [active, enabled, range, selected]);
 
   const keyStats = viewDetail?.keyStats ?? [];
@@ -274,7 +268,10 @@ export function AppsPage({ active }: { active: boolean }) {
                   key={a.name}
                   type="button"
                   className={'apps-item' + (selected === a.name ? ' is-sel' : '')}
-                  onClick={() => setSelected(a.name)}
+                  onClick={() => {
+                    setDetail(null);
+                    setSelected(a.name);
+                  }}
                 >
                   <span className="apps-rank mono">{String(i + 1).padStart(2, '0')}</span>
                   <span className="apps-name">{a.name}</span>
