@@ -16,8 +16,8 @@ use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
 use super::foreground;
 use super::keymap::Keymap;
 use super::{
-    CaptureStats, LiveFrame, MouseBtn, RawEvent, SessionKey, SessionSnapshot, SessionSummary,
-    Shared, Snapshot, TopKey, now_ms,
+    CaptureStats, LiveAppUsage, LiveFrame, MouseBtn, RawEvent, SessionKey, SessionSnapshot,
+    SessionSummary, Shared, Snapshot, TopKey, now_ms,
 };
 use crate::storage::payload::{
     AppUsage, CurrentBucket, Device, KbPayload, MousePayload, PadPayload, PersistBucket, encode,
@@ -841,7 +841,33 @@ impl Aggregator {
             grid: self.frame.grid.clone(),
             pairs: self.frame.pairs.drain().collect(),
             pair_gap: self.frame.pair_gap.drain().collect(),
-            apps: self.frame.apps.drain().collect(),
+            apps: self
+                .frame
+                .apps
+                .drain()
+                .map(|(name, u)| {
+                    (
+                        name,
+                        LiveAppUsage {
+                            ms: u.ms,
+                            keys: u.keys,
+                            clicks: u.clicks,
+                            wheel: u.wheel,
+                            px: u.px,
+                            buttons: [
+                                u.buttons[0] as u32,
+                                u.buttons[1] as u32,
+                                u.buttons[2] as u32,
+                                u.buttons[3] as u32,
+                                u.buttons[4] as u32,
+                            ],
+                            key_counts: u.key_counts.into_iter().collect(),
+                            pair: u.pair.into_iter().collect(),
+                            pair_gap: u.pair_gap.into_iter().collect(),
+                        },
+                    )
+                })
+                .collect(),
             current_app: foreground_current(),
         };
 

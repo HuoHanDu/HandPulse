@@ -29,8 +29,22 @@ use serde::Serialize;
 use tauri::ipc::Channel;
 
 use crate::storage::Db;
-use crate::storage::payload::{AppUsage, CurrentBucket};
+use crate::storage::payload::CurrentBucket;
 use crate::storage::writer::{WriteMsg, spawn as spawn_writer};
+
+#[derive(Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppUsage {
+    pub ms: u64,
+    pub keys: u64,
+    pub clicks: u64,
+    pub wheel: u64,
+    pub px: f64,
+    pub buttons: [u32; 5],
+    pub key_counts: Vec<(u16, u32)>,
+    pub pair: Vec<(u32, u32)>,
+    pub pair_gap: Vec<(u64, u32)>,
+}
 
 /// 实时帧，字段与 `app/src/ipc/types.ts` 的 LiveFrame 一一对应。
 #[derive(Clone, Serialize)]
@@ -52,7 +66,7 @@ pub struct LiveFrame {
     pub pair_gap: Vec<(u64, u32)>,
     /// 本帧新增的前台应用增量（只含 exe basename）。
     #[serde(default)]
-    pub apps: Vec<(String, AppUsage)>,
+    pub apps: Vec<(String, LiveAppUsage)>,
     /// 当前前台 exe basename；用于页面高亮。
     #[serde(default)]
     pub current_app: Option<String>,
