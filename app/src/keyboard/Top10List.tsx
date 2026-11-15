@@ -40,7 +40,7 @@ export function Top10List({ keyStats, total, sel, empty, viewReset, onPick }: Pr
             className={'t10-row' + (sel === r.label ? ' is-sel' : '')}
             data-k={r.label}
             role="button"
-            tabIndex={0}
+            tabIndex={-1}
             onClick={() => onPick(r.label)}
           >
             <span className="t10-rank mono">{i + 1}</span>

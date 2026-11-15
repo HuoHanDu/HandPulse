@@ -74,6 +74,7 @@ export const KeyboardCanvas = forwardRef<KeyboardHandle, Props>(function Keyboar
       const el = document.createElement('button');
       el.type = 'button';
       el.className = 'key';
+      el.tabIndex = -1;
       el.dataset.k = k.label;
       el.setAttribute('aria-label', k.label + ' 键');
       el.textContent = displayKey(k.label);

@@ -168,6 +168,7 @@ export function AppsPage({ active }: { active: boolean }) {
   const [apps, setApps] = useState<AppStat[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<AppDetail | null>(null);
+  const [followCurrent, setFollowCurrent] = useState(true);
   // 只在切换应用/范围时重置实时增量基线，历史基准刷新不再清空。
   const live = useLiveOverlay(selected ? `${selected}:${range}` : null);
 
@@ -188,6 +189,13 @@ export function AppsPage({ active }: { active: boolean }) {
     () => (detail ? mergeDetail(detail, live.apps.get(detail.name)) : null),
     [detail, live]
   );
+
+  useEffect(() => {
+    if (!followCurrent || !enabled || !live.currentApp) return;
+    if (selected === live.currentApp) return;
+    setDetail(null);
+    setSelected(live.currentApp);
+  }, [followCurrent, enabled, live.currentApp, selected]);
 
   useEffect(() => {
     if (!active || !enabled) return;
@@ -251,7 +259,16 @@ export function AppsPage({ active }: { active: boolean }) {
       <header className="g-head">
         <h1>前台应用</h1>
         <p>按前台时长排序。选择应用，查看它在键盘、鼠标和操作习惯上的画像。</p>
-        {live.currentApp && <div className="apps-now">当前前台：<span>{live.currentApp}</span></div>}
+        {live.currentApp && (
+          <div className="apps-now">
+            当前前台：<span>{live.currentApp}</span>
+            <button
+              type="button"
+              className={'tbtn' + (followCurrent ? ' is-on' : '')}
+              onClick={() => setFollowCurrent(v => !v)}
+            >{followCurrent ? '跟随中' : '跟随当前'}</button>
+          </div>
+        )}
       </header>
 
       <div className="apps-layout">
@@ -269,6 +286,7 @@ export function AppsPage({ active }: { active: boolean }) {
                   type="button"
                   className={'apps-item' + (selected === a.name ? ' is-sel' : '')}
                   onClick={() => {
+                    setFollowCurrent(false);
                     setDetail(null);
                     setSelected(a.name);
                   }}

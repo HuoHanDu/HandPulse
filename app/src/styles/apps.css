@@ -80,3 +80,5 @@
 .apps-lower{flex:0 0 auto;min-height:240px}
 .apps-now{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--text-3)}
 .apps-now span{color:var(--accent);font-family:var(--mono)}
+.apps-now .tbtn{margin-left:4px;height:22px;padding:0 8px;font-size:10px}
+.apps-now .tbtn.is-on{color:var(--accent);border-color:rgba(76,141,255,.35)}
