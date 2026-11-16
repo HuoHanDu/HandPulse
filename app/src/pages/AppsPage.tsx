@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useApp } from '../app/store';
+import { useApp, type Cell, type Layer } from '../app/store';
 import { useReducedMotion } from '../app/useReducedMotion';
 import { useForegroundEnabled, writeForegroundEnabled } from '../app/foregroundSetting';
 import { loadAppDetail, loadAppStats } from '../ipc/client';
@@ -8,6 +8,7 @@ import { useLiveOverlay } from '../state/useLiveOverlay';
 import { KeyboardCanvas } from '../keyboard/KeyboardCanvas';
 import { Top10List } from '../keyboard/Top10List';
 import { KEYS, displayKey } from '../keyboard/layout';
+import { ScreenGrid } from '../mouse/ScreenGrid';
 
 const GAP_LABELS = ['0–40', '40–80', '80–120', '120–200', '200–350', '350–500', '500+'];
 const BUTTON_LABELS = ['左键', '右键', '中键', '侧键1', '侧键2'];
@@ -84,10 +85,26 @@ function mergeDetail(base: AppDetail, live: LiveAppUsage | undefined): AppDetail
       adFast += p.fastCount;
     }
   }
+  const mergeGrid = (baseCells: AppDetail['clickGrid'], liveCells: Array<[number, number]>) => {
+    const m = new Map<string, number>();
+    for (const c of baseCells) m.set(`${c.x},${c.y}`, c.v);
+    for (const [cell, count] of liveCells) {
+      const x = cell % 32;
+      const y = Math.floor(cell / 32);
+      const k = `${x},${y}`;
+      m.set(k, (m.get(k) || 0) + count);
+    }
+    return Array.from(m.entries()).map(([k, v]) => {
+      const [x, y] = k.split(',').map(Number);
+      return { x, y, v };
+    });
+  };
   return {
     ...base,
     seconds, keys, clicks, wheel, movePx, buttons,
-    keyStats, pairs, gapHist, adFast, adTotal
+    keyStats, pairs, gapHist, adFast, adTotal,
+    clickGrid: mergeGrid(base.clickGrid, live.clickGrid),
+    moveGrid: mergeGrid(base.moveGrid, live.moveGrid)
   };
 }
 
@@ -169,6 +186,8 @@ export function AppsPage({ active }: { active: boolean }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<AppDetail | null>(null);
   const [followCurrent, setFollowCurrent] = useState(true);
+  const [mouseLayer, setMouseLayer] = useState<Layer>('clicks');
+  const [mouseCell, setMouseCell] = useState<Cell | null>(null);
   // 只在切换应用/范围时重置实时增量基线，历史基准刷新不再清空。
   const live = useLiveOverlay(selected ? `${selected}:${range}` : null);
 
@@ -370,9 +389,40 @@ export function AppsPage({ active }: { active: boolean }) {
                 <div className="panel app-mouse">
                   <div className="ph">
                     <span className="ph-title">鼠标使用</span>
-                    <span className="ph-meta">{viewDetail.clicks.toLocaleString('en-US')} 次点击</span>
+                    <div className="seg" role="group" aria-label="鼠标图层">
+                      {([['clicks', '点击'], ['move', '移动']] as const).map(([v, label]) => (
+                        <button
+                          key={v}
+                          type="button"
+                          aria-pressed={mouseLayer === v}
+                          onClick={() => { setMouseLayer(v); setMouseCell(null); }}
+                        >{label}</button>
+                      ))}
+                    </div>
+                    <div className="ph-spacer" />
+                    <span className="ph-meta">窗口内相对位置</span>
                   </div>
-                  <MiniBars values={viewDetail.buttons} labels={BUTTON_LABELS} />
+                  <div className="app-mouse-body">
+                    <div className="app-mouse-grid">
+                      <ScreenGrid
+                        cells={mouseLayer === 'clicks' ? viewDetail.clickGrid : viewDetail.moveGrid}
+                        factor={1}
+                        layer={mouseLayer}
+                        empty={false}
+                        cell={mouseCell}
+                        onHover={setMouseCell}
+                        onSelect={setMouseCell}
+                      />
+                    </div>
+                    <div className="app-mouse-side">
+                      <MiniBars values={viewDetail.buttons} labels={BUTTON_LABELS} />
+                      <div className="app-mouse-cell">
+                        {mouseCell
+                          ? `格 ${mouseCell.x},${mouseCell.y} · ${mouseCell.v} 次`
+                          : '点击/移动到格子上查看数值'}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 

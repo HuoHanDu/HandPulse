@@ -24,6 +24,12 @@ pub struct AppUsage {
     pub pair: BTreeMap<u32, u32>,
     #[serde(default)]
     pub pair_gap: BTreeMap<u64, u32>,
+    /// 窗口客户区归一化到 32×18 的点击格；index = y*32+x。
+    #[serde(default)]
+    pub click_grid: BTreeMap<u16, u32>,
+    /// 窗口客户区归一化到 32×18 的移动采样格；index = y*32+x。
+    #[serde(default)]
+    pub move_grid: BTreeMap<u16, u32>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
@@ -153,6 +159,12 @@ impl KbPayload {
             }
             for (key, count) in &usage.pair_gap {
                 *entry.pair_gap.entry(*key).or_default() += *count;
+            }
+            for (cell, count) in &usage.click_grid {
+                *entry.click_grid.entry(*cell).or_default() += *count;
+            }
+            for (cell, count) in &usage.move_grid {
+                *entry.move_grid.entry(*cell).or_default() += *count;
             }
         }
     }

@@ -82,3 +82,16 @@
 .apps-now span{color:var(--accent);font-family:var(--mono)}
 .apps-now .tbtn{margin-left:4px;height:22px;padding:0 8px;font-size:10px}
 .apps-now .tbtn.is-on{color:var(--accent);border-color:rgba(76,141,255,.35)}
+.app-mouse-body{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.8fr);gap:12px;padding:2px 14px 12px}
+.app-mouse-grid{height:190px;min-height:0}
+.app-mouse-grid .screen{max-width:none;height:100%;gap:1px}
+.app-mouse-grid .screen .cell{font-size:7px;line-height:1}
+.app-mouse-side{min-width:0}
+.app-mouse-cell{margin-top:8px;font-size:10px;color:var(--text-3);line-height:1.4}
+/* app page: give the per-app mouse grid full width */
+.apps-detail{overflow-x:hidden}
+.apps-lower{grid-template-columns:minmax(0,1fr)}
+.app-mouse{min-width:0}
+.app-mouse-body{min-width:0;grid-template-columns:minmax(0,1.5fr) minmax(0,.7fr)}
+.app-mouse-grid{min-width:0}
+.app-mouse-grid .screen{width:100%;max-width:none}

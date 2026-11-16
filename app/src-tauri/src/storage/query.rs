@@ -122,6 +122,8 @@ pub struct AppDetail {
     pub gap_hist: Vec<u32>,
     pub ad_fast: u32,
     pub ad_total: u32,
+    pub click_grid: Vec<GridCell>,
+    pub move_grid: Vec<GridCell>,
 }
 
 #[derive(Clone, Debug, Serialize, Default)]
@@ -1401,6 +1403,12 @@ pub fn app_detail(db: &Db, range: Range, app_name: &str, live: &LiveSnapshot) ->
             for (key, count) in &usage.pair_gap {
                 *agg.pair_gap.entry(*key).or_default() += *count;
             }
+            for (cell, count) in &usage.click_grid {
+                *agg.click_grid.entry(*cell).or_default() += *count;
+            }
+            for (cell, count) in &usage.move_grid {
+                *agg.move_grid.entry(*cell).or_default() += *count;
+            }
         }
     };
 
@@ -1482,6 +1490,17 @@ pub fn app_detail(db: &Db, range: Range, app_name: &str, live: &LiveSnapshot) ->
         }
     }
 
+    let to_grid = |cells: &BTreeMap<u16, u32>| -> Vec<GridCell> {
+        cells
+            .iter()
+            .map(|(cell, count)| GridCell {
+                x: (cell % 32) as i64,
+                y: (cell / 32) as i64,
+                v: *count as u64,
+            })
+            .collect()
+    };
+
     Ok(AppDetail {
         name: app_name.to_string(),
         seconds: agg.ms / 1000,
@@ -1495,6 +1514,8 @@ pub fn app_detail(db: &Db, range: Range, app_name: &str, live: &LiveSnapshot) ->
         gap_hist,
         ad_fast,
         ad_total,
+        click_grid: to_grid(&agg.click_grid),
+        move_grid: to_grid(&agg.move_grid),
     })
 }
 
@@ -1816,6 +1837,8 @@ mod tests {
         usage.pair.insert(pair, 3);
         usage.pair_gap.insert(((pair as u64) << 3) | 1, 2);
         usage.pair_gap.insert(((pair as u64) << 3) | 3, 1);
+        usage.click_grid.insert(16 * 32 + 9, 4);
+        usage.move_grid.insert(4 * 32 + 4, 2);
         let mut kb = KbPayload {
             v: 2,
             ..Default::default()
@@ -1840,6 +1863,11 @@ mod tests {
         assert_eq!(detail.ad_total, 3);
         assert_eq!(detail.gap_hist[1], 2);
         assert_eq!(detail.gap_hist[3], 1);
+        assert_eq!(detail.click_grid.len(), 1);
+        assert_eq!(detail.click_grid[0].x, 9);
+        assert_eq!(detail.click_grid[0].y, 16);
+        assert_eq!(detail.click_grid[0].v, 4);
+        assert_eq!(detail.move_grid[0].v, 2);
         cleanup(&p);
     }
     #[test]

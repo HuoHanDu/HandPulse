@@ -20,7 +20,7 @@ function emptyClicks(): [number, number, number, number, number] {
 }
 
 function emptyApp(): LiveAppUsage {
-  return { ms: 0, keys: 0, clicks: 0, wheel: 0, px: 0, buttons: [0, 0, 0, 0, 0], keyCounts: [], pair: [], pairGap: [] };
+  return { ms: 0, keys: 0, clicks: 0, wheel: 0, px: 0, buttons: [0, 0, 0, 0, 0], keyCounts: [], pair: [], pairGap: [], clickGrid: [], moveGrid: [] };
 }
 
 function mergePairs(a: Array<[number, number]>, b: Array<[number, number]>): Array<[number, number]> {
@@ -42,7 +42,9 @@ function mergeApp(a: LiveAppUsage, b: LiveAppUsage): LiveAppUsage {
     buttons,
     keyCounts: mergePairs(a.keyCounts, b.keyCounts),
     pair: mergePairs(a.pair, b.pair),
-    pairGap: mergePairs(a.pairGap, b.pairGap)
+    pairGap: mergePairs(a.pairGap, b.pairGap),
+    clickGrid: mergePairs(a.clickGrid, b.clickGrid),
+    moveGrid: mergePairs(a.moveGrid, b.moveGrid)
   };
 }
 

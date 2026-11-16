@@ -10,12 +10,18 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-use windows::Win32::Foundation::{CloseHandle, HWND};
+use windows::Win32::Foundation::{CloseHandle, HWND, POINT, RECT};
+use windows::Win32::Graphics::Gdi::ScreenToClient;
 use windows::Win32::System::Threading::{
     OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
-use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetClientRect, GetCursorPos, GetForegroundWindow, GetWindowThreadProcessId,
+};
 use windows::core::PWSTR;
+
+const GRID_W: i32 = 32;
+const GRID_H: i32 = 18;
 
 static ENABLED: AtomicBool = AtomicBool::new(false);
 static CACHE: OnceLock<Mutex<Cache>> = OnceLock::new();
@@ -108,4 +114,40 @@ fn query_foreground() -> Option<String> {
         return None;
     }
     Some(name)
+}
+
+/// 当前光标在前台窗口客户区中的归一化网格（32×18，客户端坐标，不含标题栏/边框）。
+/// 光标不在窗口内、窗口最小化或无法读取时返回 None。
+pub fn cursor_grid_in_client() -> Option<(u16, u16)> {
+    let hwnd: HWND = unsafe { GetForegroundWindow() };
+    if hwnd.0.is_null() {
+        return None;
+    }
+    let mut rect = RECT::default();
+    if unsafe { GetClientRect(hwnd, &mut rect) }.is_err() {
+        return None;
+    }
+    let width = rect.right - rect.left;
+    let height = rect.bottom - rect.top;
+    if width <= 0 || height <= 0 {
+        return None;
+    }
+    let mut pt = POINT::default();
+    if unsafe { GetCursorPos(&mut pt) }.is_err() {
+        return None;
+    }
+    if !unsafe { ScreenToClient(hwnd, &mut pt) }.as_bool() {
+        return None;
+    }
+    let x = pt.x - rect.left;
+    let y = pt.y - rect.top;
+    if x < 0 || y < 0 || x >= width || y >= height {
+        return None;
+    }
+    let gx = ((x as f64 / width as f64) * GRID_W as f64).floor() as i32;
+    let gy = ((y as f64 / height as f64) * GRID_H as f64).floor() as i32;
+    Some((
+        gx.clamp(0, GRID_W - 1) as u16,
+        gy.clamp(0, GRID_H - 1) as u16,
+    ))
 }

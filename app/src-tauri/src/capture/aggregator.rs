@@ -66,8 +66,18 @@ fn foreground_current() -> Option<String> {
     foreground::current_app()
 }
 
+#[cfg(windows)]
+fn foreground_client_grid() -> Option<(u8, u8)> {
+    foreground::cursor_grid_in_client().map(|(x, y)| (x as u8, y as u8))
+}
+
 #[cfg(not(windows))]
 fn foreground_current() -> Option<String> {
+    None
+}
+
+#[cfg(not(windows))]
+fn foreground_client_grid() -> Option<(u8, u8)> {
     None
 }
 
@@ -517,15 +527,23 @@ impl Aggregator {
         }
     }
 
-    fn record_app_click(&mut self, button: usize) {
+    fn record_app_click(&mut self, button: usize, grid: Option<(u8, u8)>) {
         #[cfg(windows)]
         if let Some(app) = foreground::current_app() {
             let usage = self.bucket.apps.entry(app.clone()).or_default();
             usage.clicks += 1;
             usage.buttons[button] += 1;
+            if let Some((gx, gy)) = grid {
+                let cell = gy as u16 * 32 + gx as u16;
+                *usage.click_grid.entry(cell).or_default() += 1;
+            }
             let live = self.frame.apps.entry(app).or_default();
             live.clicks += 1;
             live.buttons[button] += 1;
+            if let Some((gx, gy)) = grid {
+                let cell = gy as u16 * 32 + gx as u16;
+                *live.click_grid.entry(cell).or_default() += 1;
+            }
         }
     }
 
@@ -535,6 +553,29 @@ impl Aggregator {
             let usage = self.bucket.apps.entry(app.clone()).or_default();
             usage.wheel += 1;
             self.frame.apps.entry(app).or_default().wheel += 1;
+        }
+    }
+
+    fn record_app_move_grid(&mut self, gx: u8, gy: u8) {
+        #[cfg(windows)]
+        if let Some(app) = foreground::current_app() {
+            let cell = gy as u16 * 32 + gx as u16;
+            *self
+                .bucket
+                .apps
+                .entry(app.clone())
+                .or_default()
+                .move_grid
+                .entry(cell)
+                .or_default() += 1;
+            *self
+                .frame
+                .apps
+                .entry(app)
+                .or_default()
+                .move_grid
+                .entry(cell)
+                .or_default() += 1;
         }
     }
 
@@ -680,8 +721,9 @@ impl Aggregator {
                     self.bucket.grid[cell] += 1;
                     self.frame.grid.push((gx, gy));
                 }
+                let app_grid = foreground_client_grid();
                 self.record_pair(MOUSE_TOKEN_BASE + idx as u16, at);
-                self.record_app_click(idx);
+                self.record_app_click(idx, app_grid);
                 self.touch_input(at);
             }
             RawEvent::Wheel { delta, at } => {
@@ -722,6 +764,9 @@ impl Aggregator {
                     self.move_grid[cell] += 1;
                     self.bucket.move_grid[cell] += 1;
                     self.last_move_sample = Some(at);
+                    if let Some((agx, agy)) = foreground_client_grid() {
+                        self.record_app_move_grid(agx, agy);
+                    }
                 }
             }
             RawEvent::AbsoluteMove { .. } => {
@@ -864,6 +909,8 @@ impl Aggregator {
                             key_counts: u.key_counts.into_iter().collect(),
                             pair: u.pair.into_iter().collect(),
                             pair_gap: u.pair_gap.into_iter().collect(),
+                            click_grid: u.click_grid.into_iter().collect(),
+                            move_grid: u.move_grid.into_iter().collect(),
                         },
                     )
                 })

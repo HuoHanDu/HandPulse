@@ -297,7 +297,8 @@ export async function loadAppDetail(app: string, range: RangeKey): Promise<AppDe
   if (isTauri) return invoke<AppDetail>('get_app_detail', { app, range });
   return {
     name: app, seconds: 0, keys: 0, clicks: 0, wheel: 0, movePx: 0, buttons: [0, 0, 0, 0, 0],
-    keyStats: [], pairs: [], gapHist: [0, 0, 0, 0, 0, 0, 0], adFast: 0, adTotal: 0
+    keyStats: [], pairs: [], gapHist: [0, 0, 0, 0, 0, 0, 0], adFast: 0, adTotal: 0,
+    clickGrid: [], moveGrid: []
   };
 }
 

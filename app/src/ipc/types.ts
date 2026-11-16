@@ -66,6 +66,8 @@ export interface LiveAppUsage {
   keyCounts: Array<[number, number]>;
   pair: Array<[number, number]>;
   pairGap: Array<[number, number]>;
+  clickGrid: Array<[number, number]>;
+  moveGrid: Array<[number, number]>;
 }
 
 export interface LiveFrame {
@@ -245,6 +247,8 @@ export interface AppDetail {
   gapHist: number[];
   adFast: number;
   adTotal: number;
+  clickGrid: GridCell[];
+  moveGrid: GridCell[];
 }
 
 export interface PairStat {

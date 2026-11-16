@@ -44,6 +44,8 @@ pub struct LiveAppUsage {
     pub key_counts: Vec<(u16, u32)>,
     pub pair: Vec<(u32, u32)>,
     pub pair_gap: Vec<(u64, u32)>,
+    pub click_grid: Vec<(u16, u32)>,
+    pub move_grid: Vec<(u16, u32)>,
 }
 
 /// 实时帧，字段与 `app/src/ipc/types.ts` 的 LiveFrame 一一对应。
