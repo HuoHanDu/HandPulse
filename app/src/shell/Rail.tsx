@@ -24,11 +24,6 @@ const ITEMS: Array<{ route: Route; label: string; path: ReactNode; requiresForeg
     )
   },
   {
-    route: 'stats',
-    label: '数据展示',
-    path: <path d="M4 19V11M9.3 19V5M14.7 19v-6M20 19V9" />
-  },
-  {
     route: 'gamepad',
     label: '手柄适配',
     path: (
@@ -37,6 +32,11 @@ const ITEMS: Array<{ route: Route; label: string; path: ReactNode; requiresForeg
         <path d="M7 12v3M5.5 13.5h3M16 12.5h.01M18 14h.01" />
       </>
     )
+  },
+  {
+    route: 'stats',
+    label: '数据展示',
+    path: <path d="M4 19V11M9.3 19V5M14.7 19v-6M20 19V9" />
   },
   {
     route: 'data',
@@ -76,34 +76,35 @@ const ITEMS: Array<{ route: Route; label: string; path: ReactNode; requiresForeg
 export function Rail() {
   const { state } = useApp();
   const foregroundEnabled = useForegroundEnabled();
-  const items = ITEMS.filter(item => !item.requiresForeground || foregroundEnabled);
+  const items = ITEMS.filter(item => item.route !== 'settings' && (!item.requiresForeground || foregroundEnabled));
+  const settings = ITEMS.find(item => item.route === 'settings');
+
+  const renderItem = (item: typeof ITEMS[number]) => (
+    <a
+      key={item.route}
+      className="rail-btn"
+      href={'#/' + item.route}
+      data-r={item.route}
+      aria-label={item.label}
+      title={item.label}
+      aria-current={state.route === item.route ? 'page' : undefined}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        {item.path}
+      </svg>
+    </a>
+  );
+
   return (
     <nav className="rail" aria-label="主导航">
-      <div className="rail-brand" aria-hidden="true">手脉</div>
       <div className="rail-list">
-        {items.map(item => (
-          <a
-            key={item.route}
-            className="rail-btn"
-            href={'#/' + item.route}
-            data-r={item.route}
-            aria-label={item.label}
-            title={item.label}
-            aria-current={state.route === item.route ? 'page' : undefined}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              {item.path}
-            </svg>
-          </a>
-        ))}
+        {items.map(renderItem)}
       </div>
-      <div className="rail-foot">
-        <span
-          className={'live-dot' + (state.paused ? ' is-paused' : '')}
-          id="railDot"
-          title={state.paused ? '采集已暂停' : '采集运行中'}
-        />
-      </div>
+      {settings && (
+        <div className="rail-list rail-list-bottom">
+          {renderItem(settings)}
+        </div>
+      )}
     </nav>
   );
 }

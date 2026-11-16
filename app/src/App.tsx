@@ -157,7 +157,7 @@ export default function App() {
         <Rail />
         <main className="main">
           <Transport />
-          <LiveTape />
+          {state.route === 'data' && <LiveTape />}
           <div className="view" id="view">
             <KeyboardPage active={state.route === 'keyboard'} />
             <MousePage active={state.route === 'mouse'} />
