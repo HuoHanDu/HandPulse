@@ -277,7 +277,6 @@ export function AppsPage({ active }: { active: boolean }) {
     <section className={'page' + (active ? ' active' : '')} data-page="apps" aria-label="前台应用">
       <header className="g-head">
         <h1>前台应用</h1>
-        <p>按前台时长排序。选择应用，查看它在键盘、鼠标和操作习惯上的画像。</p>
         {live.currentApp && (
           <div className="apps-now">
             当前前台：<span>{live.currentApp}</span>
@@ -346,7 +345,6 @@ export function AppsPage({ active }: { active: boolean }) {
                 <div className="panel app-heat">
                   <div className="ph">
                     <span className="ph-title">键盘热力</span>
-                    <span className="ph-meta">{(viewDetail.keys ? '按在该应用前台的按键' : '无按键')}</span>
                   </div>
                   <div className="app-kb-stage">
                     <KeyboardCanvas
@@ -429,7 +427,7 @@ export function AppsPage({ active }: { active: boolean }) {
               <div className="panel app-habits-panel">
                 <div className="ph">
                   <span className="ph-title">操作习惯</span>
-                  <span className="ph-meta">无序组合 · 不含精确时序</span>
+                  <span className="ph-meta">无序组合</span>
                 </div>
                 <AppHabits detail={viewDetail} />
               </div>

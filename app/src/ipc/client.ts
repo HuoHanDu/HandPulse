@@ -585,7 +585,7 @@ export async function getHeatmapChart(range: RangeKey, type: HeatType): Promise<
       readout: todayCell ? todayKey + '，' + nf(todayCell.v) + ' 次' : '今天，0 次',
       aria: '日历热力，今日描边高亮',
       months,
-      footnote: '近 371 天，最高 ' + nf(raw.max) + ' 次/天；蓝框为今日。',
+      footnote: '近 371 天，最高 ' + nf(raw.max) + ' 次/天。',
       legendMin: '少',
       legendMax: nf(raw.max) + ' 次/天',
       todayLabel: (today.getMonth() + 1) + '/' + today.getDate() + ' ' + today.toLocaleDateString('en-US')
@@ -629,7 +629,7 @@ function mockHeatmapChart(range: RangeKey, type: HeatType): Promise<HeatmapChart
         readout: '11/04，' + nf(HP.calendar[HP.calendar.length - 1].v) + ' 次',
         aria: '日历热力，今日描边高亮',
         months,
-        footnote: '近 ' + HP.calendar.length + ' 天，最高 ' + HP.calendarMax + ' 次/天；蓝框为今日 11/04。',
+        footnote: '近 ' + HP.calendar.length + ' 天，最高 ' + HP.calendarMax + ' 次/天。',
         legendMin: '少', legendMax: nf(HP.calendarMax) + ' 次/天',
         todayLabel: '11/04'
       };

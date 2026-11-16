@@ -5,7 +5,7 @@ import { useForegroundEnabled } from '../app/foregroundSetting';
 const ITEMS: Array<{ route: Route; label: string; path: ReactNode; requiresForeground?: boolean }> = [
   {
     route: 'keyboard',
-    label: '键盘查看',
+    label: '键盘使用',
     path: (
       <>
         <rect x="2.5" y="6.5" width="19" height="11" rx="1.8" />
@@ -15,7 +15,7 @@ const ITEMS: Array<{ route: Route; label: string; path: ReactNode; requiresForeg
   },
   {
     route: 'mouse',
-    label: '鼠标查看',
+    label: '鼠标使用',
     path: (
       <>
         <rect x="7.5" y="2.5" width="9" height="19" rx="4.5" />
@@ -25,7 +25,7 @@ const ITEMS: Array<{ route: Route; label: string; path: ReactNode; requiresForeg
   },
   {
     route: 'gamepad',
-    label: '手柄适配',
+    label: '手柄使用',
     path: (
       <>
         <path d="M7.5 8.5h9a5 5 0 0 1 4.8 6.4l-.9 3a3 3 0 0 1-5.2 1.1L13.8 17h-3.6l-1.4 2a3 3 0 0 1-5.2-1.1l-.9-3A5 5 0 0 1 7.5 8.5Z" />

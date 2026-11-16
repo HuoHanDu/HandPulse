@@ -85,7 +85,7 @@ export function KeyboardPage({ active }: Props) {
   };
 
   return (
-    <section className={'page' + (active ? ' active' : '')} data-page="keyboard" aria-label="键盘查看">
+    <section className={'page' + (active ? ' active' : '')} data-page="keyboard" aria-label="键盘使用">
       <header className="g-head">
         <h1>键盘使用</h1>
         <p>{intro}</p>
@@ -209,7 +209,6 @@ export function KeyboardPage({ active }: Props) {
           viewReset={state.viewReset}
           onPick={(label) => pick(label)}
         />
-        <div className="foot-note">按住 A 键 3.4 秒，仍计 1 次。</div>
       </div>
     </section>
   );

@@ -147,9 +147,9 @@ export function useApp() {
 }
 
 export const TITLES: Record<Route, string> = {
-  keyboard: '键盘',
-  mouse: '鼠标',
-  gamepad: '手柄',
+  keyboard: '键盘使用',
+  mouse: '鼠标使用',
+  gamepad: '手柄使用',
   stats: '数据',
   data: '数据浏览',
   apps: '前台应用',

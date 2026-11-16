@@ -127,10 +127,9 @@ export function GamepadPage({ active }: Props) {
   };
 
   return (
-    <section className={'page' + (active ? ' active' : '')} data-page="gamepad" aria-label="手柄适配">
+    <section className={'page' + (active ? ' active' : '')} data-page="gamepad" aria-label="手柄使用">
       <header className="g-head">
-        <h1>手柄适配</h1>
-        <p>接上手柄后按任意键或推动摇杆；XInput 手柄由本机直接读取，不依赖窗口焦点。</p>
+        <h1>手柄使用</h1>
       </header>
 
       <div className="panel pad-status">
@@ -140,7 +139,7 @@ export function GamepadPage({ active }: Props) {
           <div className="pad-status-sub">
             {pad.connected
               ? (source === 'xinput' ? `XInput 手柄 #${pad.index}` : '浏览器 Gamepad API')
-              : '插上 USB / 蓝牙手柄，然后按一下任意键；Xbox 手柄优先走 XInput'}
+              : '插上 USB / 蓝牙手柄，然后按一下任意键'}
           </div>
         </div>
         <div className="pad-status-meta">
@@ -232,7 +231,7 @@ export function GamepadPage({ active }: Props) {
 
       <div className="panel pad-note">
         <span className="pad-note-title">说明</span>
-        <span>当前页面用 XInput / Gamepad API 做前台适配；XInput 的按键按下会同时写入分钟桶，可在“数据浏览 → 手柄”查看历史。摇杆/扳机目前只做实时显示。</span>
+        <span>手柄数据可在“数据浏览 → 手柄”查看历史。摇杆/扳机目前仅有实时显示。</span>
       </div>
     </section>
   );

@@ -118,7 +118,6 @@ export function DataPage({ active }: Props) {
     <section className={'page' + (active ? ' active' : '')} data-page="data" aria-label="数据浏览">
       <header className="g-head">
         <h1>数据浏览</h1>
-        <p>按自己选择的时间范围查看已落盘的记录；结束时间包含所选分钟。</p>
       </header>
 
       <div className="panel data-filter">
@@ -228,7 +227,7 @@ export function DataPage({ active }: Props) {
               </div>
             ))}
             {!loading && padTotal === 0 ? (
-              <div className="data-empty">这个范围内没有手柄记录。手柄按钮需要由新版采集线程写入；当前如果没有历史数据，请在手柄适配页确认按键能被识别。</div>
+              <div className="data-empty">这个范围内没有手柄记录。手柄按钮需要由新版采集线程写入；当前如果没有历史数据，请在手柄使用页确认按键能被识别。</div>
             ) : null}
           </div>
           <div className="pager"><span className="pg-spacer" />共 {padTotal.toLocaleString('en-US')} 次手柄按键</div>

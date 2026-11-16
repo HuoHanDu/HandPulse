@@ -156,7 +156,7 @@ export function Inspector() {
               <Kv label="物理位置" value={'第 ' + pos.row + ' 行 / 第 ' + pos.col + ' 列'} />
             </div>
             <p className="insp-p">长按只计 1 次，松开再按才 +1。修饰键左右分开计数，和输入内容无关。</p>
-            <div className="insp-rule">范围只改读数，键间相对热度沿用今日分布。ESC 关闭详情。</div>
+            <div className="insp-rule">ESC 关闭详情。</div>
           </>
         );
       }
@@ -248,7 +248,6 @@ export function Inspector() {
             >导出当前范围 CSV <span className="m4badge">M4</span></button>
           </div>
         </div>
-        <div className="insp-rule">对数轴的分布图在左下角标注；峰值只标一个，避免噪音。</div>
       </>
     );
   } else {

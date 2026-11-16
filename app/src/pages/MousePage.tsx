@@ -90,7 +90,7 @@ export function MousePage({ active }: Props) {
       : `${rangePrefix}点了 ${(summary?.clicks ?? 0).toLocaleString('en-US')} 次，鼠标移动了约 ${(summary?.moveKm ?? 0).toFixed(1)} 公里。`;
 
   return (
-    <section className={'page' + (active ? ' active' : '')} data-page="mouse" aria-label="鼠标查看">
+    <section className={'page' + (active ? ' active' : '')} data-page="mouse" aria-label="鼠标使用">
       <header className="g-head">
         <h1>鼠标使用</h1>
         <p>{intro}</p>

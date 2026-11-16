@@ -131,7 +131,6 @@ export function StatsPage({ active }: Props) {
       <div className="panel app-panel">
         <div className="ph">
           <span className="ph-title">前台应用</span>
-          <span className="ph-meta">只记录 exe 名称与聚合操作量</span>
           <div className="ph-spacer" />
           <span className="ph-meta">{apps?.length ? `Top ${apps.length}` : ''}</span>
         </div>

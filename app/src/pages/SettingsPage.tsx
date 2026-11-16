@@ -90,7 +90,6 @@ export function SettingsPage({ active }: Props) {
     <section className={'page' + (active ? ' active' : '')} data-page="settings" aria-label="设置">
       <header className="g-head">
         <h1>设置</h1>
-        <p>采集只在本机进行；除检查更新外不联网，也不记录你输入了什么。</p>
       </header>
 
       <div className="settings-wrap" id="settingsWrap">
