@@ -1796,11 +1796,13 @@ mod tests {
         let live = live_current(ts, 2, 0);
         let s = summary(&db, Range::Today, &live).unwrap();
         assert_eq!(s.keys, 5);
+        assert_eq!(s.active_seconds, 120);
         // 当前桶落盘后清空 current：仍为 5
         apply_bucket(&mut db.open_write().unwrap(), &kb_bucket(ts, 2)).unwrap();
         let empty_live = live_current(ts + 60, 0, 0);
         let s2 = summary(&db, Range::Today, &empty_live).unwrap();
         assert_eq!(s2.keys, 5);
+        assert_eq!(s2.active_seconds, 120);
         cleanup(&p);
     }
 

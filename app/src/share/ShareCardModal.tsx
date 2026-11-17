@@ -29,6 +29,7 @@ export function ShareCardModal({ open, onClose, defaultRange }: Props) {
   useEffect(() => {
     if (!open) return;
     setRange(defaultRange);
+    setIncludeApps(false);
   }, [open, defaultRange]);
 
   useEffect(() => {
@@ -139,4 +140,5 @@ export function ShareCardModal({ open, onClose, defaultRange }: Props) {
     document.body
   );
 }
+
 

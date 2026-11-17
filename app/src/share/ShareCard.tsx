@@ -19,6 +19,12 @@ interface Props {
   includeApps: boolean;
 }
 
+function periodText(range: ShareCardData['range']): string {
+  const end = new Date();
+  const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - (range === 'week' ? 6 : range === 'month' ? 29 : 0));
+  const fmt = (d: Date) => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+  return range === 'today' ? fmt(end) : `${fmt(start)} — ${fmt(end)}`;
+}
 function truncate(s: string, n: number): string {
   return s.length > n ? s.slice(0, n - 1) + '…' : s;
 }
@@ -108,7 +114,7 @@ function MetricRows({ data, x, y }: { data: ShareCardData; x: number; y: number 
     ['总操作', data.summary.actions.toLocaleString('en-US')],
     ['平均 / 天', Math.round(data.summary.actions / Math.max(1, days)).toLocaleString('en-US')],
     ['鼠标移动', `${formatKm(data.summary.moveKm)} km`],
-    ['使用时长', formatDuration(data.summary.activeSeconds)]
+    ['总点击', data.summary.clicks.toLocaleString('en-US')]
   ];
   return (
     <g transform={`translate(${x},${y})`}>
@@ -169,7 +175,7 @@ export const ShareCard = forwardRef<SVGSVGElement, Props>(function ShareCard({ d
         <text x={64} y={82} fill={INK} fontSize={22} fontWeight={600} letterSpacing="-0.8">手脉</text>
         <text x={128} y={82} fill={MUTED} fontSize={9} letterSpacing="3.4">HANDPULSE</text>
         <text x={1016} y={70} textAnchor="end" fill={MUTED} fontSize={10} letterSpacing="0.8">
-          2026.11.10 — 11.16
+          {periodText(data.range)}
         </text>
         <text x={1016} y={88} textAnchor="end" fill={MUTED} fontSize={10} letterSpacing="0.8">
           {data.rangeLabel} · 本机统计
@@ -391,5 +397,7 @@ export function downloadBlob(blob: Blob, filename: string): void {
   a.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 3000);
 }
+
+
 
 
