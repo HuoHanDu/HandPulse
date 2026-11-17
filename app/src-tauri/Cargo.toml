@@ -30,6 +30,7 @@ chrono = { version = "0.4", features = ["serde"] }
 anyhow = "1"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+rfd = "0.17"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", features = [

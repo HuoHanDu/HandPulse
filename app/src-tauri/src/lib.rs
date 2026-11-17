@@ -111,6 +111,7 @@ pub fn run() {
             commands::window::start_resize,
             commands::window::quit_app,
             commands::window::open_data_dir,
+            commands::window::save_share_png,
             commands::window::set_main_hidden,
             commands::window::stage_database_import,
             commands::window::is_elevated,

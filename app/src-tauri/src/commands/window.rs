@@ -243,3 +243,23 @@ pub fn start_resize(direction: String, window: tauri::Window) -> Result<(), Stri
     }
     Ok(())
 }
+#[tauri::command]
+pub async fn save_share_png(file_name: String, bytes: Vec<u8>) -> Result<Option<String>, String> {
+    if bytes.is_empty() {
+        return Err("分享卡图片数据为空".to_string());
+    }
+    let result: Result<Option<String>, String> = tauri::async_runtime::spawn_blocking(move || {
+        let picked = rfd::FileDialog::new()
+            .add_filter("PNG 图片", &["png"])
+            .set_file_name(&file_name)
+            .save_file();
+        let Some(path) = picked else {
+            return Ok(None);
+        };
+        std::fs::write(&path, bytes).map_err(|e| format!("写入分享卡失败：{e}"))?;
+        Ok(Some(path.to_string_lossy().to_string()))
+    })
+    .await
+    .map_err(|e| format!("保存窗口线程失败：{e}"))?;
+    result
+}

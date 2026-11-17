@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useApp } from '../app/store';
+import { invoke } from '@tauri-apps/api/core';
+import { isTauri } from '../ipc/client';
 import { SHARE_RANGE_OPTIONS, loadShareCard, type ShareCardData, type ShareRange } from './loadShareCard';
 import { ShareCard, downloadBlob, shareCardPng } from './ShareCard';
 import '../styles/share.css';
@@ -17,7 +18,6 @@ function todayStamp(): string {
 }
 
 export function ShareCardModal({ open, onClose, defaultRange }: Props) {
-  const { dispatch } = useApp();
   const svgRef = useRef<SVGSVGElement>(null);
   const [range, setRange] = useState<ShareRange>(defaultRange);
   const [includeApps, setIncludeApps] = useState(false);
@@ -25,11 +25,13 @@ export function ShareCardModal({ open, onClose, defaultRange }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState('');
 
   useEffect(() => {
     if (!open) return;
     setRange(defaultRange);
     setIncludeApps(false);
+    setStatus('');
   }, [open, defaultRange]);
 
   useEffect(() => {
@@ -37,6 +39,7 @@ export function ShareCardModal({ open, onClose, defaultRange }: Props) {
     let alive = true;
     setLoading(true);
     setError(null);
+    setStatus('');
     loadShareCard(range, includeApps)
       .then(v => { if (alive) setData(v); })
       .catch(e => { if (alive) setError(e instanceof Error ? e.message : String(e)); })
@@ -56,12 +59,24 @@ export function ShareCardModal({ open, onClose, defaultRange }: Props) {
   const save = async () => {
     if (!svgRef.current || !data) return;
     setSaving(true);
+    setStatus('正在生成 2× PNG…');
     try {
       const blob = await shareCardPng(svgRef.current, 2);
-      downloadBlob(blob, `HandPulse_share_${range}_${todayStamp()}.png`);
-      dispatch({ type: 'toast', message: '分享卡已生成，正在保存 PNG。' });
+      const filename = `HandPulse_share_${range}_${todayStamp()}.png`;
+      if (isTauri) {
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        setStatus('请选择保存位置…');
+        const path = await invoke<string | null>('save_share_png', {
+          fileName: filename,
+          bytes: Array.from(bytes)
+        });
+        setStatus(path ? `已保存：${path}` : '已取消保存。');
+      } else {
+        downloadBlob(blob, filename);
+        setStatus('已开始下载 PNG。');
+      }
     } catch (e) {
-      dispatch({ type: 'toast', message: e instanceof Error ? e.message : '分享卡导出失败' });
+      setStatus(e instanceof Error ? e.message : '分享卡导出失败');
     } finally {
       setSaving(false);
     }
@@ -123,7 +138,7 @@ export function ShareCardModal({ open, onClose, defaultRange }: Props) {
             <div><span>手柄</span><b>{data && data.pad.total > 0 ? `${data.pad.total.toLocaleString('en-US')} 次` : '无数据'}</b></div>
           </div>
 
-          {error && <div className="share-error">{error}</div>}
+          {error && <div className="share-error">{error}</div>}`n          {status && <div className="share-status">{status}</div>}
 
           <div className="share-actions">
             <button className="tbtn" type="button" onClick={onClose}>取消</button>
@@ -132,7 +147,7 @@ export function ShareCardModal({ open, onClose, defaultRange }: Props) {
             </button>
           </div>
           <p className="share-footnote">
-            预览为 1080×1440 分享卡，导出为 2× PNG。默认不包含应用名、窗口标题和输入内容。
+            预览为 1080×1440 分享卡，导出为 2× PNG。点击保存后会打开系统保存窗口选择位置。
           </p>
         </aside>
       </div>
@@ -140,5 +155,8 @@ export function ShareCardModal({ open, onClose, defaultRange }: Props) {
     document.body
   );
 }
+
+
+
 
 
