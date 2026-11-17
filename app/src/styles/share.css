@@ -1,0 +1,250 @@
+.share-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  background: rgba(0, 0, 0, .72);
+  backdrop-filter: blur(10px);
+}
+
+.share-sheet {
+  width: min(1180px, 96vw);
+  max-height: calc(100vh - 56px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 24px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 16px;
+  background: #0b0c0f;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
+  color: var(--text);
+}
+
+.share-preview {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border-radius: 10px;
+  background: #05070b;
+  overflow: hidden;
+}
+
+.share-preview svg {
+  width: auto;
+  max-width: 100%;
+  height: min(80vh, 820px);
+  display: block;
+  box-shadow: 0 8px 34px rgba(0, 0, 0, .45);
+}
+
+.share-side {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 4px 4px;
+}
+
+.share-side-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.share-kicker {
+  font-size: 9px;
+  letter-spacing: .22em;
+  color: var(--text-3);
+}
+
+.share-side h2 {
+  margin: 4px 0 0;
+  font-size: 24px;
+  letter-spacing: -.04em;
+  font-weight: 600;
+}
+
+.share-close {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.share-close:hover {
+  color: var(--text);
+  border-color: var(--text-3);
+}
+
+.share-field {
+  margin-top: 28px;
+}
+
+.share-label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: .12em;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+
+.share-seg {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.share-seg button {
+  flex: 1;
+  border: 0;
+  border-radius: 5px;
+  padding: 7px 4px;
+  background: transparent;
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.share-seg button[aria-pressed="true"] {
+  background: var(--accent);
+  color: #fff;
+}
+
+.share-check {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.share-check input {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.share-check span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.share-check b {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.share-check small,
+.share-note {
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.share-note {
+  margin-top: 10px;
+  padding: 9px 11px;
+  border-left: 2px solid var(--warn);
+  background: rgba(245, 166, 35, .06);
+}
+
+.share-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  background: var(--line);
+}
+
+.share-facts > div {
+  min-width: 0;
+  padding: 11px 12px;
+  background: #0b0c0f;
+}
+
+.share-facts span {
+  display: block;
+  font-size: 9px;
+  color: var(--text-3);
+  letter-spacing: .08em;
+  margin-bottom: 5px;
+}
+
+.share-facts b {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.share-error {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 92, 92, .35);
+  border-radius: 6px;
+  color: #ffb0b0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.share-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.share-footnote {
+  margin: 14px 0 0;
+  font-size: 9px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+.share-loading {
+  width: 100%;
+  height: min(80vh, 820px);
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+@media (max-width: 920px) {
+  .share-sheet {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: auto;
+  }
+
+  .share-preview svg {
+    height: auto;
+    width: 100%;
+  }
+
+  .share-side {
+    padding-bottom: 16px;
+  }
+}
+

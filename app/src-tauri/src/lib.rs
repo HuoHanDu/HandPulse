@@ -102,6 +102,7 @@ pub fn run() {
             commands::history::get_custom_key_stats,
             commands::history::get_custom_mouse_stats,
             commands::history::get_custom_pad_stats,
+            commands::history::get_pad_stats,
             commands::history::get_data_version,
             commands::history::get_settings,
             commands::history::set_settings,

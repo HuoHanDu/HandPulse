@@ -61,6 +61,7 @@ pub struct Summary {
     pub keys: u64,
     pub clicks: u64,
     pub move_km: f64,
+    pub active_seconds: u64,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -312,6 +313,7 @@ pub fn summary(db: &Db, range: Range, live: &LiveSnapshot) -> Result<Summary> {
             keys,
             clicks,
             move_km: px_to_cm(live.move_px) as f64 / 100_000.0,
+            active_seconds: 0,
         });
     }
     let b = bounds(range)?;
@@ -322,16 +324,27 @@ pub fn summary(db: &Db, range: Range, live: &LiveSnapshot) -> Result<Summary> {
         [&b.start_day, &b.end_day],
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
     )?;
+    let mut active_seconds: u64 = conn.query_row(
+        "SELECT COALESCE(SUM(granularity),0)
+         FROM (SELECT DISTINCT ts, granularity FROM bucket
+               WHERE ts>=?1 AND ts<?2 AND actions>0)",
+        [b.start_ts, b.end_ts],
+        |r| r.get(0),
+    )?;
     if let Some(cur) = current_bucket(live).filter(|c| in_range_current(c, &b)) {
         keys += cur.kb.keys();
         clicks += cur.mouse.clicks();
         move_px += cur.mouse.px;
+        if cur.kb.keys() + cur.mouse.clicks() > 0 {
+            active_seconds = active_seconds.saturating_add(cur.granularity as u64);
+        }
     }
     Ok(Summary {
         actions: keys + clicks,
         keys,
         clicks,
         move_km: px_to_cm(move_px) as f64 / 100_000.0,
+        active_seconds,
     })
 }
 
@@ -1326,6 +1339,11 @@ pub fn custom_mouse_stats(db: &Db, start_ts: i64, end_ts: i64) -> Result<MouseSt
 }
 
 /// 自定义范围手柄统计；读取 pad_bucket 的按下计数。
+pub fn pad_stats(db: &Db, range: Range) -> Result<PadStats> {
+    let b = bounds(range)?;
+    custom_pad_stats(db, b.start_ts, b.end_ts)
+}
+
 pub fn custom_pad_stats(db: &Db, start_ts: i64, end_ts: i64) -> Result<PadStats> {
     let conn = db.open_read()?;
     let mut counts = [0u64; 17];

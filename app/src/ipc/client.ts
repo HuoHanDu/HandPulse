@@ -115,7 +115,8 @@ export function getSummary(range: RangeKey): Promise<Summary> {
       actions: kr.total + cr.total,
       keys: kr.total,
       clicks: cr.total,
-      moveKm: Math.round(HP.moveKm * cr.factor * 10) / 10
+      moveKm: Math.round(HP.moveKm * cr.factor * 10) / 10,
+      activeSeconds: 0
     };
   });
 }
@@ -697,6 +698,11 @@ export async function getCustomKeyStats(startTs: number, endTs: number): Promise
 export async function getCustomMouseStats(startTs: number, endTs: number): Promise<MouseStats> {
   if (isTauri) return invoke<MouseStats>('get_custom_mouse_stats', { startTs, endTs });
   return { clicks: { left: 0, right: 0, middle: 0, side1: 0, side2: 0, total: 0 }, wheel: [0, 0], peakSpeed: 0, moveKm: 0 };
+}
+
+export async function getPadStats(range: RangeKey): Promise<PadStats> {
+  if (isTauri) return invoke<PadStats>('get_pad_stats', { range });
+  return { total: 0, buttons: [] };
 }
 
 export async function getCustomPadStats(startTs: number, endTs: number): Promise<PadStats> {

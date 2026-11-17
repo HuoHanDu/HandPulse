@@ -1,69 +1,91 @@
+import { useState } from 'react';
 import { RANGE_OPTS, TITLES, useApp } from '../app/store';
 import { getSummary } from '../ipc/client';
 import { usePageData } from '../state/usePageData';
 import { useLiveOverlay } from '../state/useLiveOverlay';
 import { Segmented } from '../ui/Segmented';
+import { ShareCardModal } from '../share/ShareCardModal';
+import type { ShareRange } from '../share/loadShareCard';
 
 export function Transport() {
   const { state, dispatch } = useApp();
   const { data: summary } = usePageData('summary:today', () => getSummary('today'));
   const overlay = useLiveOverlay(summary);
+  const [shareOpen, setShareOpen] = useState(false);
   const number = (v: number | undefined) => (state.empty ? '0' : (v ?? 0).toLocaleString('en-US'));
   const now = new Date();
   const week = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][now.getDay()];
   const dateText = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${week}`;
   const timeText = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const shareRange: ShareRange = 'week';
 
   return (
-    <header className="transport">
-      <h1 className="tp-title" id="tpTitle">{TITLES[state.route]}</h1>
-      <button
-        className="status"
-        id="statusBtn"
-        type="button"
-        aria-pressed={state.paused}
-        title={state.paused ? '恢复记录' : '暂停记录'}
-        onClick={() => dispatch({ type: 'togglePause' })}
-      >
-        <span className={'live-dot' + (state.paused ? ' is-paused' : '')} id="statusDot" />
-        <span id="statusText">{state.paused ? '已暂停' : '运行中'}</span>
-      </button>
-      <span className="tp-date mono">{dateText}</span>
-      {state.route === 'settings' || state.route === 'data' || state.route === 'gamepad' ? (
-        <div className="seg" id="rangeSeg" role="group" aria-label="时间范围">
-          <span className="tp-static">
-            {state.route === 'settings' ? '全部时间' : state.route === 'data' ? '自定义范围' : '实时检测'}
-          </span>
-        </div>
-      ) : (
-        <Segmented
-          id="rangeSeg"
-          label="时间范围"
-          options={RANGE_OPTS[state.route].map(([value, label]) => ({ value, label }))}
-          value={state.ranges[state.route]}
-          onChange={(range) => dispatch({ type: 'setRange', route: state.route, range })}
-        />
-      )}
-      <div className="tp-spacer" />
-      <div className="tp-readout"><span>今日动作</span><b className="mono" id="roActions">{number((summary?.actions ?? 0) + overlay.keysTotal + overlay.clicksTotal)}</b></div>
-      <div className="tp-readout"><span>按键</span><b className="mono" id="roKeys">{number((summary?.keys ?? 0) + overlay.keysTotal)}</b></div>
-      <div className="tp-readout"><span>点击</span><b className="mono" id="roClicks">{number((summary?.clicks ?? 0) + overlay.clicksTotal)}</b></div>
-      <span className="tp-time mono">{timeText}</span>
-      <button
-        className="icon-btn"
-        id="pauseBtn"
-        type="button"
-        aria-label={state.paused ? '恢复记录' : '暂停记录'}
-        aria-pressed={state.paused}
-        title={state.paused ? '恢复记录' : '暂停记录'}
-        onClick={() => dispatch({ type: 'togglePause' })}
-      >
-        {state.paused ? (
-          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5l9 5.5-9 5.5z" /></svg>
+    <>
+      <header className="transport">
+        <h1 className="tp-title" id="tpTitle">{TITLES[state.route]}</h1>
+        <button
+          className="status"
+          id="statusBtn"
+          type="button"
+          aria-pressed={state.paused}
+          title={state.paused ? '恢复记录' : '暂停记录'}
+          onClick={() => dispatch({ type: 'togglePause' })}
+        >
+          <span className={'live-dot' + (state.paused ? ' is-paused' : '')} id="statusDot" />
+          <span id="statusText">{state.paused ? '已暂停' : '运行中'}</span>
+        </button>
+        <span className="tp-date mono">{dateText}</span>
+        {state.route === 'settings' || state.route === 'data' || state.route === 'gamepad' ? (
+          <div className="seg" id="rangeSeg" role="group" aria-label="时间范围">
+            <span className="tp-static">
+              {state.route === 'settings' ? '全部时间' : state.route === 'data' ? '自定义范围' : '实时检测'}
+            </span>
+          </div>
         ) : (
-          <svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.6" height="12" rx="1" /><rect x="9.4" y="2" width="3.6" height="12" rx="1" /></svg>
+          <Segmented
+            id="rangeSeg"
+            label="时间范围"
+            options={RANGE_OPTS[state.route].map(([value, label]) => ({ value, label }))}
+            value={state.ranges[state.route]}
+            onChange={(range) => dispatch({ type: 'setRange', route: state.route, range })}
+          />
         )}
-      </button>
-    </header>
+        <div className="tp-spacer" />
+        <div className="tp-readout"><span>今日动作</span><b className="mono" id="roActions">{number((summary?.actions ?? 0) + overlay.keysTotal + overlay.clicksTotal)}</b></div>
+        <div className="tp-readout"><span>按键</span><b className="mono" id="roKeys">{number((summary?.keys ?? 0) + overlay.keysTotal)}</b></div>
+        <div className="tp-readout"><span>点击</span><b className="mono" id="roClicks">{number((summary?.clicks ?? 0) + overlay.clicksTotal)}</b></div>
+        <span className="tp-time mono">{timeText}</span>
+        <button
+          className="icon-btn"
+          id="shareBtn"
+          type="button"
+          aria-label="分享卡"
+          title="分享卡"
+          onClick={() => setShareOpen(true)}
+        >
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 3H3v10h10v-3" />
+            <path d="M9 2h5v5M14 2 7 9" />
+          </svg>
+        </button>
+        <button
+          className="icon-btn"
+          id="pauseBtn"
+          type="button"
+          aria-label={state.paused ? '恢复记录' : '暂停记录'}
+          aria-pressed={state.paused}
+          title={state.paused ? '恢复记录' : '暂停记录'}
+          onClick={() => dispatch({ type: 'togglePause' })}
+        >
+          {state.paused ? (
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5l9 5.5-9 5.5z" /></svg>
+          ) : (
+            <svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.6" height="12" rx="1" /><rect x="9.4" y="2" width="3.6" height="12" rx="1" /></svg>
+          )}
+        </button>
+      </header>
+      <ShareCardModal open={shareOpen} onClose={() => setShareOpen(false)} defaultRange={shareRange} />
+    </>
   );
 }
+

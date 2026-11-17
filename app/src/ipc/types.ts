@@ -12,6 +12,7 @@ export interface Summary {
   keys: number;
   clicks: number;
   moveKm: number;
+  activeSeconds: number;
 }
 
 export interface KeyStat {

@@ -334,6 +334,19 @@ pub async fn get_custom_mouse_stats(
 }
 
 #[tauri::command]
+pub async fn get_pad_stats(
+    range: String,
+    state: State<'_, CaptureHandle>,
+) -> Result<PadStats, String> {
+    let db = get_db(&state)?;
+    blocking(move || {
+        let r = parse_range(&range)?;
+        query::pad_stats(&db, r).map_err(|e| e.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
 pub async fn get_custom_pad_stats(
     start_ts: i64,
     end_ts: i64,
