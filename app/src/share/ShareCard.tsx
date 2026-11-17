@@ -29,47 +29,48 @@ function truncate(s: string, n: number): string {
   return s.length > n ? s.slice(0, n - 1) + '…' : s;
 }
 
-function keyFill(count: number, max: number): string {
-  if (!count || !max) return 'rgba(255,255,255,0.055)';
-  const r = count / max;
-  const alpha = 0.12 + Math.min(1, r) * 0.78;
-  return `rgba(76,141,255,${alpha.toFixed(2)})`;
-}
-
-function MiniKeyboard({ keys, x, y, width, height }: {
+function HeatStrip({ keys, x, y, width, height }: {
   keys: ShareCardData['keys'];
   x: number;
   y: number;
   width: number;
   height: number;
 }) {
-  const counts = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const k of keys) m.set(k.label, k.count);
-    return m;
+  const cells = useMemo(() => {
+    const out = new Array<number>(32 * 6).fill(0);
+    for (const stat of keys) {
+      const def = KEYS.find(k => k.label === stat.label);
+      if (!def) continue;
+      const gx = Math.min(31, Math.max(0, Math.floor(def.x / 24 * 32)));
+      const gy = Math.min(5, Math.max(0, Math.floor(def.y)));
+      out[gy * 32 + gx] += stat.count;
+    }
+    return out;
   }, [keys]);
-  const max = Math.max(1, ...keys.map(k => k.count));
-  const sx = width / 24;
-  const sy = height / 6;
+  const max = Math.max(1, ...cells);
+  const gap = 3;
+  const cw = (width - gap * 31) / 32;
+  const ch = (height - gap * 5) / 6;
   return (
     <g transform={`translate(${x},${y})`}>
-      {KEYS.map(k => (
-        <rect
-          key={k.label}
-          x={k.x * sx + 0.8}
-          y={k.y * sy + 0.8}
-          width={Math.max(1, k.w * sx - 1.6)}
-          height={Math.max(1, k.h * sy - 1.6)}
-          rx={1.4}
-          fill={keyFill(counts.get(k.label) || 0, max)}
-          stroke="rgba(255,255,255,0.06)"
-          strokeWidth={0.5}
-        />
-      ))}
+      {cells.map((v, i) => {
+        const ratio = v / max;
+        const alpha = v ? 0.12 + Math.min(1, ratio) * 0.82 : 0.055;
+        return (
+          <rect
+            key={i}
+            x={(i % 32) * (cw + gap)}
+            y={Math.floor(i / 32) * (ch + gap)}
+            width={cw}
+            height={ch}
+            rx={2}
+            fill={`rgba(76,141,255,${alpha.toFixed(2)})`}
+          />
+        );
+      })}
     </g>
   );
 }
-
 function MiniGrid({ cells, x, y, width, height }: {
   cells: ShareCardData['grid'];
   x: number;
@@ -202,7 +203,7 @@ export const ShareCard = forwardRef<SVGSVGElement, Props>(function ShareCard({ d
       <text x={hasApps ? 714 : 1016} y={contentY - 7} textAnchor={hasApps ? 'start' : 'end'} fill={FAINT} fontSize={9} letterSpacing="1">
         {data.keys.length ? `最高 ${topKeys[0]?.label ?? '—'} · ${topKeys[0]?.count.toLocaleString('en-US') ?? 0} 次` : '暂无按键'}
       </text>
-      <MiniKeyboard keys={data.keys} x={64} y={contentY} width={heatW} height={heatH} />
+      <HeatStrip keys={data.keys} x={64} y={contentY} width={heatW} height={heatH} />
 
       {hasApps && (
         <g>
@@ -397,6 +398,8 @@ export function downloadBlob(blob: Blob, filename: string): void {
   a.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 3000);
 }
+
+
 
 
 
