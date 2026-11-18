@@ -46,9 +46,10 @@ export function Inspector() {
   const { data: stats } = usePageData(`stats:${state.ranges.stats}`, () => loadStats(state.ranges.stats));
   const { data: detail } = usePageData(`inspector-detail:${state.ranges.stats}:0`, () => getDetailPage(state.ranges.stats, 0));
   const { data: today } = usePageData('summary:today', () => getSummary('today'));
+  const { data: statsSummary } = usePageData("summary:" + state.ranges.stats, () => getSummary(state.ranges.stats));
   const { data: settings } = usePageData('settings', getSettings);
   const kbOverlay = useLiveOverlay(kb);
-  const todayOverlay = useLiveOverlay(today);
+  const statsOverlay = useLiveOverlay(statsSummary);
   const mergedKeyStats = useMemo(() => {
     const base = kb?.keyStats ?? [];
     if (!kbOverlay.keysTotal) return base;
@@ -102,19 +103,21 @@ export function Inspector() {
       const map = new Map<string, KeyStat>();
       mergedKeyStats.forEach(s => map.set(s.label, s));
       const maxCount = mergedKeyStats[0]?.count ?? 0;
+      const kRange = state.ranges.keyboard;
+      const kName = kRange === 'session' ? '本次' : kRange === '24h' ? '24H' : kRange === 'week' ? '7 天' : '今日';
       const total = (kb?.total ?? 0) + kbOverlay.keysTotal;
       if (!label) {
         body = (
           <>
             <div className="insp-empty">
-              <b>选一个键，查看它的全部证据。</b><br />悬停预览，点击固定，ESC 关闭。键盘上显示的是今日累计次数映射的 6 级热力。
+              <b>选一个键，查看它的全部证据。</b><br />悬停预览，点击固定，ESC 关闭。键盘上显示的是{kName}累计次数映射的 6 级热力。
             </div>
             <div className="insp-sec">
-              <div className="sec-head">今日总览</div>
+              <div className="sec-head">{kName}总览</div>
               <div className="rows">
-                <Kv label="按键次数" value={nf((today?.keys ?? 0) + todayOverlay.keysTotal)} />
-                <Kv label="点击次数" value={nf((today?.clicks ?? 0) + todayOverlay.clicksTotal)} />
-                <Kv label="动作合计" value={nf((today?.actions ?? 0) + todayOverlay.keysTotal + todayOverlay.clicksTotal)} />
+                <Kv label="按键次数" value={nf((kb?.summary.keys ?? 0) + kbOverlay.keysTotal)} />
+                <Kv label="点击次数" value={nf((kb?.summary.clicks ?? 0) + kbOverlay.clicksTotal)} />
+                <Kv label="动作合计" value={nf((kb?.summary.actions ?? 0) + kbOverlay.keysTotal + kbOverlay.clicksTotal)} />
                 <Kv label="键位数量" value="104" />
               </div>
             </div>
@@ -131,7 +134,7 @@ export function Inspector() {
         const rank = (mergedKeyStats.findIndex(s => s.label === label) ?? -1) + 1;
         const name = displayKey(label);
         const rangeKey = state.ranges.keyboard;
-        const rt = rangeKey === 'session' ? '本次（启动/重置以来）' : rangeKey === 'week' ? '7 天' : '今日';
+        const rt = rangeKey === 'session' ? '本次（启动/重置以来）' : rangeKey === '24h' ? '24H' : rangeKey === 'week' ? '7 天' : '今日';
         const rankText = rangeKey === 'today' ? '按次数第 ' + rank + ' 位' : rt + ' 读数';
         body = (
           <>
@@ -212,8 +215,9 @@ export function Inspector() {
     );
   } else if (state.route === 'stats') {
     const r = state.ranges.stats;
-    const view = r === 'today' ? '今日 · 分钟桶' : r === 'week' ? '7 天 · 小时桶' : '30 天 · 天桶';
+    const view = r === 'today' ? '今日 · 分钟桶' : r === '24h' ? '近 24 小时 · 分钟桶' : r === 'week' ? '7 天 · 小时桶' : '30 天 · 天桶';
     const viewRows = detail?.total ?? 0;
+    const rangePrefix = r === "today" ? "今日" : r === "24h" ? "24H" : r === "week" ? "7 天" : "30 天";
     const covered = stats?.line.values.length ?? 0;
     body = (
       <>
@@ -224,9 +228,9 @@ export function Inspector() {
         <div className="insp-sec">
           <div className="sec-head">关键读数</div>
           <div className="rows">
-            <Kv label="日总动作" value={nf(today?.actions ?? 0)} />
-            <Kv label="今日按键" value={nf(today?.keys ?? 0)} />
-            <Kv label="今日点击" value={nf(today?.clicks ?? 0)} />
+            <Kv label={rangePrefix + "总动作"} value={nf((statsSummary?.actions ?? 0) + statsOverlay.keysTotal + statsOverlay.clicksTotal)} />
+            <Kv label={rangePrefix + "按键"} value={nf((statsSummary?.keys ?? 0) + statsOverlay.keysTotal)} />
+            <Kv label={rangePrefix + "点击"} value={nf((statsSummary?.clicks ?? 0) + statsOverlay.clicksTotal)} />
             <Kv label="峰值" value={(stats?.line.peak.val ?? 0).toLocaleString('en-US') + ' ' + (stats?.line.unit === '次/分' ? 'APM' : stats?.line.unit ?? '')} />
             <Kv label="峰值时刻" value={stats?.line.peakText.split('，').slice(1).join('，') || '—'} />
           </div>
@@ -236,7 +240,7 @@ export function Inspector() {
           <div className="rows">
             <Kv label="范围" value={view} />
             <Kv label="数据行" value={nf(viewRows) + ' 行'} hint={'覆盖 ' + nf(covered) + ' 个时间点'} />
-            <Kv label="粒度" value={r === 'today' ? '1 分钟' : r === 'week' ? '1 小时' : '1 天'} />
+            <Kv label="粒度" value={r === 'today' || r === '24h' ? '1 分钟' : r === 'week' ? '1 小时' : '1 天'} />
           </div>
           <div style={{ paddingTop: 10 }}>
             <button
@@ -348,3 +352,6 @@ export function Inspector() {
     </aside>
   );
 }
+
+
+

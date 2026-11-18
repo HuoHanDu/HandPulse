@@ -167,11 +167,12 @@ export const SUBS: Record<Route, string> = {
 };
 
 export const RANGE_OPTS: Record<Route, Array<[RangeKey, string]>> = {
-  keyboard: [['session', '本次'], ['today', '今日'], ['week', '7 天']],
-  mouse: [['session', '本次'], ['today', '今日'], ['week', '7 天']],
-  gamepad: [['session', '本次'], ['today', '今日'], ['week', '7 天']],
-  stats: [['today', '今日'], ['week', '7 天'], ['month', '30 天']],
+  keyboard: [['session', '本次'], ['today', '今日'], ['24h', '24H'], ['week', '7 天']],
+  mouse: [['session', '本次'], ['today', '今日'], ['24h', '24H'], ['week', '7 天']],
+  gamepad: [['session', '本次'], ['today', '今日'], ['24h', '24H'], ['week', '7 天']],
+  stats: [['today', '今日'], ['24h', '24H'], ['week', '7 天'], ['month', '30 天']],
   data: [['today', '今日'], ['week', '7 天'], ['month', '30 天']],
-  apps: [['session', '本次'], ['today', '今日'], ['week', '7 天'], ['month', '30 天']],
+  apps: [['session', '本次'], ['today', '今日'], ['24h', '24H'], ['week', '7 天'], ['month', '30 天']],
   settings: [['session', '本次'], ['today', '今日'], ['week', '7 天']]
 };
+

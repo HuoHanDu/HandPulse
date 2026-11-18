@@ -1,6 +1,6 @@
 //! 历史查询：优先读预聚合表；只有鼠标分项/峰值等必要字段才解 payload。
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::{Result, anyhow};
 use chrono::{Datelike, Duration as ChronoDuration, Local, NaiveDate, TimeZone, Timelike};
@@ -16,6 +16,7 @@ use super::payload::{
 pub enum Range {
     Session,
     Today,
+    Last24h,
     Week,
     Month,
 }
@@ -27,6 +28,7 @@ impl Range {
             "today" => Ok(Self::Today),
             "week" => Ok(Self::Week),
             "month" => Ok(Self::Month),
+            "24h" => Ok(Self::Last24h),
             other => Err(anyhow!("非法时间范围: {other}")),
         }
     }
@@ -242,9 +244,14 @@ fn bounds(range: Range) -> Result<Bounds> {
         Range::Today => (today, today),
         Range::Week => (today - ChronoDuration::days(6), today),
         Range::Month => (today - ChronoDuration::days(29), today),
+        Range::Last24h => (today - ChronoDuration::days(1), today),
     };
     Ok(Bounds {
-        start_ts: day_start(start_date),
+        start_ts: if range == Range::Last24h {
+            now.timestamp() - 24 * 60 * 60
+        } else {
+            day_start(start_date)
+        },
         end_ts,
         start_day: start_date.format("%Y-%m-%d").to_string(),
         end_day: end_date.format("%Y-%m-%d").to_string(),
@@ -316,6 +323,63 @@ pub fn summary(db: &Db, range: Range, live: &LiveSnapshot) -> Result<Summary> {
             active_seconds: 0,
         });
     }
+    if range == Range::Last24h {
+        let b = bounds(range)?;
+        let conn = db.open_read()?;
+        let mut keys = 0u64;
+        let mut clicks = 0u64;
+        let mut px = 0.0f64;
+        let mut active = HashSet::<(i64, u32)>::new();
+        let mut stmt = conn
+            .prepare("SELECT ts,granularity,device,payload FROM bucket WHERE ts>=?1 AND ts<?2")?;
+        let rows = stmt.query_map([b.start_ts, b.end_ts], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, u32>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, Vec<u8>>(3)?,
+            ))
+        })?;
+        for row in rows {
+            let (ts, granularity, device, blob) = row?;
+            match device.as_str() {
+                "kb" => {
+                    let p: KbPayload = decode(&blob)?;
+                    keys += p.keys();
+                    if p.actions() > 0 {
+                        active.insert((ts, granularity));
+                    }
+                }
+                "mouse" => {
+                    let p: MousePayload = decode(&blob)?;
+                    clicks += p.clicks();
+                    px += p.px;
+                    if p.actions() > 0 || p.px > 0.0 {
+                        active.insert((ts, granularity));
+                    }
+                }
+                _ => {}
+            }
+        }
+        if let Some(cur) = current_bucket(live).filter(|c| in_range_current(c, &b)) {
+            let k = cur.kb.keys();
+            let c = cur.mouse.clicks();
+            keys += k;
+            clicks += c;
+            px += cur.mouse.px;
+            if k + c > 0 || cur.mouse.px > 0.0 {
+                active.insert((cur.ts, cur.granularity));
+            }
+        }
+        let active_seconds = active.iter().map(|(_, g)| *g as u64).sum();
+        return Ok(Summary {
+            actions: keys + clicks,
+            keys,
+            clicks,
+            move_km: px_to_cm(px) as f64 / 100_000.0,
+            active_seconds,
+        });
+    }
     let b = bounds(range)?;
     let conn = db.open_read()?;
     let (mut keys, mut clicks, mut move_px): (u64, u64, f64) = conn.query_row(
@@ -352,6 +416,11 @@ pub fn key_stats(db: &Db, range: Range, live: &LiveSnapshot) -> Result<Vec<KeySt
     let conn = db.open_read()?;
     let labels = key_labels(&conn)?;
     let mut agg: BTreeMap<u16, (u64, u64, u64, i64, i64)> = BTreeMap::new();
+
+    if range == Range::Last24h {
+        let b = bounds(range)?;
+        return custom_key_stats(db, b.start_ts, b.end_ts);
+    }
 
     if range == Range::Session {
         for k in &live.keys {
@@ -447,6 +516,35 @@ pub fn mouse_stats(db: &Db, range: Range, live: &LiveSnapshot) -> Result<MouseSt
             live.move_px,
             live.peak_speed,
         ));
+    }
+    if range == Range::Last24h {
+        let b = bounds(range)?;
+        let mut stats = custom_mouse_stats(db, b.start_ts, b.end_ts)?;
+        if let Some(cur) = current_bucket(live).filter(|c| in_range_current(c, &b)) {
+            let mut clicks = [
+                stats.clicks.left,
+                stats.clicks.right,
+                stats.clicks.middle,
+                stats.clicks.side1,
+                stats.clicks.side2,
+            ];
+            for (a, b) in clicks.iter_mut().zip(cur.mouse.cl.iter()) {
+                *a += *b;
+            }
+            stats.clicks = ClickBreakdown {
+                left: clicks[0],
+                right: clicks[1],
+                middle: clicks[2],
+                side1: clicks[3],
+                side2: clicks[4],
+                total: clicks.iter().sum(),
+            };
+            stats.wheel[0] += cur.mouse.wh[0];
+            stats.wheel[1] += cur.mouse.wh[1];
+            stats.move_km += cur.mouse.px * 2.54 / 96.0 / 100_000.0;
+            stats.peak_speed = stats.peak_speed.max(cur.mouse.vmax * 2.54 / 96.0 / 100.0);
+        }
+        return Ok(stats);
     }
     let b = bounds(range)?;
     let conn = db.open_read()?;
@@ -567,6 +665,34 @@ pub fn buckets(db: &Db, range: Range, live: &LiveSnapshot) -> Result<Vec<BucketP
                 );
             }
         }
+        Range::Last24h => {
+            let mut stmt = conn.prepare(
+                "SELECT (ts/300)*300 AS m,
+                        SUM(CASE WHEN device='kb' THEN actions ELSE 0 END) AS keys,
+                        SUM(CASE WHEN device='mouse' THEN actions ELSE 0 END) AS clicks
+                 FROM bucket WHERE ts>=?1 AND ts<?2 GROUP BY m ORDER BY m",
+            )?;
+            let rows = stmt.query_map([b.start_ts, b.end_ts], |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, u64>(1)?,
+                    r.get::<_, u64>(2)?,
+                ))
+            })?;
+            for row in rows {
+                let (m, keys, clicks) = row?;
+                out.insert(
+                    m,
+                    BucketPoint {
+                        ts: m * 1000,
+                        actions: keys + clicks,
+                        keys,
+                        clicks,
+                        move_px: 0.0,
+                    },
+                );
+            }
+        }
         Range::Week => {
             let mut stmt = conn.prepare(
                 "SELECT ts,actions,keys,clicks,move_px FROM agg_hour WHERE ts>=?1 AND ts<?2 ORDER BY ts",
@@ -636,6 +762,7 @@ pub fn buckets(db: &Db, range: Range, live: &LiveSnapshot) -> Result<Vec<BucketP
                     .unwrap_or_else(now_local)
                     .date_naive(),
             ),
+            Range::Last24h => (cur.ts / 300) * 300,
             Range::Session => cur.ts,
         };
         let p = out.entry(period * 1000).or_insert(BucketPoint {
@@ -675,6 +802,44 @@ pub fn histogram(db: &Db, range: Range, dim: &str, live: &LiveSnapshot) -> Resul
         }
         "hour" | "hours" => {
             let mut vals = [0u64; 24];
+            if range == Range::Last24h {
+                let b = bounds(range)?;
+                let conn = db.open_read()?;
+                let mut stmt = conn.prepare(
+                    "SELECT (ts/3600)*3600,SUM(actions) FROM bucket WHERE ts>=?1 AND ts<?2 GROUP BY 1",
+                )?;
+                let rows = stmt.query_map([b.start_ts, b.end_ts], |r| {
+                    Ok((r.get::<_, i64>(0)?, r.get::<_, u64>(1)?))
+                })?;
+                for row in rows {
+                    let (ts, actions) = row?;
+                    let h = Local
+                        .timestamp_opt(ts, 0)
+                        .single()
+                        .unwrap_or_else(now_local)
+                        .hour() as usize;
+                    vals[h] += actions;
+                }
+                if let Some(cur) = current_bucket(live).filter(|c| in_range_current(c, &b)) {
+                    let h = Local
+                        .timestamp_opt(cur.ts, 0)
+                        .single()
+                        .unwrap_or_else(now_local)
+                        .hour() as usize;
+                    vals[h] += cur.kb.keys() + cur.mouse.clicks();
+                }
+                return Ok(Histogram {
+                    dim: "hour".into(),
+                    items: vals
+                        .iter()
+                        .enumerate()
+                        .map(|(i, v)| HistItem {
+                            label: format!("{i:02}"),
+                            value: *v,
+                        })
+                        .collect(),
+                });
+            }
             if range == Range::Session {
                 // session 只给当前小时
                 if let Some(cur) = current_bucket(live) {
@@ -725,6 +890,35 @@ pub fn histogram(db: &Db, range: Range, dim: &str, live: &LiveSnapshot) -> Resul
         }
         "gap" | "gaps" => {
             let mut vals = [0u64; 5];
+            if range == Range::Last24h {
+                let b = bounds(range)?;
+                let conn = db.open_read()?;
+                let mut stmt = conn
+                    .prepare("SELECT payload FROM bucket WHERE device='kb' AND ts>=?1 AND ts<?2")?;
+                let rows = stmt.query_map([b.start_ts, b.end_ts], |r| r.get::<_, Vec<u8>>(0))?;
+                for row in rows {
+                    let p: KbPayload = decode(&row?)?;
+                    for (i, v) in p.gap.iter().enumerate() {
+                        vals[i] += *v as u64;
+                    }
+                }
+                if let Some(cur) = current_bucket(live).filter(|c| in_range_current(c, &b)) {
+                    for (i, v) in cur.kb.gap.iter().enumerate() {
+                        vals[i] += *v as u64;
+                    }
+                }
+                return Ok(Histogram {
+                    dim: "gap".into(),
+                    items: ["<50", "50–100", "100–200", "200–500", ">500"]
+                        .iter()
+                        .enumerate()
+                        .map(|(i, label)| HistItem {
+                            label: label.to_string(),
+                            value: vals[i],
+                        })
+                        .collect(),
+                });
+            }
             if range == Range::Session {
                 if let Some(cur) = current_bucket(live) {
                     for (i, v) in cur.kb.gap.iter().enumerate() {
@@ -801,6 +995,7 @@ pub fn heatmap(db: &Db, range: Range, kind: &str, live: &LiveSnapshot) -> Result
                     Range::Today => 0,
                     Range::Week => 6,
                     Range::Month => 29,
+                    Range::Last24h => 1,
                     Range::Session => 0,
                 };
                 let start = today - ChronoDuration::days(back);
@@ -912,6 +1107,42 @@ fn grid_table(
     movement: bool,
 ) -> Result<Vec<GridCell>> {
     let mut out: BTreeMap<(i64, i64), u64> = BTreeMap::new();
+    if range == Range::Last24h {
+        let b = bounds(range)?;
+        let conn = db.open_read()?;
+        let mut stmt =
+            conn.prepare("SELECT payload FROM bucket WHERE device='mouse' AND ts>=?1 AND ts<?2")?;
+        let rows = stmt.query_map([b.start_ts, b.end_ts], |r| r.get::<_, Vec<u8>>(0))?;
+        for row in rows {
+            let p: MousePayload = decode(&row?)?;
+            let map = if movement { &p.mgrid } else { &p.grid };
+            for (k, v) in map {
+                if let Some((x, y)) = k.split_once(',')
+                    && let (Ok(x), Ok(y)) = (x.parse::<i64>(), y.parse::<i64>())
+                {
+                    *out.entry((x, y)).or_insert(0) += *v as u64;
+                }
+            }
+        }
+        if let Some(cur) = current_bucket(live).filter(|c| in_range_current(c, &b)) {
+            let map = if movement {
+                &cur.mouse.mgrid
+            } else {
+                &cur.mouse.grid
+            };
+            for (k, v) in map {
+                if let Some((x, y)) = k.split_once(',')
+                    && let (Ok(x), Ok(y)) = (x.parse::<i64>(), y.parse::<i64>())
+                {
+                    *out.entry((x, y)).or_insert(0) += *v as u64;
+                }
+            }
+        }
+        return Ok(out
+            .into_iter()
+            .map(|((x, y), v)| GridCell { x, y, v })
+            .collect());
+    }
     if range == Range::Session {
         for (x, y, v) in session_grid {
             out.insert((*x as i64, *y as i64), *v as u64);
@@ -958,6 +1189,11 @@ pub fn detail(db: &Db, range: Range, page: u32, live: &LiveSnapshot) -> Result<D
     let page_size = 50u32;
     let mut rows: Vec<DetailRow> = Vec::new();
     let b = bounds(range)?;
+    if range == Range::Last24h {
+        let mut page_data = custom_detail(db, b.start_ts, b.end_ts, page, live)?;
+        page_data.gran_label = "每桶 60 秒".into();
+        return Ok(page_data);
+    }
     if range == Range::Today {
         let conn = db.open_read()?;
         let mut stmt = conn.prepare(
@@ -1151,6 +1387,7 @@ pub fn detail(db: &Db, range: Range, page: u32, live: &LiveSnapshot) -> Result<D
         page_size,
         gran_label: match range {
             Range::Today => "每桶 60 秒".into(),
+            Range::Last24h => "每桶 60 秒".into(),
             Range::Week => "每桶 1 小时".into(),
             Range::Month => "每桶 1 天".into(),
             Range::Session => "本次会话".into(),

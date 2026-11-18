@@ -82,7 +82,7 @@ export function MousePage({ active }: Props) {
     : state.layer === 'clicks'
       ? '按点击次数排序。'
       : '移动图层：每 50ms 采样一次光标位置，反映鼠标移动落点分布。';
-  const rangePrefix = state.ranges.mouse === 'session' ? '本次（启动/重置以来）' : state.ranges.mouse === 'week' ? '近 7 天' : '今天';
+  const rangePrefix = state.ranges.mouse === 'session' ? '本次（启动/重置以来）' : state.ranges.mouse === '24h' ? '近 24 小时' : state.ranges.mouse === 'week' ? '近 7 天' : '今天';
   const intro = state.empty
     ? '移动一下鼠标。'
     : !data
@@ -181,3 +181,4 @@ export function MousePage({ active }: Props) {
     </section>
   );
 }
+

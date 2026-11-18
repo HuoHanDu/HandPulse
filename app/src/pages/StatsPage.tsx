@@ -30,7 +30,9 @@ export function StatsPage({ active }: Props) {
 
   const line = data?.line;
   const hist = data?.histograms[state.hist];
-  const heat = data?.heatmaps[state.heat];
+  const activeHeat = range === '24h' ? 'week' : state.heat;
+  const heat = data?.heatmaps[activeHeat];
+  const heatOpts = range === '24h' ? HEAT_OPTS.filter(([v]) => v === 'week') : HEAT_OPTS;
 
   useEffect(() => {
     if (line) setLineReadout(line.peakText);
@@ -51,8 +53,8 @@ export function StatsPage({ active }: Props) {
     : detail
       ? `共 ${detail.total.toLocaleString('en-US')} 行，每页 50 行`
       : '';
-  const rangePrefix = range === 'week' ? '近 7 天' : range === 'month' ? '近 30 天' : '今日';
-  const unitText = range === 'week' ? '次/时' : range === 'month' ? '次/天' : '次/分';
+  const rangePrefix = range === '24h' ? '近 24 小时' : range === 'week' ? '近 7 天' : range === 'month' ? '近 30 天' : '今日';
+  const unitText = range === '24h' ? '次/5分' : range === 'week' ? '次/时' : range === 'month' ? '次/天' : '次/分';
   const peakTail = line?.peakText.includes('，') ? line.peakText.split('，').slice(1).join('，') : '';
   const intro = state.empty
     ? '还没有数据，先在键盘/鼠标页敲几下。'
@@ -107,12 +109,12 @@ export function StatsPage({ active }: Props) {
           <div className="ph">
             <span className="ph-title">使用热力</span>
             <div className="seg" id="heatSeg" role="group" aria-label="热力图视图">
-              {HEAT_OPTS.map(([v, label]) => (
+              {heatOpts.map(([v, label]) => (
                 <button
                   key={v}
                   type="button"
                   data-v={v}
-                  aria-pressed={state.heat === v}
+                  aria-pressed={activeHeat === v}
                   onClick={() => dispatch({ type: 'setHeat', heat: v })}
                 >{label}</button>
               ))}
@@ -121,9 +123,9 @@ export function StatsPage({ active }: Props) {
             <span className="ph-meta" id="heatReadout">{heatReadout}</span>
           </div>
           <div className="chart" id="heatChart">
-            {heat && state.heat === 'week' && <WeekHeatmap chart={heat} empty={state.empty} onReadout={setHeatReadout} />}
-            {heat && state.heat === 'cal' && <CalendarHeatmap chart={heat} empty={state.empty} onReadout={setHeatReadout} />}
-            {heat && state.heat === 'month' && <MonthHeatmap chart={heat} empty={state.empty} onReadout={setHeatReadout} />}
+            {heat && activeHeat === 'week' && <WeekHeatmap chart={heat} empty={state.empty} onReadout={setHeatReadout} />}
+            {heat && activeHeat === 'cal' && <CalendarHeatmap chart={heat} empty={state.empty} onReadout={setHeatReadout} />}
+            {heat && activeHeat === 'month' && <MonthHeatmap chart={heat} empty={state.empty} onReadout={setHeatReadout} />}
           </div>
         </div>
       </div>
@@ -203,3 +205,4 @@ export function StatsPage({ active }: Props) {
     </section>
   );
 }
+

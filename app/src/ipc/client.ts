@@ -311,7 +311,7 @@ export async function loadPatterns(range: RangeKey): Promise<PatternStats> {
 export async function loadKeyboard(range: RangeKey): Promise<KeyboardData> {
   const [summary, keyStats] = await Promise.all([getSummary(range), getKeyStats(range)]);
   const label = isTauri
-    ? (range === 'session' ? '本次' : range === 'week' ? '7 天' : '今日')
+    ? (range === 'session' ? '本次' : range === '24h' ? '24H' : range === 'week' ? '7 天' : '今日')
     : keyRange(range).label;
   return { summary, keyStats, rangeLabel: label, total: summary.keys };
 }
@@ -320,7 +320,7 @@ export async function loadMouse(range: RangeKey): Promise<MouseData> {
   const [summary, extra, grid, moveGrid] = await Promise.all([
     getSummary(range), getMouseStats(range), getGrid(range), getMoveGrid(range)
   ]);
-  const label = range === 'session' ? '本次' : range === 'week' ? '7 天' : '今日';
+  const label = range === 'session' ? '本次' : range === '24h' ? '24H' : range === 'week' ? '7 天' : '今日';
   const gridMax = grid.reduce((m, g) => Math.max(m, g.v), 0);
   return {
     summary,
@@ -405,6 +405,29 @@ async function realLineSeries(range: RangeKey): Promise<LineSeries> {
     vals.forEach((v, i) => { if (v > val) { val = v; idx = i; } });
     return { idx, val };
   };
+  if (range === '24h') {
+    const end = now.getTime();
+    const start = end - 24 * 3600000;
+    const vals = new Array(288).fill(0);
+    raw.forEach(b => {
+      const idx = Math.floor((b.ts - start) / 300000);
+      if (idx >= 0 && idx < vals.length) vals[idx] += b.actions;
+    });
+    const pk = maxOf(vals);
+    const labelAt = (i: number) => {
+      const d = new Date(start + i * 300000);
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    };
+    return {
+      values: vals, unit: '次/5分', xMode: 'index', xMax: vals.length,
+      xTicks: [0, 3, 6, 9, 12, 15, 18, 21, 24].map(h => ({ label: String(h).padStart(2, '0'), pos: h / 24 })),
+      peak: pk,
+      peakText: `峰值 ${nf(pk.val)} 次/5分，${labelAt(pk.idx)}`,
+      tip: (i) => `${labelAt(i)}，${nf(vals[i])} 次/5分`,
+      note: `近 24 小时峰值 ${nf(pk.val)} 次/5分，出现在 ${labelAt(pk.idx)}。`,
+      aria: '近 24 小时每 5 分钟动作数折线图'
+    };
+  }
   if (range === 'week') {
     const start = startOfLocalDay(new Date(now.getTime() - 6 * 86400000));
     const dayLabels = Array.from({ length: 7 }, (_, i) => {
@@ -743,3 +766,4 @@ export function setSettings(bucketSeconds: number, retentionDays: number): Promi
 export function clearAllData(): Promise<void> {
   return call('clear_all_data', undefined, () => undefined);
 }
+

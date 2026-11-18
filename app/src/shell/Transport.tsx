@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { RANGE_OPTS, TITLES, useApp } from '../app/store';
 import { getSummary } from '../ipc/client';
-import { usePageData } from '../state/usePageData';
+import type { Summary } from '../ipc/types';
 import { useLiveOverlay } from '../state/useLiveOverlay';
 import { Segmented } from '../ui/Segmented';
 import { ShareCardModal } from '../share/ShareCardModal';
@@ -9,7 +9,18 @@ import type { ShareRange } from '../share/loadShareCard';
 
 export function Transport() {
   const { state, dispatch } = useApp();
-  const { data: summary } = usePageData('summary:today', () => getSummary('today'));
+  const topRange = state.route === 'keyboard' || state.route === 'mouse' || state.route === 'stats' || state.route === 'apps'
+    ? state.ranges[state.route]
+    : 'today';
+  const [summary, setSummary] = useState<Summary | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getSummary(topRange)
+      .then(v => { if (alive) setSummary(v); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [topRange, state.dataVersion]);
+  const actionLabel = topRange === 'session' ? '本次动作' : topRange === '24h' ? '24H 动作' : topRange === 'week' ? '7 天动作' : topRange === 'month' ? '30 天动作' : '今日动作';
   const overlay = useLiveOverlay(summary);
   const [shareOpen, setShareOpen] = useState(false);
   const number = (v: number | undefined) => (state.empty ? '0' : (v ?? 0).toLocaleString('en-US'));
@@ -51,7 +62,7 @@ export function Transport() {
           />
         )}
         <div className="tp-spacer" />
-        <div className="tp-readout"><span>今日动作</span><b className="mono" id="roActions">{number((summary?.actions ?? 0) + overlay.keysTotal + overlay.clicksTotal)}</b></div>
+        <div className="tp-readout"><span>{actionLabel}</span><b className="mono" id="roActions">{number((summary?.actions ?? 0) + overlay.keysTotal + overlay.clicksTotal)}</b></div>
         <div className="tp-readout"><span>按键</span><b className="mono" id="roKeys">{number((summary?.keys ?? 0) + overlay.keysTotal)}</b></div>
         <div className="tp-readout"><span>点击</span><b className="mono" id="roClicks">{number((summary?.clicks ?? 0) + overlay.clicksTotal)}</b></div>
         <span className="tp-time mono">{timeText}</span>
@@ -88,4 +99,8 @@ export function Transport() {
     </>
   );
 }
+
+
+
+
 

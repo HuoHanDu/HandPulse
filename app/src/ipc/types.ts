@@ -5,7 +5,7 @@
  * 命名统一 camelCase；时间戳 ts 为本地时间的 epoch 毫秒。
  */
 
-export type RangeKey = 'session' | 'today' | 'week' | 'month';
+export type RangeKey = 'session' | 'today' | '24h' | 'week' | 'month';
 
 export interface Summary {
   actions: number;
@@ -289,3 +289,4 @@ export interface PadStats {
   total: number;
   buttons: PadButtonStat[];
 }
+
